@@ -87,14 +87,15 @@ propUnifySound hnd t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
 -- Tests for Unification modulo EpsilonH (For Homomorphic encryption)
 -- *****************************************************************************
 
-testsUnifyHomomorphic :: MaudeHandle -> Test
-testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify module EpsilonH" $
+testsUnifyHomomorphic :: Test
+testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
   TestList
-    [ testTrue "a" (propUnifySoundHomomorphic mhnd f1 f1)
+    [ testTrue "a" (propUnifySoundHomomorphic x0 x1)
     ]
 
-propUnifySoundHomomorphic :: MaudeHandle -> LNTerm -> LNTerm -> Bool
-propUnifySoundHomomorphic mhnd t1 t2 = True 
+-- We can add freshToFreeAvoiding from Substitution.hs to avoiding free variables
+propUnifySoundHomomorphic ::  LNTerm -> LNTerm -> Bool
+propUnifySoundHomomorphic t1 t2 = True 
 
 -- *****************************************************************************
 -- Tests for Substitutions
@@ -290,7 +291,7 @@ tests maudePath = do
                       , testsSubst
                       , testsNorm mhnd
                       , testsUnify mhnd
-                      , testsUnifyHomomorphic mhnd
+                      , testsUnifyHomomorphic
                       , testsSimple mhnd
                       , testsMatching mhnd
                       ]
