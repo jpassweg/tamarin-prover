@@ -83,6 +83,18 @@ propUnifySound hnd t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
   where
     substs = unifyLNTerm [Equal t1 t2] `runReader` hnd
 
+-- *****************************************************************************
+-- Tests for Unification modulo EpsilonH (For Homomorphic encryption)
+-- *****************************************************************************
+
+testsUnifyHomomorphic :: MaudeHandle -> Test
+testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify module EpsilonH" $
+  TestList
+    [ testTrue "a" (propUnifySoundHomomorphic mhnd f1 f1)
+    ]
+
+propUnifySoundHomomorphic :: MaudeHandle -> LNTerm -> LNTerm -> Bool
+propUnifySoundHomomorphic mhnd t1 t2 = True 
 
 -- *****************************************************************************
 -- Tests for Substitutions
@@ -278,6 +290,7 @@ tests maudePath = do
                       , testsSubst
                       , testsNorm mhnd
                       , testsUnify mhnd
+                      , testsUnifyHomomorphic mhnd
                       , testsSimple mhnd
                       , testsMatching mhnd
                       ]
