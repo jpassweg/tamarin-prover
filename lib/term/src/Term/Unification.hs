@@ -23,6 +23,9 @@ module Term.Unification (
   , unifyLTermFactoredNoAC
   , unifyLNTermFactoredNoAC
 
+  -- * Unification modulo EpsilonH for Homomorphic Encryption
+  , unifyHomomorphicLNTerm
+
   -- * matching modulo AC
   -- ** Constructing matching problems
   , matchLVar
@@ -179,6 +182,19 @@ unifyLNTermNoAC = unifyLTermNoAC sortOfName
 -- | 'True' iff the terms are unifiable.
 unifiableLNTermsNoAC :: LNTerm -> LNTerm -> Bool
 unifiableLNTermsNoAC t1 t2 = not $ null $ unifyLNTermNoAC [Equal t1 t2]
+
+-- Unification modulo EpsilonH
+----------------------------------------------------------------------
+
+-- from SubstVFree.hs:
+-- LSubst Name = Subst Name LVar = Subst { sMap :: Map LVar (VTerm Name LVar) } deriving ( Eq, Ord, NFData, Binary )
+unifyHomomorphicLTermFactored :: (Name -> LSort) -> [Equal (LTerm Name)] -> (LSubst Name, [SubstVFresh Name LVar])
+unifyHomomorphicLTermFactored sortOf eqs = (emptySubst,[emptySubstVFresh]) 
+
+-- LTerm.hs: sortOfName :: Name -> LSort
+-- flattenUnif :: (LSubst c, [LSubstVFresh c]) -> [LSubstVFresh c]
+unifyHomomorphicLNTerm :: [Equal LNTerm] -> [SubstVFresh Name LVar]
+unifyHomomorphicLNTerm eqs = flattenUnif $ unifyHomomorphicLTermFactored sortOfName eqs
 
 -- Matching modulo AC
 ----------------------------------------------------------------------

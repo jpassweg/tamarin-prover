@@ -87,15 +87,38 @@ propUnifySound hnd t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
 -- Tests for Unification modulo EpsilonH (For Homomorphic encryption)
 -- *****************************************************************************
 
+-- multiple tests for unification modulo EpisolonH algorithm implemented in unifyHomomorphicLNTerm
 testsUnifyHomomorphic :: Test
 testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
   TestList
-    [ testTrue "a" (propUnifySoundHomomorphic x0 x1)
+    [ testTrue "trivial case" (propUnifyHomomorphicSound x0 x1)
+    , testTrue "trivial non-equality" (not (propUnifyHomomorphicSound (senc(x0,x1)) x1))
+    , testTrue "def homomorphic enc" (propUnifyHomomorphicSound (senc(pair(x0,x1),x2)) (pair(senc(x0,x2),senc(x1,x2))))
     ]
 
--- We can add freshToFreeAvoiding from Substitution.hs to avoiding free variables
-propUnifySoundHomomorphic ::  LNTerm -> LNTerm -> Bool
-propUnifySoundHomomorphic t1 t2 = True 
+-- Returns true if unifyHomomorphicLNTerm was able to unify both given terms
+-- Uses the same method for testing as propUnifySound
+--
+-- all :: (a -> Bool) -> [a] -> Bool, and reduction of all elements in the list 
+--   evaluated by the given function. 
+--   With (a -> Bool) = (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
+--                        applyVTerm s' t1 == applyVTerm s' t2)
+--   and [a]          = unifyHomomorphicLNTerm [Equal t1 t2]
+-- additionally checks that unifyHomomorphicLNTerm [Equal t1 t2] is not an empty list
+--
+-- [Equal t1 t2] represents a list of equations with the only equation being t1=t2
+-- unifyHomomorphicLNTerm [Equal t1 t2] is though of a list of unifiers, i.e., [SubstVFresh Name LVar]
+--
+-- freshToFreeAvoiding then converts return of type [SubstVFresh Name LVar] to [Subst Name LVar]
+--
+-- all (\s -> applyVTerm s t1 == applyVTerm s t2) substs, applies each substitution in the unifier
+-- list substs to both t1 and t2 and checks if after the substitution t1 == t2 for all unifiers
+propUnifyHomomorphicSound :: LNTerm -> LNTerm -> Bool
+propUnifyHomomorphicSound t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
+                                  applyVTerm s' t1 == applyVTerm s' t2) substs
+                               && not (null substs)
+  where
+    substs = unifyHomomorphicLNTerm [Equal t1 t2]
 
 -- *****************************************************************************
 -- Tests for Substitutions
