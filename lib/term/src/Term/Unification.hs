@@ -188,12 +188,23 @@ unifiableLNTermsNoAC t1 t2 = not $ null $ unifyLNTermNoAC [Equal t1 t2]
 
 -- from SubstVFree.hs:
 -- LSubst Name = Subst Name LVar = Subst { sMap :: Map LVar (VTerm Name LVar) } deriving ( Eq, Ord, NFData, Binary )
--- How [Equal LNTerm] == [Equal (LTerm Name)]???
+-- 
 unifyHomomorphicLTermFactored :: (Name -> LSort) -> [Equal (LTerm Name)] -> (LSubst Name, [SubstVFresh Name LVar])
 unifyHomomorphicLTermFactored sortOf eqs = (emptySubst,[emptySubstVFresh]) 
 
+-- from Definitions.hs: data Equal a = Equal { eqLHS :: a, eqRHS :: a }
 -- from LTerm.hs: sortOfName :: Name -> LSort
--- from LTerm.hs: LNTerm = VTerm Name LVar
+-- from LTerm.hs: LNTerm = VTerm Name LVar                  Terms used for proving; i.e., variables fixed to logical variables and constants to Names.
+-- from LTerm.hs: LTerm Name = VTerm Name LVar              Terms used for proving; i.e., variables fixed to logical variables.
+-- from VTerm.hs: VTerm Name LVar = Term (Lit Name LVar)    A VTerm is a term with constants and variables
+-- from VTerm.hs: Lit Name LVar = Con Name | Var LVar       A Lit is either a constant or a variable.
+--
+-- | A term in T(Sigma,a). Its constructors are kept abstract. Use 'viewTerm'
+-- or 'viewTerm2' to inspect it.
+-- data Term a = LIT a                 -- ^ atomic terms (constants, variables, ..)
+--            | FAPP FunSym [Term a]  -- ^ function applications
+--  deriving (Eq, Ord, Typeable, Data, Generic, NFData, Binary )
+-- 
 -- flattenUnif :: (LSubst c, [LSubstVFresh c]) -> [LSubstVFresh c]
 unifyHomomorphicLNTerm :: [Equal LNTerm] -> [SubstVFresh Name LVar]
 unifyHomomorphicLNTerm eqs = flattenUnif $ unifyHomomorphicLTermFactored sortOfName eqs
