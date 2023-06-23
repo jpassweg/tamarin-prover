@@ -186,14 +186,41 @@ unifiableLNTermsNoAC t1 t2 = not $ null $ unifyLNTermNoAC [Equal t1 t2]
 -- Unification modulo EpsilonH
 ----------------------------------------------------------------------
 
+data HomomorphicRuleReturn = HEqs [Equal (LTerm Name)] 
+  | HSubstEqs (LSubst Name) [Equal (LTerm Name)] 
+  | HNothing
+type HomomorphicRule = Equal (LTerm Name) -> (Name -> LSort) -> [Equal (LTerm Name)] -> HomomorphicRuleReturn
+
+allHomomorphicRules :: [HomomorphicRule]
+allHomomorphicRules = []
+
+-- trivialHomomorphicRule :: HomomorphicRule
+-- TODO
+
 -- from SubstVFree.hs:
 -- LSubst Name = Subst Name LVar = Subst { sMap :: Map LVar (VTerm Name LVar) } deriving ( Eq, Ord, NFData, Binary )
--- 
 unifyHomomorphicLTermFactored :: (Name -> LSort) -> [Equal (LTerm Name)] -> (LSubst Name, [SubstVFresh Name LVar])
-unifyHomomorphicLTermFactored sortOf eqs = (emptySubst,[emptySubstVFresh]) 
+unifyHomomorphicLTermFactored sortOf eqs = toSubstitution $ applyHomomorphicRules sortOf allHomomorphicRules eqs
+  where 
+    toSubstitution [] =       (emptySubst,[emptySubstVFresh]) -- TODO: check again if all terms are equal and return empty if not
+    toSubstitution eqsSubst = (emptySubst,[emptySubstVFresh]) -- TODO: implement subsitution
 
--- from Definitions.hs: data Equal a = Equal { eqLHS :: a, eqRHS :: a }
--- from LTerm.hs: sortOfName :: Name -> LSort
+applyHomomorphicRules :: (Name -> LSort) -> [HomomorphicRule] -> [Equal (LTerm Name)] -> [Equal (LTerm Name)]
+applyHomomorphicRules sortOf [] eqs = eqs -- no more rules to apply
+applyHomomorphicRules sortOf (rule:rules) eqs = 
+  case applyHomomorphicRule rule sortOf eqs [] of
+    Just newEqs -> applyHomomorphicRules sortOf allHomomorphicRules newEqs
+    Nothing     -> applyHomomorphicRules sortOf rules eqs
+
+applyHomomorphicRule :: HomomorphicRule -> (Name -> LSort) -> [Equal (LTerm Name)] -> [Equal (LTerm Name)] -> Maybe [Equal (LTerm Name)]
+applyHomomorphicRule _ sortOf [] _ = Nothing
+applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
+  case rule equation sortOf (passedEqs ++ equations) of
+    HEqs newEqs ->            Just (passedEqs ++ newEqs ++ equations)
+    HSubstEqs subst newEqs -> Just (passedEqs ++ newEqs ++ equations) -- also apply substitution
+    HNothing ->               applyHomomorphicRule rule sortOf equations (equation:passedEqs)
+
+-- from Definitions.hs: data Equal LNTerm = Equal { eqLHS :: LNTerm, eqRHS :: LNTerm }
 -- from LTerm.hs: LNTerm = VTerm Name LVar                  Terms used for proving; i.e., variables fixed to logical variables and constants to Names.
 -- from LTerm.hs: LTerm Name = VTerm Name LVar              Terms used for proving; i.e., variables fixed to logical variables.
 -- from VTerm.hs: VTerm Name LVar = Term (Lit Name LVar)    A VTerm is a term with constants and variables
@@ -205,9 +232,12 @@ unifyHomomorphicLTermFactored sortOf eqs = (emptySubst,[emptySubstVFresh])
 --            | FAPP FunSym [Term a]  -- ^ function applications
 --  deriving (Eq, Ord, Typeable, Data, Generic, NFData, Binary )
 -- 
+-- from LTerm.hs: sortOfName :: Name -> LSort
 -- flattenUnif :: (LSubst c, [LSubstVFresh c]) -> [LSubstVFresh c]
 unifyHomomorphicLNTerm :: [Equal LNTerm] -> [SubstVFresh Name LVar]
 unifyHomomorphicLNTerm eqs = flattenUnif $ unifyHomomorphicLTermFactored sortOfName eqs
+
+
 
 -- Matching modulo AC
 ----------------------------------------------------------------------
