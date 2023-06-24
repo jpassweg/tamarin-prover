@@ -189,14 +189,19 @@ unifiableLNTermsNoAC t1 t2 = not $ null $ unifyLNTermNoAC [Equal t1 t2]
 data HomomorphicRuleReturn = HEqs [Equal (LTerm Name)] 
   | HSubstEqs (LSubst Name) [Equal (LTerm Name)] 
   | HNothing
+
 type HomomorphicRule = Equal (LTerm Name) -> (Name -> LSort) -> [Equal (LTerm Name)] -> HomomorphicRuleReturn
 
 allHomomorphicRules :: [HomomorphicRule]
-allHomomorphicRules = []
+allHomomorphicRules = [trivialHomomorphicRule]
 
--- trivialHomomorphicRule :: HomomorphicRule
--- TODO
+trivialHomomorphicRule :: HomomorphicRule
+trivialHomomorphicRule eq sortOf eqs = 
+  case (viewTerm $ eqLHS eq, viewTerm $ eqRHS eq) of
+    (_, _) -> HNothing
 
+-- Takes a sort and a equation and returns a substitution for terms so that they unify or an empty list if it is not possible.
+--
 -- from SubstVFree.hs:
 -- LSubst Name = Subst Name LVar = Subst { sMap :: Map LVar (VTerm Name LVar) } deriving ( Eq, Ord, NFData, Binary )
 unifyHomomorphicLTermFactored :: (Name -> LSort) -> [Equal (LTerm Name)] -> (LSubst Name, [SubstVFresh Name LVar])
@@ -205,39 +210,40 @@ unifyHomomorphicLTermFactored sortOf eqs = toSubstitution $ applyHomomorphicRule
     toSubstitution [] =       (emptySubst,[emptySubstVFresh]) -- TODO: check again if all terms are equal and return empty if not
     toSubstitution eqsSubst = (emptySubst,[emptySubstVFresh]) -- TODO: implement subsitution
 
+-- Applies all homomorphic rules given in block, i.e., it applies the first rule always first after each change
+-- TODO: add stop if in solved for
 applyHomomorphicRules :: (Name -> LSort) -> [HomomorphicRule] -> [Equal (LTerm Name)] -> [Equal (LTerm Name)]
 applyHomomorphicRules sortOf [] eqs = eqs -- no more rules to apply
 applyHomomorphicRules sortOf (rule:rules) eqs = 
-  case applyHomomorphicRule rule sortOf eqs [] of
-    Just newEqs -> applyHomomorphicRules sortOf allHomomorphicRules newEqs
-    Nothing     -> applyHomomorphicRules sortOf rules eqs
+  if inHomomorphicSolvedForm eqs
+    then eqs
+    else case applyHomomorphicRule rule sortOf eqs [] of
+      Just newEqs -> applyHomomorphicRules sortOf allHomomorphicRules newEqs
+      Nothing     -> applyHomomorphicRules sortOf rules eqs
 
+-- Applies the homomorphic rule to the first term possible in equation list or returns Nothing if the rule is not applicable to any terms
 applyHomomorphicRule :: HomomorphicRule -> (Name -> LSort) -> [Equal (LTerm Name)] -> [Equal (LTerm Name)] -> Maybe [Equal (LTerm Name)]
 applyHomomorphicRule _ sortOf [] _ = Nothing
 applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
   case rule equation sortOf (passedEqs ++ equations) of
     HEqs newEqs ->            Just (passedEqs ++ newEqs ++ equations)
-    HSubstEqs subst newEqs -> Just (passedEqs ++ newEqs ++ equations) -- also apply substitution
+    HSubstEqs subst newEqs -> Just (passedEqs ++ newEqs ++ equations) -- TODO: also apply substitution
     HNothing ->               applyHomomorphicRule rule sortOf equations (equation:passedEqs)
 
--- from Definitions.hs: data Equal LNTerm = Equal { eqLHS :: LNTerm, eqRHS :: LNTerm }
--- from LTerm.hs: LNTerm = VTerm Name LVar                  Terms used for proving; i.e., variables fixed to logical variables and constants to Names.
--- from LTerm.hs: LTerm Name = VTerm Name LVar              Terms used for proving; i.e., variables fixed to logical variables.
--- from VTerm.hs: VTerm Name LVar = Term (Lit Name LVar)    A VTerm is a term with constants and variables
--- from VTerm.hs: Lit Name LVar = Con Name | Var LVar       A Lit is either a constant or a variable.
+-- Checks if equations are in the solved form according to the homomorphic theory
+inHomomorphicSolvedForm :: [Equal (LTerm Name)] -> Bool
+inHomomorphicSolvedForm eqs = False -- TODO: implement function
+
+-- @unifyHomomorphicLNTerm eqs@ returns a set of unifiers for @eqs@ modulo EpsilonH.
 --
--- | A term in T(Sigma,a). Its constructors are kept abstract. Use 'viewTerm'
--- or 'viewTerm2' to inspect it.
--- data Term a = LIT a                 -- ^ atomic terms (constants, variables, ..)
---            | FAPP FunSym [Term a]  -- ^ function applications
---  deriving (Eq, Ord, Typeable, Data, Generic, NFData, Binary )
--- 
--- from LTerm.hs: sortOfName :: Name -> LSort
+-- LNTerm = (Con Name | Var LVar) | FAPP FunSym [Term (Con Name | Var LVar)]
+-- Equal LNTerm = Equal { eqLHS :: LNTerm, eqRHS :: LNTerm }
+-- data LSort = LSortPub | LSortFresh | LSortMsg | LSortNode -- Nodes are for dependency graphs
+--
+-- sortOfName :: Name -> LSort
 -- flattenUnif :: (LSubst c, [LSubstVFresh c]) -> [LSubstVFresh c]
 unifyHomomorphicLNTerm :: [Equal LNTerm] -> [SubstVFresh Name LVar]
 unifyHomomorphicLNTerm eqs = flattenUnif $ unifyHomomorphicLTermFactored sortOfName eqs
-
-
 
 -- Matching modulo AC
 ----------------------------------------------------------------------
