@@ -363,6 +363,7 @@ containsNoPrivateExcept funs t = case viewTerm t of
     FApp (NoEq (f,(_,Private,_))) as -> (elem f funs) && (all (containsNoPrivateExcept funs) as)
     FApp _                      as -> all (containsNoPrivateExcept funs) as
 
+
 -- | A term is *simple* iff there is an instance of this term that can be
 -- constructed from public names only. i.e., the term does not contain any
 -- fresh names, fresh variables, or private function symbols.
@@ -384,6 +385,7 @@ freshToConst t = case viewTerm t of
     Lit (Var v) | (lvarSort v == LSortFresh) -> variableToConst v
     Lit _                                    -> t
     FApp f as                                -> termViewToTerm $ FApp f (map freshToConst as)
+
 
 -- | Given a variable returns a constant containing its name and type
 variableToConst :: LVar -> LNTerm
