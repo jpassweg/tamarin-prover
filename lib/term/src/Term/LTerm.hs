@@ -40,6 +40,7 @@ module Term.LTerm (
   , NodeId
   , LTerm
   , LNTerm
+  , LNPETerm
 
   , freshLVar
   , sortPrefix
@@ -61,6 +62,9 @@ module Term.LTerm (
   , containsPrivate
   , containsNoPrivateExcept
   , neverContainsFreshPriv
+  , toLNPETerm
+  , fromLNPETerm
+  , eqSyntatic
 
   -- ** Destructors
   , ltermVar
@@ -270,6 +274,17 @@ type LTerm c = VTerm c LVar
 --   and constants to Names.
 type LNTerm = VTerm Name LVar
 
+-- | Terms used for proving; i.e., variables fixed to logical variables
+--   and constants to Names.
+--   Additionally contains some position information for Homomorphic encryption rules
+data LNPETerm = LNPETerm
+      { lnTerm :: LNTerm
+      , pTerm :: [LNTerm]
+      , bitString :: String
+      , eTerm :: [LNTerm]
+      } 
+      deriving (Show, Eq, Ord)
+
 -- | @freshLVar v@ represents a fresh logical variable with name @v@.
 freshLVar :: MonadFresh m => String -> LSort -> m LVar
 freshLVar n s = LVar n s <$> freshIdent n
@@ -315,6 +330,14 @@ getMsgVar :: LNTerm -> Maybe [LVar]
 getMsgVar (viewTerm -> Lit (Var v)) | (lvarSort v == LSortMsg) = Just [v]
 getMsgVar _                                                    = Nothing
 
+-- | Transforms a LNTerm to a LNPETerm for proving
+-- TODO: implement correctly
+toLNPETerm :: LNTerm -> LNPETerm
+toLNPETerm t = LNPETerm t [t] "" [t]
+
+-- | Transforms LNPETerm back to a LNTerm
+fromLNPETerm :: LNPETerm -> LNTerm
+fromLNPETerm = lnTerm
 
 -- Utility functions for constraint solving
 -------------------------------------------
@@ -340,7 +363,6 @@ containsNoPrivateExcept funs t = case viewTerm t of
     FApp (NoEq (f,(_,Private,_))) as -> (elem f funs) && (all (containsNoPrivateExcept funs) as)
     FApp _                      as -> all (containsNoPrivateExcept funs) as
 
-
 -- | A term is *simple* iff there is an instance of this term that can be
 -- constructed from public names only. i.e., the term does not contain any
 -- fresh names, fresh variables, or private function symbols.
@@ -363,7 +385,6 @@ freshToConst t = case viewTerm t of
     Lit _                                    -> t
     FApp f as                                -> termViewToTerm $ FApp f (map freshToConst as)
 
-
 -- | Given a variable returns a constant containing its name and type
 variableToConst :: LVar -> LNTerm
 variableToConst cvar = constTerm (Name (nameOfSort cvar) (NameId ("constVar_" ++ toConstName cvar)))
@@ -375,6 +396,19 @@ variableToConst cvar = constTerm (Name (nameOfSort cvar) (NameId ("constVar_" ++
     nameOfSort (LVar _ LSortNode  _) = NodeName
     nameOfSort (LVar _ LSortMsg   _) = error "Invalid sort Msg"
 
+-- | @eqSyntatic t1 t2@ checks wheter @t1@ is equal to @t2@
+eqSyntatic :: LNTerm -> LNTerm -> Bool
+eqSyntatic t1 t2 =
+  case (viewTerm t1, viewTerm t2) of
+    (Lit (Con nameLHS), Lit (Con nameRHS))              -> nameLHS == nameRHS
+    (Lit (Var nameLHS), Lit (Var nameRHS))              -> nameLHS == nameRHS
+    -- Note: added all function symbols FunSym, not sure if all needed
+    (FApp (NoEq lfsym) largs, FApp (NoEq rfsym) rargs)  -> lfsym == rfsym && checkEQSyntaticArgs largs rargs 
+    (FApp List largs, FApp List rargs)                  -> checkEQSyntaticArgs largs rargs
+    (FApp (AC lacsym) largs, FApp (AC racsym) rargs)    -> lacsym == racsym && checkEQSyntaticArgs largs rargs
+    (FApp (C lcsym) largs, FApp (C rcsym) rargs)        -> lcsym == rcsym && checkEQSyntaticArgs largs rargs
+    (_, _)                                              -> False
+  where checkEQSyntaticArgs la ra = length la == length ra && all (uncurry eqSyntatic) (zip la ra)
 
 -- Destructors
 --------------
