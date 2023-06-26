@@ -203,15 +203,14 @@ trivialHomomorphicRule eq sortOf eqs = HNothing
 
 -- TODO: implement all homomorphic rules and then add them to allHomomorphicRules
 
--- Takes a sort and a equation and returns a substitution for terms so that they unify or an empty list if it is not possible.
---
--- from SubstVFree.hs:
--- LSubst Name = Subst Name LVar = Subst { sMap :: Map LVar (VTerm Name LVar) } deriving ( Eq, Ord, NFData, Binary )
-unifyHomomorphicLTermFactored :: (Name -> LSort) -> [Equal LNTerm] -> (LSubst Name, [SubstVFresh Name LVar])
+-- Takes a sort and equation and returns a substitution for terms so that they unify or an empty list 
+-- if it is not possible to unify the terms
+-- from SubstVFresh.hs: LNSubstVFresh = SubstVFresh { svMap :: Map LVar LNTerm }
+unifyHomomorphicLTermFactored :: (Name -> LSort) -> [Equal LNTerm] -> [LNSubstVFresh]
 unifyHomomorphicLTermFactored sortOf eqs = toSubst $ tpost $ applyHomomorphicRules sortOf allHomomorphicRules (tpre eqs)
   where 
-    toSubst [] =       (emptySubst,[emptySubstVFresh]) -- TODO: check again if all terms are equal and return empty if not
-    toSubst eqsSubst = (emptySubst,[emptySubstVFresh]) -- TODO: implement subsitution
+    toSubst [] =       [emptySubstVFresh] -- TODO: check again if all terms are equal and return empty if not
+    toSubst eqsSubst = [emptySubstVFresh] -- TODO: implement subsitution
     tpre = (map (\e -> Equal (toLNPETerm $ eqLHS e) (toLNPETerm $ eqRHS e))) . (map normalizeEq)
     tpost = (map (\e -> Equal (fromLNPETerm $ eqLHS e) (fromLNPETerm $ eqRHS e)))
     normalizeEq eq =  let t1 = eqLHS eq
@@ -221,7 +220,6 @@ unifyHomomorphicLTermFactored sortOf eqs = toSubst $ tpost $ applyHomomorphicRul
                           (_, _)            -> Equal t1 t2
 
 -- Applies all homomorphic rules given en block, i.e., it applies the first rule always first after each change
--- TODO: add stop if in solved for
 applyHomomorphicRules :: (Name -> LSort) -> [HomomorphicRule] -> [Equal LNPETerm] -> [Equal LNPETerm]
 applyHomomorphicRules sortOf [] eqs = eqs -- no more rules to apply
 applyHomomorphicRules sortOf (rule:rules) eqs = 
@@ -232,7 +230,7 @@ applyHomomorphicRules sortOf (rule:rules) eqs =
       Nothing     -> applyHomomorphicRules sortOf rules eqs
   where
     -- Applies the homomorphic rule to the first term possible in equation list or returns Nothing if the rule is not applicable to any terms
-    -- :: HomomorphicRule -> (Name -> LSort) -> [Equal LNPETerm] -> [Equal LNPETerm] -> Maybe [Equal LNPETerm]
+    -- applyHomomorphicRule :: HomomorphicRule -> (Name -> LSort) -> [Equal LNPETerm] -> [Equal LNPETerm] -> Maybe [Equal LNPETerm]
     applyHomomorphicRule _ sortOf [] _ = Nothing
     applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
       case rule equation sortOf (passedEqs ++ equations) of
@@ -250,9 +248,8 @@ applyHomomorphicRules sortOf (rule:rules) eqs =
 -- data LSort = LSortPub | LSortFresh | LSortMsg | LSortNode -- Nodes are for dependency graphs
 --
 -- sortOfName :: Name -> LSort
--- flattenUnif :: (LSubst c, [LSubstVFresh c]) -> [LSubstVFresh c]
-unifyHomomorphicLNTerm :: [Equal LNTerm] -> [SubstVFresh Name LVar]
-unifyHomomorphicLNTerm eqs = flattenUnif $ unifyHomomorphicLTermFactored sortOfName eqs
+unifyHomomorphicLNTerm :: [Equal LNTerm] -> [LNSubstVFresh]
+unifyHomomorphicLNTerm eqs = unifyHomomorphicLTermFactored sortOfName eqs
 
 -- Matching modulo AC
 ----------------------------------------------------------------------
