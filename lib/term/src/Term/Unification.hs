@@ -188,7 +188,7 @@ unifiableLNTermsNoAC t1 t2 = not $ null $ unifyLNTermNoAC [Equal t1 t2]
 
 -- | Return type for a HomomorphicRule
 data HomomorphicRuleReturn = HEqs [Equal LNPETerm] 
-  | HSubstEqs (LSubst Name) [Equal LNPETerm] 
+  | HSubstEqs LNSubst [Equal LNPETerm] 
   | HNothing
 
 -- | Type for rules applied to equations for unification modulo EpsilonH
@@ -220,8 +220,6 @@ unifyHomomorphicLTermFactored sortOf eqs = toSubst $ applyHomomorphicRules sortO
         eqsSubst]
       else []
     tpre eqsLN = map (\eq -> Equal (toLNPETerm $ eqLHS eq) (toLNPETerm $ eqRHS eq)) $ map normalizeEq eqsLN
-    -- TODO: remove tpost
-    -- tpost eqsLNPE = map (\eq -> Equal (fromLNPETerm $ eqLHS eq) (fromLNPETerm $ eqRHS eq)) eqsLNPE
     normalizeEq eq =  let t1 = eqLHS eq
                           t2 = eqRHS eq
                       in case (viewTerm t1, viewTerm t2) of
@@ -251,8 +249,11 @@ applyHomomorphicRule _ sortOf [] _ = Nothing
 applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
   case rule equation sortOf (passedEqs ++ equations) of
     HEqs newEqs ->            Just (passedEqs ++ newEqs ++ equations)
-    HSubstEqs subst newEqs -> Just (passedEqs ++ newEqs ++ equations) -- TODO: also apply substitution
+    HSubstEqs subst newEqs -> Just $ map (applySubstitution subst) (passedEqs ++ newEqs ++ equations)
     HNothing ->               applyHomomorphicRule rule sortOf equations (equation:passedEqs)
+  where
+    applySubstitution subst eq = Equal (toLNPETerm $ applyVTerm subst $ fromLNPETerm $ eqLHS eq) (toLNPETerm $ applyVTerm subst $ fromLNPETerm $ eqRHS eq)
+
 
 -- | Checks if equations are in the solved form according to the homomorphic theory
 inHomomorphicSolvedForm :: [Equal LNPETerm] -> Bool
