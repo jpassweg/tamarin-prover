@@ -91,7 +91,9 @@ propUnifySound hnd t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
 testsUnifyHomomorphic :: Test
 testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
   TestList
-    [ testTrue "trivial case" (propUnifyHomomorphicSound x0 x1)
+    [ testTrue "null" (not (null [emptySubstVFresh]))
+    , testTrue "null2" (not (null [emptySubst]))
+    , testTrue "trivial case" (propUnifyHomomorphicSound x0 x0)
     , testTrue "trivial non-equality" (not (propUnifyHomomorphicSound (senc(x0,x1)) x1))
     , testTrue "def homomorphic enc" (propUnifyHomomorphicSound (senc(pair(x0,x1),x2)) (pair(senc(x0,x2),senc(x1,x2))))
     ]
