@@ -98,21 +98,7 @@ testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
 
 -- Returns true if unifyHomomorphicLNTerm was able to unify both given terms
 -- Uses the same method for testing as propUnifySound
---
--- all :: (a -> Bool) -> [a] -> Bool, and reduction of all elements in the list 
---   evaluated by the given function. 
---   With (a -> Bool) = (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
---                        applyVTerm s' t1 == applyVTerm s' t2)
---   and [a]          = unifyHomomorphicLNTerm [Equal t1 t2]
--- additionally checks that unifyHomomorphicLNTerm [Equal t1 t2] is not an empty list
---
--- [Equal t1 t2] represents a list of equations with the only equation being t1=t2
--- unifyHomomorphicLNTerm [Equal t1 t2] is though of a list of unifiers, i.e., [SubstVFresh Name LVar]
---
--- freshToFreeAvoiding then converts return of type [SubstVFresh Name LVar] to [Subst Name LVar]
---
--- all (\s -> applyVTerm s t1 == applyVTerm s t2) substs, applies each substitution in the unifier
--- list substs to both t1 and t2 and checks if after the substitution t1 == t2 for all unifiers
+-- freshToFreeAvoiding converts return of type [SubstVFresh Name LVar] to [Subst Name LVar]
 propUnifyHomomorphicSound :: LNTerm -> LNTerm -> Bool
 propUnifyHomomorphicSound t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
                                   applyVTerm s' t1 == applyVTerm s' t2) substs
