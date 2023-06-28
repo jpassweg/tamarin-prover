@@ -197,11 +197,20 @@ type HomomorphicRule = Equal LNPETerm -> (Name -> LSort) -> [Equal LNPETerm] -> 
 -- | All homomorphic rules in order of application
 allHomomorphicRules :: [HomomorphicRule]
 allHomomorphicRules = [trivialHomomorphicRule]
-
--- TODO: finish implementation 
+ 
 trivialHomomorphicRule :: HomomorphicRule
-trivialHomomorphicRule eq sortOf eqs = HNothing
---  case (viewTerm $ eqLHS eq, viewTerm $ eqRHS eq) of
+trivialHomomorphicRule eq sortOf eqs = if (uncurry eqSyntatic) $ (\e -> (fromLNPETerm $ eqLHS e, fromLNPETerm $ eqRHS e)) eq
+  then HEqs []
+  else HNothing
+
+stdDecompositionHomomorphicRule :: HomomorphicRule
+stdDecompositionHomomorphicRule eq sortOf eqs =
+  case (viewTerm $ fromLNPETerm $ eqLHS eq, viewTerm $ fromLNPETerm $ eqRHS eq) of
+    (FApp (NoEq lfsym) largs, FApp (NoEq rfsym) rargs)  -> HNothing -- lfsym == rfsym && checkEQSyntaticArgs largs rargs 
+    (FApp List largs, FApp List rargs)                  -> HNothing -- checkEQSyntaticArgs largs rargs
+    (FApp (AC lacsym) largs, FApp (AC racsym) rargs)    -> HNothing -- lacsym == racsym && checkEQSyntaticArgs largs rargs
+    (FApp (C lcsym) largs, FApp (C rcsym) rargs)        -> HNothing -- lcsym == rcsym && checkEQSyntaticArgs largs rargs
+    (_,_)                                               -> HNothing
 
 -- TODO: implement all homomorphic rules and then add them to allHomomorphicRules
 
@@ -254,12 +263,11 @@ applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
   where
     applySubstitution subst eq = Equal (toLNPETerm $ applyVTerm subst $ fromLNPETerm $ eqLHS eq) (toLNPETerm $ applyVTerm subst $ fromLNPETerm $ eqRHS eq)
 
-
 -- | Checks if equations are in the solved form according to the homomorphic theory
 inHomomorphicSolvedForm :: [Equal LNPETerm] -> Bool
-inHomomorphicSolvedForm = all (\eq -> case viewTerm $ fromLNPETerm $ eqLHS eq of
+inHomomorphicSolvedForm eqs = all (\eq -> case viewTerm $ fromLNPETerm $ eqLHS eq of
   (Lit (Var _)) -> True
-  _ -> False)
+  _ -> False) eqs
 
 -- | @unifyHomomorphicLNTerm eqs@ returns a set of unifiers for @eqs@ modulo EpsilonH.
 --
