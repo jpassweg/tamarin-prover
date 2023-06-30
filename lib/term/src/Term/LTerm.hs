@@ -412,6 +412,13 @@ eqSyntatic t1 t2 =
     (_, _)                                              -> False
   where checkEQSyntaticArgs la ra = length la == length ra && all (uncurry eqSyntatic) (zip la ra)
 
+occursInTerm :: LVar -> LNTerm -> Bool
+occursInTerm n t = case (viewTerm t) of
+      (Lit (Con _)) -> False
+      (Lit (Var nameRHS)) -> n == nameRHS
+      (FApp _ rargs) -> any (\r -> occursInTerm n r) rargs
+      _ -> False
+
 -- Destructors
 --------------
 
