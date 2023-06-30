@@ -404,20 +404,16 @@ eqSyntatic t1 t2 =
   case (viewTerm t1, viewTerm t2) of
     (Lit (Con nameLHS), Lit (Con nameRHS))              -> nameLHS == nameRHS
     (Lit (Var nameLHS), Lit (Var nameRHS))              -> nameLHS == nameRHS
-    -- Note: added all function symbols FunSym, not sure if all needed
+    -- NeEq function symbols. Most builtins functions
     (FApp (NoEq lfsym) largs, FApp (NoEq rfsym) rargs)  -> lfsym == rfsym && checkEQSyntaticArgs largs rargs 
+    -- free n-ary function symbol of TOP sort
     (FApp List largs, FApp List rargs)                  -> checkEQSyntaticArgs largs rargs
+    -- AC function symbols. Union | Mult | Xor
     (FApp (AC lacsym) largs, FApp (AC racsym) rargs)    -> lacsym == racsym && checkEQSyntaticArgs largs rargs
+    -- C(ommutative) function symbols
     (FApp (C lcsym) largs, FApp (C rcsym) rargs)        -> lcsym == rcsym && checkEQSyntaticArgs largs rargs
     (_, _)                                              -> False
   where checkEQSyntaticArgs la ra = length la == length ra && all (uncurry eqSyntatic) (zip la ra)
-
-occursInTerm :: LVar -> LNTerm -> Bool
-occursInTerm n t = case (viewTerm t) of
-      (Lit (Con _)) -> False
-      (Lit (Var nameRHS)) -> n == nameRHS
-      (FApp _ rargs) -> any (\r -> occursInTerm n r) rargs
-      _ -> False
 
 -- Destructors
 --------------
