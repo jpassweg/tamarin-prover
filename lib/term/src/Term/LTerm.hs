@@ -274,14 +274,23 @@ type LTerm c = VTerm c LVar
 --   and constants to Names.
 type LNTerm = VTerm Name LVar
 
+-- E representation as defined in the cap unification paper
+data ERepresentation = ERep [LNTerm] | NERep LNTerm deriving (Show, Eq, Ord)
+
+-- P representation as defined in the cap unification paper
+data PRepresentation = PRep 
+    { terms :: [ERepresentation]
+    , bitString :: [String]
+    }
+    deriving (Show, Eq, Ord)
+
 -- | Terms used for proving; i.e., variables fixed to logical variables
 --   and constants to Names.
 --   Additionally contains some position information for Homomorphic encryption rules
 data LNPETerm = LNPETerm
       { lnTerm :: LNTerm
-      , pTerm :: [LNTerm]
-      , bitString :: String
-      , eTerm :: [LNTerm]
+      , pRep :: PRepresentation
+      , eRep :: ERepresentation
       } 
       deriving (Show, Eq, Ord)
 
@@ -333,7 +342,7 @@ getMsgVar _                                                    = Nothing
 -- | Transforms a LNTerm to a LNPETerm for proving
 -- TODO: implement correctly
 toLNPETerm :: LNTerm -> LNPETerm
-toLNPETerm t = LNPETerm t [t] "" [t]
+toLNPETerm t = LNPETerm t (PRep [ERep [t]] [""]) (ERep [t])
 
 -- | Transforms LNPETerm back to a LNTerm
 fromLNPETerm :: LNPETerm -> LNTerm
@@ -823,6 +832,67 @@ instance (Ord k, HasFrees k, HasFrees v) => HasFrees (M.Map k v) where
         combine k v m = foldFreesOcc f p (k,v) `mappend` m
     mapFrees f = fmap M.fromList . mapFrees f . M.toList
 
+-- Homomorphic encryption and LNPETerms specific functions
+----------------------------------------------------------
+
+positions :: LNTerm -> [String]
+positions t = case viewTerm t of
+  (Lit(Con _)) -> [""]
+  (Lit(Var _)) -> [""]
+  (FApp _ args) -> [""] ++ (concat $ zipWith argFunc args [1..])
+  where
+    argFunc arg ind = map (\pos -> (show ind) ++ pos) $ positions arg
+
+pPosition :: String -> LNTerm -> String
+pPosition [] _ = ""
+pPosition (i:q) t = case viewTerm t of
+  FApp funsym args -> if isPair t
+    then [i] ++ (pPosition q $ args !! (read [i]))
+    else if showFunSymName funsym == "senc"
+      then pPosition q $ args !! (read [i])
+      else "FAIL" -- TODO: better idea than just add FAIL?
+  _ -> "FAIL"     -- Maybe find better way than paper?
+
+ePosition :: String -> LNTerm -> String
+ePosition [] _ = ""
+ePosition (i:q) t = case viewTerm t of
+  FApp funsym args -> if showFunSymName funsym == "senc"
+    then [i] ++ (ePosition q $ args !! (read [i]))
+    else if isPair t
+      then ePosition q $ args !! (read [i])
+      else "FAIL"
+  _ -> "FAIL"
+
+--positionIncompatible :: String -> LNTerm -> String -> LNTerm -> Bool
+--positionIncompatible q1 t1 q2 t2 = properPrefix (pPosition q1 t1) (pPosition q2 t2)
+--  || properPrefix (pPosition q2 t2) (pPosition q1 t1)
+--  || ((pPosition q2 t2) == (pPosition q1 t1) 
+--      && containsOnlyOnes (pPosition q1 t1) 
+--      && containsOnlyOnes (pPosition q2 t2))
+--  where
+--    properPrefix _ [] = False
+--    properPrefix [] _ = True
+--    properPrefix (s11:s1) (s21:s2) = s11 == s21 && properPrefix s1 s2
+--    containsOnlyOnes [] = True
+--    containsOnlyOnes (s1:s) = s1 == '1' && containsOnlyOnes s
+--inPhase :: LNTerm -> LNTerm -> Bool
+--outOfPhase :: LNTerm -> LNTerm -> LVar -> Bool
+--nonKeyPosition
+
+validBitString :: [String] -> Bool
+validBitString [""] = True
+validBitString s = contains12Pattern s 
+  && (validBitString $ getOnes s) 
+  && (validBitString $ getTwos s) 
+  where
+    contains12Pattern strings = null 
+      $ dropWhile (\(x:_) -> x=='2')
+      $ dropWhile (\(x:_) -> x=='1') strings
+    getOnes strings = map (\(_:xs) -> xs) $ takeWhile (\(x:_) -> x=='1') strings
+    getTwos strings = map (\(_:xs) -> xs) $ dropWhile (\(x:_) -> x=='1') strings
+
+--findPurePPositions :: LNTerm -> 
+--findPurePPositions t = map (p -> ()) $ positions t
 
 ------------------------------------------------------------------------------
 -- Pretty Printing

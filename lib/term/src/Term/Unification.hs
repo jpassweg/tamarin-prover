@@ -199,11 +199,15 @@ type HomomorphicRule = Equal LNPETerm -> (Name -> LSort) -> [Equal LNPETerm] -> 
 
 -- | All homomorphic rules in order of application
 allHomomorphicRules :: [HomomorphicRule]
-allHomomorphicRules = [ occurCheckHomomorphicRule
+allHomomorphicRules = [ failureOneHomomorphicRule
+                      , failureTwoHomomorphicRule
+                      , occurCheckHomomorphicRule
                       , clashHomomorphicRule
+                      , shapingHomomorphicRule
+                      , parsingHomomorphicRule
+                      , variableSubstitutionHomomorphicRule
                       , trivialHomomorphicRule
-                      , stdDecompositionHomomorphicRule
-                      , variableSubstitutionHomomorphicRule]
+                      , stdDecompositionHomomorphicRule]
  
 trivialHomomorphicRule :: HomomorphicRule
 trivialHomomorphicRule eq sortOf eqs = if 
@@ -267,6 +271,17 @@ occurCheckHomomorphicRule eq sortOf eqs =
       else HNothing
     Nothing -> HNothing
 
+shapingHomomorphicRule :: HomomorphicRule
+shapingHomomorphicRule eq sortOf eqs = HNothing
+
+failureOneHomomorphicRule :: HomomorphicRule
+failureOneHomomorphicRule eq sortOf eqs = HNothing
+
+failureTwoHomomorphicRule :: HomomorphicRule
+failureTwoHomomorphicRule eq sortOf eqs = HNothing
+
+parsingHomomorphicRule :: HomomorphicRule
+parsingHomomorphicRule eq sortOf eqs = HNothing
 -- TODO: implement all homomorphic rules and then add them to allHomomorphicRules
 
 -- | Takes a sort and equation and returns a substitution for terms so that they unify or an empty list 
