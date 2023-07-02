@@ -835,13 +835,25 @@ instance (Ord k, HasFrees k, HasFrees v) => HasFrees (M.Map k v) where
 -- Homomorphic encryption and LNPETerms specific functions
 ----------------------------------------------------------
 
-positions :: LNTerm -> [String]
-positions t = case viewTerm t of
-  (Lit(Con _)) -> [""]
-  (Lit(Var _)) -> [""]
-  (FApp _ args) -> [""] ++ (concat $ zipWith argFunc args [1..])
+positions :: LNTerm -> String -> [String]
+positions t p = case viewTerm t of
+  (Lit(Con _)) -> [p]
+  (Lit(Var _)) -> [p]
+  (FApp _ args) -> [p] ++ (concat $ zipWith argFunc args [1..])
   where
-    argFunc arg ind = map (\pos -> (show ind) ++ pos) $ positions arg
+    argFunc arg ind = 
+      map (\pos -> p ++ (show ind) ++ pos) $ positions arg (p ++ (show ind))
+
+positionsWithTerms :: LNTerm -> String -> [(String,LNTerm)]
+positionsWithTerms t p = case viewTerm t of
+  (Lit(Con _)) -> [(p, t)]
+  (Lit(Var _)) -> [(p, t)]
+  (FApp _ args) -> [(p,t)] ++ (concat $ zipWith argFunc args [1..])
+  where
+    argFunc arg ind = 
+      map (\(pos,term) -> (p ++ (show ind) ++ pos, term)) 
+        $ positionsWithTerms arg (p ++ (show ind))
+
 
 pPosition :: String -> LNTerm -> String
 pPosition [] _ = ""
@@ -891,8 +903,10 @@ validBitString s = contains12Pattern s
     getOnes strings = map (\(_:xs) -> xs) $ takeWhile (\(x:_) -> x=='1') strings
     getTwos strings = map (\(_:xs) -> xs) $ dropWhile (\(x:_) -> x=='1') strings
 
---findPurePPositions :: LNTerm -> 
---findPurePPositions t = map (p -> ()) $ positions t
+findPurePPositions :: LNTerm -> [(String, String, LNTerm)]
+findPurePPositions t = filter (\(_,b,_) -> b == "") $ map (\(p,tt) -> (p, ePosition p t, tt)) $ positionsWithTerms t ""
+
+-- maximalPurePPositions :: 
 
 ------------------------------------------------------------------------------
 -- Pretty Printing
