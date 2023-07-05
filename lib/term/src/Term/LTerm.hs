@@ -854,7 +854,6 @@ positionsWithTerms t p = case viewTerm t of
       map (\(pos,term) -> (p ++ (show ind) ++ pos, term)) 
         $ positionsWithTerms arg (p ++ (show ind))
 
-
 pPosition :: String -> LNTerm -> String
 pPosition [] _ = ""
 pPosition (i:q) t = case viewTerm t of
@@ -862,8 +861,8 @@ pPosition (i:q) t = case viewTerm t of
     then [i] ++ (pPosition q $ args !! (read [i]))
     else if showFunSymName funsym == "senc"
       then pPosition q $ args !! (read [i])
-      else "FAIL" -- TODO: better idea than just add FAIL?
-  _ -> "FAIL"     -- Maybe find better way than paper?
+      else "F" -- TODO: better idea than just add FAIL?
+  _ -> "F"     -- Maybe find better way than paper?
 
 ePosition :: String -> LNTerm -> String
 ePosition [] _ = ""
@@ -872,8 +871,8 @@ ePosition (i:q) t = case viewTerm t of
     then [i] ++ (ePosition q $ args !! (read [i]))
     else if isPair t
       then ePosition q $ args !! (read [i])
-      else "FAIL"
-  _ -> "FAIL"
+      else "F"
+  _ -> "F"
 
 --positionIncompatible :: String -> LNTerm -> String -> LNTerm -> Bool
 --positionIncompatible q1 t1 q2 t2 = properPrefix (pPosition q1 t1) (pPosition q2 t2)
@@ -903,10 +902,41 @@ validBitString s = contains12Pattern s
     getOnes strings = map (\(_:xs) -> xs) $ takeWhile (\(x:_) -> x=='1') strings
     getTwos strings = map (\(_:xs) -> xs) $ dropWhile (\(x:_) -> x=='1') strings
 
-findPurePPositions :: LNTerm -> [(String, String, LNTerm)]
-findPurePPositions t = filter (\(_,b,_) -> b == "") $ map (\(p,tt) -> (p, ePosition p t, tt)) $ positionsWithTerms t ""
+findPurePPositions :: LNTerm -> [(String, LNTerm)]
+findPurePPositions t = map (\(a,_,c) -> (a,c)) 
+  $ filter (\(_,b,_) -> b == "") 
+  $ map (\(p,tt) -> (p, ePosition p t, tt)) 
+  $ positionsWithTerms t ""
 
--- maximalPurePPositions :: 
+findPenukEPositions :: LNTerm -> [(String, LNTerm)]
+findPenukEPositions t = map (\(a,_,c) -> (a,c))
+  $ filter (\(a,_,_) -> penukPositions a) 
+  $ filter (\(_,b,_) -> b == "") 
+  $ map (\(p,tt) -> (p, pPosition p t, tt)) 
+  $ positionsWithTerms t ""
+  where 
+    penukPositions [] = True
+    penukPositions (x:xs) = 
+      (x == '1' && penukPositions xs) || (x == '2' && null xs)
+
+maximalPurePositions :: [(String, LNTerm)] -> [(String, LNTerm)]
+maximalPurePositions pures = 
+  filter (\(pure,term) -> not 
+  $ any (properPrefix pure) 
+  $ map (\(a,b) -> a) pures) pures
+  where
+    properPrefix :: String -> String -> Bool
+    properPrefix _ [] = False
+    properPrefix [] _ = True
+    properPrefix (s11:s1) (s21:s2) = s11 == s21 && properPrefix s1 s2
+
+-- Actually build P representation as needed for rules
+buildPRepresentation :: LNTerm -> [(String, LNTerm)]
+buildPRepresentation = maximalPurePositions . findPurePPositions
+
+-- Actually build E representation as needed for rules
+buildERepresentation :: LNTerm -> [(String, LNTerm)]
+buildERepresentation = maximalPurePositions . findPenukEPositions
 
 ------------------------------------------------------------------------------
 -- Pretty Printing
