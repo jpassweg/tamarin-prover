@@ -275,12 +275,12 @@ type LTerm c = VTerm c LVar
 type LNTerm = VTerm Name LVar
 
 -- E representation as defined in the cap unification paper
-data ERepresentation = ERep [LNTerm] | NERep LNTerm deriving (Show, Eq, Ord)
+type ERepresentation = [LNTerm]
 
 -- P representation as defined in the cap unification paper
 data PRepresentation = PRep 
-    { terms :: [ERepresentation]
-    , bitString :: [String]
+    { bitString :: [String]
+    , terms :: [ERepresentation] 
     }
     deriving (Show, Eq, Ord)
 
@@ -342,7 +342,7 @@ getMsgVar _                                                    = Nothing
 -- | Transforms a LNTerm to a LNPETerm for proving
 -- TODO: implement correctly
 toLNPETerm :: LNTerm -> LNPETerm
-toLNPETerm t = LNPETerm t (PRep [ERep [t]] [""]) (ERep [t])
+toLNPETerm t = LNPETerm t (buildPRepresentation t) (buildERepresentation t)
 
 -- | Transforms LNPETerm back to a LNTerm
 fromLNPETerm :: LNPETerm -> LNTerm
@@ -874,31 +874,34 @@ ePosition (i:q) t = case viewTerm t of
       else "F"
   _ -> "F"
 
---positionIncompatible :: String -> LNTerm -> String -> LNTerm -> Bool
---positionIncompatible q1 t1 q2 t2 = properPrefix (pPosition q1 t1) (pPosition q2 t2)
---  || properPrefix (pPosition q2 t2) (pPosition q1 t1)
---  || ((pPosition q2 t2) == (pPosition q1 t1) 
---      && containsOnlyOnes (pPosition q1 t1) 
---      && containsOnlyOnes (pPosition q2 t2))
---  where
---    properPrefix _ [] = False
---    properPrefix [] _ = True
---    properPrefix (s11:s1) (s21:s2) = s11 == s21 && properPrefix s1 s2
---    containsOnlyOnes [] = True
---    containsOnlyOnes (s1:s) = s1 == '1' && containsOnlyOnes s
---inPhase :: LNTerm -> LNTerm -> Bool
---outOfPhase :: LNTerm -> LNTerm -> LVar -> Bool
---nonKeyPosition
-
+-- not fully needed
+-- positionIncompatible :: String -> LNTerm -> String -> LNTerm -> Bool
+-- positionIncompatible q1 t1 q2 t2 = properPrefix (pPosition q1 t1) (pPosition q2 t2)
+--   || properPrefix (pPosition q2 t2) (pPosition q1 t1)
+--   || ((pPosition q2 t2) == (pPosition q1 t1) 
+--       && containsOnlyOnes (pPosition q1 t1) 
+--       && containsOnlyOnes (pPosition q2 t2))
+--   where
+--     properPrefix _ [] = False
+--     properPrefix [] _ = True
+--     properPrefix (s11:s1) (s21:s2) = s11 == s21 && properPrefix s1 s2
+--     containsOnlyOnes [] = True
+--     containsOnlyOnes (s1:s) = s1 == '1' && containsOnlyOnes s
+-- inPhase :: LNTerm -> LNTerm -> Bool
+-- outOfPhase :: LNTerm -> LNTerm -> LVar -> Bool
+-- nonKeyPosition
+ 
 validBitString :: [String] -> Bool
 validBitString [""] = True
 validBitString s = contains12Pattern s 
   && (validBitString $ getOnes s) 
   && (validBitString $ getTwos s) 
   where
-    contains12Pattern strings = null 
+    contains12Pattern strings = (null 
       $ dropWhile (\(x:_) -> x=='2')
-      $ dropWhile (\(x:_) -> x=='1') strings
+      $ dropWhile (\(x:_) -> x=='1') strings)
+      && any (\(x:_) -> x=='1') strings
+      && any (\(x:_) -> x=='2') strings
     getOnes strings = map (\(_:xs) -> xs) $ takeWhile (\(x:_) -> x=='1') strings
     getTwos strings = map (\(_:xs) -> xs) $ dropWhile (\(x:_) -> x=='1') strings
 
@@ -931,12 +934,31 @@ maximalPurePositions pures =
     properPrefix (s11:s1) (s21:s2) = s11 == s21 && properPrefix s1 s2
 
 -- Actually build P representation as needed for rules
-buildPRepresentation :: LNTerm -> [(String, LNTerm)]
-buildPRepresentation = maximalPurePositions . findPurePPositions
+buildPRepresentation :: LNTerm -> PRepresentation
+buildPRepresentation t = (uncurry PRep) 
+  $ unzip $ map (\(a,b) -> (a, buildERepresentation b)) 
+  $ maximalPurePositions $ findPurePPositions t
 
 -- Actually build E representation as needed for rules
-buildERepresentation :: LNTerm -> [(String, LNTerm)]
-buildERepresentation = maximalPurePositions . findPenukEPositions
+buildERepresentation :: LNTerm -> ERepresentation
+buildERepresentation t = map snd $ maximalPurePositions $ findPenukEPositions t
+
+-- gonna be very hacky
+fromPPrepresentation :: PRepresentation -> LNTerm
+fromPPrepresentation p = if bitString p == [""]
+  then fromERepresentation $ head $ terms p
+  else (FAPP (NoEq ((BC.pack "pair"),(2, Public, Constructor))) [fromPPrepresentation $ getOnes p,
+    fromPPrepresentation $ getTwos p])
+  where
+    getOnes p = p -- PRep TODO
+    getTwos p = p -- PRep TODO
+
+
+-- very hacky
+fromERepresentation :: ERepresentation -> LNTerm
+fromERepresentation e = if length e == 1
+  then head e
+  else (FAPP (NoEq ((BC.pack "senc"),(2, Public, Constructor))) ([fromERepresentation (init e)] ++ [last e]))
 
 ------------------------------------------------------------------------------
 -- Pretty Printing
