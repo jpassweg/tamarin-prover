@@ -272,13 +272,76 @@ occurCheckHomomorphicRule eq sortOf eqs =
     Nothing -> HNothing
 
 shapingHomomorphicRule :: HomomorphicRule
-shapingHomomorphicRule eq sortOf eqs = HNothing
+shapingHomomorphicRule eq sortOf eqs = let
+  eRepsLHS = terms $ pRep $ eqLHS eq
+  strLHS = bitString $ pRep $ eqLHS eq
+  eRepRHS = eRep $ eqRHS eq
+  pl = (length $ eRepsLHS) 
+  n = (length $ eRepRHS) - 1
+  in if pl >= 3 && n >= 2
+  then case findQualifyingETerm eRepsLHS 0 of
+    Just qualifyingIndex -> let 
+      qualifyingELhs = eRepsLHS !! qualifyingIndex
+      m = n + 1 - (length qualifyingELhs)
+      xnew = varTerm $ LVar "fxShapingHomomorphic" LSortFresh $ (getFreshVarCounter ([eq] ++ eqs) 0) + 1
+      x = toLNPETerm $ head qualifyingELhs
+      lhs1NewETerm = ([xnew] ++ (take (m-1) (tail eRepRHS)) ++ (tail qualifyingELhs))
+      lhs1NewPTerm = let (ys,zs) = splitAt qualifyingIndex eRepsLHS in
+        PRep strLHS (ys ++ [lhs1NewETerm] ++ (tail zs))
+      rhs2ETerm = [xnew] ++ (take (m-1) (tail eRepRHS))
+      lhs1 = toLNPETerm $ fromPRepresentation lhs1NewPTerm
+      rhs1 = eqRHS eq
+      lhs2 = x
+      rhs2 = toLNPETerm $ fromERepresentation rhs2ETerm
+      in 
+        HEqs [Equal lhs1 rhs1, Equal lhs2 rhs2] 
+    Nothing -> HNothing
+  else HNothing
+  where
+    findQualifyingETerm :: [[LNTerm]] -> Int -> Maybe Int
+    findQualifyingETerm [] _ = Nothing
+    findQualifyingETerm (e:es) ind =
+      if length e >= 2
+      then Just ind
+      else findQualifyingETerm es (ind+1)
+    getFreshVarCounter [] n = n
+    getFreshVarCounter (q:qs) n = getFreshVarCounter qs $ max n 
+      $ lvarIdx
+      $ foldr (\lv1 lv2 -> if lvarIdx lv1 >= lvarIdx lv2 then lv1 else lv2) 
+      (LVar "fxShapingHomomorphic" LSortFresh 0)
+      $ filter (\lv -> lvarName lv == "fxShapingHomomorphic")
+      $ (frees $ fromLNPETerm $ eqLHS q) ++ (frees $ fromLNPETerm $ eqRHS q)
 
 failureOneHomomorphicRule :: HomomorphicRule
-failureOneHomomorphicRule eq sortOf eqs = HNothing
+failureOneHomomorphicRule eq sortOf eqs = let
+    t1 = positionsWithTerms (fromLNPETerm $ eqLHS eq) ""
+    t2 = positionsWithTerms (fromLNPETerm $ eqRHS eq) ""
+    t1NonKey = filter (\(p,tt) -> all (\bc -> bc == '1') (ePosition p tt)) t1
+    t2NonKey = filter (\(p,tt) -> all (\bc -> bc == '1') (ePosition p tt)) t2
+    matchedVars = matchVars t1NonKey t2NonKey
+  in
+  if any (uncurry4 positionsIncompatible) matchedVars
+  then HFail
+  else HNothing
+  where 
+    matchVars :: [(String,LNTerm)] -> [(String,LNTerm)] -> [(String,LNTerm,String,LNTerm)]
+    matchVars [] _ = []
+    matchVars _ [] = []
+    matchVars (v:vs) vs2 =
+      let matches = filter (\v2 -> eqSyntatic (snd v) (snd v2)) vs2 in
+      if (isVar $ snd v) && (not $ null matches)
+      then (map (\(m1,m2) -> (fst v, snd v, m1, m2)) matches) ++ matchVars vs vs2
+      else matchVars vs vs2
+    uncurry4 f (a,b,c,d) = f a b c d
 
 failureTwoHomomorphicRule :: HomomorphicRule
-failureTwoHomomorphicRule eq sortOf eqs = HNothing
+failureTwoHomomorphicRule eq sortOf eqs = let 
+  n = (length $ eRep $ eqRHS eq) - 1 
+  eRepsLHS = terms $ pRep $ eqLHS eq
+  in
+  if any (\e -> (not $ isVar $ head $ e) && (length e < n + 1)) eRepsLHS
+  then HFail
+  else HNothing
 
 parsingHomomorphicRule :: HomomorphicRule
 parsingHomomorphicRule eq sortOf eqs = HNothing

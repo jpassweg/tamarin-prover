@@ -40,7 +40,9 @@ module Term.LTerm (
   , NodeId
   , LTerm
   , LNTerm
-  , LNPETerm
+  , LNPETerm(..)
+  , PRepresentation(..)
+  , ERepresentation(..)
 
   , freshLVar
   , sortPrefix
@@ -62,8 +64,6 @@ module Term.LTerm (
   , containsPrivate
   , containsNoPrivateExcept
   , neverContainsFreshPriv
-  , toLNPETerm
-  , fromLNPETerm
   , eqSyntatic
 
   -- ** Destructors
@@ -103,6 +103,16 @@ module Term.LTerm (
   , BLTerm
   , foldBVar
   , fromFree
+
+  -- * Homomorphic Representations
+  , toLNPETerm
+  , fromLNPETerm
+  , positionsWithTerms
+  , pPosition
+  , ePosition
+  , positionsIncompatible
+  , fromPRepresentation
+  , fromERepresentation
 
   -- * Pretty-Printing
   , prettyLVar
@@ -338,15 +348,6 @@ getVar _                         = Nothing
 getMsgVar :: LNTerm -> Maybe [LVar]
 getMsgVar (viewTerm -> Lit (Var v)) | (lvarSort v == LSortMsg) = Just [v]
 getMsgVar _                                                    = Nothing
-
--- | Transforms a LNTerm to a LNPETerm for proving
--- TODO: implement correctly
-toLNPETerm :: LNTerm -> LNPETerm
-toLNPETerm t = LNPETerm t (buildPRepresentation t) (buildERepresentation t)
-
--- | Transforms LNPETerm back to a LNTerm
-fromLNPETerm :: LNPETerm -> LNTerm
-fromLNPETerm = lnTerm
 
 -- Utility functions for constraint solving
 -------------------------------------------
@@ -835,6 +836,15 @@ instance (Ord k, HasFrees k, HasFrees v) => HasFrees (M.Map k v) where
 -- Homomorphic encryption and LNPETerms specific functions
 ----------------------------------------------------------
 
+-- | Transforms a LNTerm to a LNPETerm for proving
+-- TODO: implement correctly
+toLNPETerm :: LNTerm -> LNPETerm
+toLNPETerm t = LNPETerm t (buildPRepresentation t) (buildERepresentation t)
+
+-- | Transforms LNPETerm back to a LNTerm
+fromLNPETerm :: LNPETerm -> LNTerm
+fromLNPETerm = lnTerm
+
 positions :: LNTerm -> String -> [String]
 positions t p = case viewTerm t of
   (Lit(Con _)) -> [p]
@@ -874,22 +884,18 @@ ePosition (i:q) t = case viewTerm t of
       else "F"
   _ -> "F"
 
--- not fully needed
--- positionIncompatible :: String -> LNTerm -> String -> LNTerm -> Bool
--- positionIncompatible q1 t1 q2 t2 = properPrefix (pPosition q1 t1) (pPosition q2 t2)
---   || properPrefix (pPosition q2 t2) (pPosition q1 t1)
---   || ((pPosition q2 t2) == (pPosition q1 t1) 
---       && containsOnlyOnes (pPosition q1 t1) 
---       && containsOnlyOnes (pPosition q2 t2))
---   where
---     properPrefix _ [] = False
---     properPrefix [] _ = True
---     properPrefix (s11:s1) (s21:s2) = s11 == s21 && properPrefix s1 s2
---     containsOnlyOnes [] = True
---     containsOnlyOnes (s1:s) = s1 == '1' && containsOnlyOnes s
--- inPhase :: LNTerm -> LNTerm -> Bool
--- outOfPhase :: LNTerm -> LNTerm -> LVar -> Bool
--- nonKeyPosition
+positionsIncompatible :: String -> LNTerm -> String -> LNTerm -> Bool
+positionsIncompatible q1 t1 q2 t2 = properPrefix (pPosition q1 t1) (pPosition q2 t2)
+  || properPrefix (pPosition q2 t2) (pPosition q1 t1)
+  || ((pPosition q2 t2) == (pPosition q1 t1) 
+      && containsOnlyOnes (pPosition q1 t1) 
+      && containsOnlyOnes (pPosition q2 t2))
+  where
+    properPrefix _ [] = False
+    properPrefix [] _ = True
+    properPrefix (s11:s1) (s21:s2) = s11 == s21 && properPrefix s1 s2
+    containsOnlyOnes [] = True
+    containsOnlyOnes (s1:s) = s1 == '1' && containsOnlyOnes s
  
 validBitString :: [String] -> Bool
 validBitString [""] = True
@@ -908,14 +914,14 @@ validBitString s = contains12Pattern s
 findPurePPositions :: LNTerm -> [(String, LNTerm)]
 findPurePPositions t = map (\(a,_,c) -> (a,c)) 
   $ filter (\(_,b,_) -> b == "") 
-  $ map (\(p,tt) -> (p, ePosition p t, tt)) 
+  $ map (\(p,tt) -> (p, ePosition p tt, tt)) 
   $ positionsWithTerms t ""
 
 findPenukEPositions :: LNTerm -> [(String, LNTerm)]
 findPenukEPositions t = map (\(a,_,c) -> (a,c))
   $ filter (\(a,_,_) -> penukPositions a) 
   $ filter (\(_,b,_) -> b == "") 
-  $ map (\(p,tt) -> (p, pPosition p t, tt)) 
+  $ map (\(p,tt) -> (p, pPosition p tt, tt)) 
   $ positionsWithTerms t ""
   where 
     penukPositions [] = True
@@ -944,15 +950,16 @@ buildERepresentation :: LNTerm -> ERepresentation
 buildERepresentation t = map snd $ maximalPurePositions $ findPenukEPositions t
 
 -- gonna be very hacky
-fromPPrepresentation :: PRepresentation -> LNTerm
-fromPPrepresentation p = if bitString p == [""]
+fromPRepresentation :: PRepresentation -> LNTerm
+fromPRepresentation p = if bitString p == [""]
   then fromERepresentation $ head $ terms p
-  else (FAPP (NoEq ((BC.pack "pair"),(2, Public, Constructor))) [fromPPrepresentation $ getOnes p,
-    fromPPrepresentation $ getTwos p])
+  else (FAPP (NoEq ((BC.pack "pair"),(2, Public, Constructor))) [fromPRepresentation $ getOnes,
+    fromPRepresentation $ getTwos])
   where
-    getOnes p = p -- PRep TODO
-    getTwos p = p -- PRep TODO
-
+    getOnes = (uncurry PRep) $ unzip $ 
+      takeWhile (\(a,_) -> (head a) == '1') $ zip (bitString p) (terms p)
+    getTwos = (uncurry PRep) $ unzip $ 
+      dropWhile (\(a,_) -> (head a) == '1') $ zip (bitString p) (terms p)
 
 -- very hacky
 fromERepresentation :: ERepresentation -> LNTerm
