@@ -94,6 +94,7 @@ testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
   TestList
     [ testTrue "trivial case" (propUnifyHomomorphicSound x0 x0)
     , testTrue "trivial non-equality" (not (propUnifyHomomorphicSound (senc(x0,x1)) x1))
+    -- right now creates infinite loop
     --, testTrue "def homomorphic enc" (propUnifyHomomorphicSound t1 t2) -- does not work yet
     ]
   where
