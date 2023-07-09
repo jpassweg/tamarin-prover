@@ -106,6 +106,20 @@ propUnifyHomomorphicSound t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,
   where
     substs = unifyHomomorphicLNTerm [Equal t1 t2]
 
+validBitString :: [String] -> Bool
+validBitString [""] = True
+validBitString s = contains12Pattern s 
+  && (validBitString $ getOnes s) 
+  && (validBitString $ getTwos s) 
+  where
+    contains12Pattern strings = (null 
+      $ dropWhile (\x -> (head x)=='2')
+      $ dropWhile (\x -> (head x)=='1') strings)
+      && any (\x -> (head x)=='1') strings
+      && any (\x -> (head x)=='2') strings
+    getOnes strings = map tail $ takeWhile (\x -> (head x)=='1') strings
+    getTwos strings = map tail $ dropWhile (\x -> (head x)=='1') strings
+
 -- *****************************************************************************
 -- Tests for Substitutions
 -- *****************************************************************************

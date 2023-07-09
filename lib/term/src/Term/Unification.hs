@@ -278,7 +278,7 @@ shapingHomomorphicRule eq sortOf eqs = let
   eRepRHS = eRep $ eqRHS eq
   pl = (length $ eRepsLHS) 
   n = (length $ eRepRHS) - 1
-  in if pl >= 3 && n >= 2
+  in if pl >= 2 && n >= 2
   then case findQualifyingETerm eRepsLHS 0 of
     Just qualifyingIndex -> let 
       qualifyingELhs = eRepsLHS !! qualifyingIndex
@@ -338,14 +338,28 @@ failureTwoHomomorphicRule :: HomomorphicRule
 failureTwoHomomorphicRule eq sortOf eqs = let 
   n = (length $ eRep $ eqRHS eq) - 1 
   eRepsLHS = terms $ pRep $ eqLHS eq
-  in
-  if any (\e -> (not $ isVar $ head $ e) && (length e < n + 1)) eRepsLHS
+  in if any (\e -> (not $ isVar $ head $ e) && (length e < n + 1)) eRepsLHS
   then HFail
   else HNothing
 
 parsingHomomorphicRule :: HomomorphicRule
-parsingHomomorphicRule eq sortOf eqs = HNothing
--- TODO: implement all homomorphic rules and then add them to allHomomorphicRules
+parsingHomomorphicRule eq sortOf eqs = let
+  eRepsLHS = terms $ pRep $ eqLHS eq
+  strRepsLHS = bitString $ pRep $ eqLHS eq
+  newERepsLHS = map init eRepsLHS
+  eRepRHS = eRep $ eqRHS eq
+  newLHS = toLNPETerm $ fromPRepresentation $ PRep strRepsLHS newERepsLHS
+  newRHS = toLNPETerm $ fromERepresentation $ init eRepRHS
+  allKms = map toLNPETerm $ [last eRepRHS] ++ (map last eRepsLHS)
+  in if all (\t -> length t >= 2) (eRepsLHS ++ [eRepRHS])
+  then HEqs $ [Equal newLHS newRHS] ++ (getAllCombinations allKms) 
+  else HNothing
+  where
+    getAllCombinations :: [LNPETerm] -> [Equal LNPETerm]
+    getAllCombinations [] = []
+    getAllCombinations (x:xs) = pairCombinations x xs ++ getAllCombinations xs
+    pairCombinations _ [] = []
+    pairCombinations x (y:ys) = [Equal x y] ++ pairCombinations x ys
 
 -- | Takes a sort and equation and returns a substitution for terms so that they unify or an empty list 
 -- if it is not possible to unify the terms

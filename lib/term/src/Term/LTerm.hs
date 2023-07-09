@@ -896,20 +896,6 @@ positionsIncompatible q1 t1 q2 t2 = properPrefix (pPosition q1 t1) (pPosition q2
     properPrefix (s11:s1) (s21:s2) = s11 == s21 && properPrefix s1 s2
     containsOnlyOnes [] = True
     containsOnlyOnes (s1:s) = s1 == '1' && containsOnlyOnes s
- 
-validBitString :: [String] -> Bool
-validBitString [""] = True
-validBitString s = contains12Pattern s 
-  && (validBitString $ getOnes s) 
-  && (validBitString $ getTwos s) 
-  where
-    contains12Pattern strings = (null 
-      $ dropWhile (\(x:_) -> x=='2')
-      $ dropWhile (\(x:_) -> x=='1') strings)
-      && any (\(x:_) -> x=='1') strings
-      && any (\(x:_) -> x=='2') strings
-    getOnes strings = map (\(_:xs) -> xs) $ takeWhile (\(x:_) -> x=='1') strings
-    getTwos strings = map (\(_:xs) -> xs) $ dropWhile (\(x:_) -> x=='1') strings
 
 findPurePPositions :: LNTerm -> [(String, LNTerm)]
 findPurePPositions t = map (\(a,_,c) -> (a,c)) 
