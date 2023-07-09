@@ -106,7 +106,6 @@ module Term.LTerm (
 
   -- * Homomorphic Representations
   , toLNPETerm
-  , fromLNPETerm
   , positionsWithTerms
   , pPosition
   , ePosition
@@ -836,55 +835,51 @@ instance (Ord k, HasFrees k, HasFrees v) => HasFrees (M.Map k v) where
 -- Homomorphic encryption and LNPETerms specific functions
 ----------------------------------------------------------
 
--- | Transforms a LNTerm to a LNPETerm for proving
--- TODO: implement correctly
+-- | Builds P and E Representation for matching with homomorphic patterns 
 toLNPETerm :: LNTerm -> LNPETerm
 toLNPETerm t = LNPETerm t (buildPRepresentation t) (buildERepresentation t)
 
--- | Transforms LNPETerm back to a LNTerm
-fromLNPETerm :: LNPETerm -> LNTerm
-fromLNPETerm = lnTerm
-
+-- | Returns All subterms given a term with their positions
 positionsWithTerms :: LNTerm -> [(String,LNTerm)]
 positionsWithTerms t = positionsWithTerms' t ""
 
+-- | used by positionsWithTerms
 positionsWithTerms' :: LNTerm -> String -> [(String,LNTerm)]
 positionsWithTerms' t p = case viewTerm t of
-  (Lit(Con _)) -> [(p, t)]
-  (Lit(Var _)) -> [(p, t)]
+  (Lit(Con _))  -> [(p,t)]
+  (Lit(Var _))  -> [(p,t)]
   (FApp _ args) -> [(p,t)] ++ (concat $ zipWith argFunc args [1..])
   where
     argFunc :: LNTerm -> Int -> [(String, LNTerm)]
-    argFunc arg ind = let
-      newp = p ++ (show ind)
-      in map (\(pos,term) -> (newp ++ pos, term)) 
-      $ positionsWithTerms' arg newp
+    argFunc arg ind = positionsWithTerms' arg (p ++ (show ind))
 
+-- | Returns the pposition used for Homomorphic Pattern rules
 pPosition :: String -> LNTerm -> String
 pPosition [] _ = ""
-pPosition (i:q) t =  case viewTerm t of
+pPosition (i:q) t = case viewTerm t of
   FApp funsym args -> 
-    if length args > read [i] 
+    if length args > read [i] - 1 
     then if isPair t 
-    then [i] ++ (pPosition q $ args !! (read [i]))
+    then [i] ++ (pPosition q $ args !! (read [i] - 1))
     else if showFunSymName funsym == "senc"
-    then pPosition q $ args !! (read [i])
-    else "F"
-    else "F"
-  _ -> "F"
+    then pPosition q $ args !! (read [i] - 1)
+    else "DIFF"
+    else "ARGL"
+  _ -> "NONF"
 
+-- | Returns the eposition used for Homomorphic Pattern rules
 ePosition :: String -> LNTerm -> String
 ePosition [] _ = ""
 ePosition (i:q) t = case viewTerm t of
   FApp funsym args -> 
-    if length args > read [i]
+    if length args > read [i] - 1
     then if showFunSymName funsym == "senc"
-    then [i] ++ (ePosition q $ args !! (read [i]))
+    then [i] ++ (ePosition q $ args !! (read [i] - 1))
     else if isPair t
-    then ePosition q $ args !! (read [i])
-    else "F"
-    else "F"
-  _ -> "F"
+    then ePosition q $ args !! (read [i] - 1)
+    else "DIFF"
+    else "ARGL"
+  _ -> "NONF"
 
 positionsIncompatible :: String -> LNTerm -> String -> LNTerm -> Bool
 positionsIncompatible q1 t1 q2 t2 = properPrefix (pPosition q1 t1) (pPosition q2 t2)

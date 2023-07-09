@@ -224,13 +224,13 @@ switchedWrapperHomomorphicRule rule eq sortOf eqs =
 
 trivialHomomorphicRule :: HomomorphicRule
 trivialHomomorphicRule eq _ _ = if 
-    (uncurry eqSyntatic) $ (\e -> (fromLNPETerm $ eqLHS e, fromLNPETerm $ eqRHS e)) eq
+    (uncurry eqSyntatic) $ (\e -> (lnTerm $ eqLHS e, lnTerm $ eqRHS e)) eq
   then HEqs []
   else HNothing
 
 stdDecompositionHomomorphicRule :: HomomorphicRule
 stdDecompositionHomomorphicRule eq _ _ =
-  case (viewTerm $ fromLNPETerm $ eqLHS eq, viewTerm $ fromLNPETerm $ eqRHS eq) of
+  case (viewTerm $ lnTerm $ eqLHS eq, viewTerm $ lnTerm $ eqRHS eq) of
     -- TODO finish implementation, also have a look at viewTerm2
     (FApp (NoEq lfsym) largs, FApp (NoEq rfsym) rargs)  -> 
       addArgs (lfsym == rfsym && length largs == length rargs) largs rargs 
@@ -248,24 +248,24 @@ stdDecompositionHomomorphicRule eq _ _ =
 
 variableSubstitutionHomomorphicRule :: HomomorphicRule
 variableSubstitutionHomomorphicRule eq _ eqs =
-  case (viewTerm $ fromLNPETerm $ eqLHS eq) of
+  case (viewTerm $ lnTerm $ eqLHS eq) of
     (Lit (Var nameLHS)) -> if 
-        (not $ occursVTerm nameLHS (fromLNPETerm $ eqRHS eq)) 
+        (not $ occursVTerm nameLHS (lnTerm $ eqRHS eq)) 
         && (occursEqs nameLHS eqs) 
       then HSubstEqs 
-        (Subst $ M.fromList [(nameLHS, fromLNPETerm $ eqRHS eq)]) [eq]
+        (Subst $ M.fromList [(nameLHS, lnTerm $ eqRHS eq)]) [eq]
       else HNothing
     _ -> HNothing
   where
     occursEqs n es = 
-      any (\(Equal a b) -> (occursVTerm n $ fromLNPETerm a) 
-      || (occursVTerm n $ fromLNPETerm b)) es
+      any (\(Equal a b) -> (occursVTerm n $ lnTerm a) 
+      || (occursVTerm n $ lnTerm b)) es
 
 -- Find pairSym in Term.Term.FunctionSymbols 
 -- and sencSym in Term.Builtin.Signature
 clashHomomorphicRule :: HomomorphicRule
 clashHomomorphicRule eq _ _ = 
-  case (viewTerm $ fromLNPETerm $ eqLHS eq, viewTerm $ fromLNPETerm $ eqRHS eq) of
+  case (viewTerm $ lnTerm $ eqLHS eq, viewTerm $ lnTerm $ eqRHS eq) of
     (FApp (NoEq oleft) _, FApp (NoEq oright) _) -> if 
            (oleft == pairSym && oright == sencSym) 
         || (oleft == sencSym && oright == pairSym) 
@@ -276,10 +276,10 @@ clashHomomorphicRule eq _ _ =
 
 occurCheckHomomorphicRule :: HomomorphicRule
 occurCheckHomomorphicRule eq _ _ = 
-  case getVar $ fromLNPETerm $ eqLHS eq of
+  case getVar $ lnTerm $ eqLHS eq of
     Just v  -> if 
-        (not $ eqSyntatic (fromLNPETerm $ eqLHS eq) (fromLNPETerm $ eqRHS eq))
-        && (occursVTerm v (fromLNPETerm $ eqRHS eq))
+        (not $ eqSyntatic (lnTerm $ eqLHS eq) (lnTerm $ eqRHS eq))
+        && (occursVTerm v (lnTerm $ eqRHS eq))
       then HFail
       else HNothing
     Nothing -> HNothing
@@ -326,12 +326,12 @@ shapingHomomorphicRule eq _ eqs = let
       $ foldr (\lv1 lv2 -> if lvarIdx lv1 >= lvarIdx lv2 then lv1 else lv2) 
       (LVar "fxShapingHomomorphic" LSortFresh 0)
       $ filter (\lv -> lvarName lv == "fxShapingHomomorphic")
-      $ (frees $ fromLNPETerm $ eqLHS q) ++ (frees $ fromLNPETerm $ eqRHS q)
+      $ (frees $ lnTerm $ eqLHS q) ++ (frees $ lnTerm $ eqRHS q)
 
 failureOneHomomorphicRule :: HomomorphicRule
 failureOneHomomorphicRule eq _ _ = let
-    t1 = fromLNPETerm $ eqLHS eq
-    t2 = fromLNPETerm $ eqRHS eq
+    t1 = lnTerm $ eqLHS eq
+    t2 = lnTerm $ eqRHS eq
     t1Pos = positionsWithTerms t1
     t2Pos = positionsWithTerms t2
     t1NonKey = filter (\(p,_) -> all (\bc -> bc == '1') (ePosition p t1)) t1Pos
@@ -398,8 +398,8 @@ unifyHomomorphicLTermFactored sortOf eqs =
       then [SubstVFresh 
         $ M.fromList 
         $ map (\eq -> 
-          (liftMaybe $ getVar $ fromLNPETerm $ eqLHS eq, 
-          fromLNPETerm $ eqRHS eq)
+          (liftMaybe $ getVar $ lnTerm $ eqLHS eq, 
+          lnTerm $ eqRHS eq)
         ) 
         normEqsSubst]
       else []
@@ -411,8 +411,8 @@ unifyHomomorphicLTermFactored sortOf eqs =
       let 
       t1 = eqLHS eq
       t2 = eqRHS eq
-      v1 = viewTerm $ fromLNPETerm t1
-      v2 = viewTerm $ fromLNPETerm t2
+      v1 = viewTerm $ lnTerm t1
+      v2 = viewTerm $ lnTerm t2
       in case (v1,v2) of
         (FApp _ _, Lit (Var _)) -> Equal t2 t1
         (Lit (Con _), Lit (Var _)) -> Equal t2 t1
@@ -445,12 +445,12 @@ applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
     HFail ->                  Just []
   where
     applySubstitution subst eq = Equal 
-      (toLNPETerm $ applyVTerm subst $ fromLNPETerm $ eqLHS eq) 
-      (toLNPETerm $ applyVTerm subst $ fromLNPETerm $ eqRHS eq)
+      (toLNPETerm $ applyVTerm subst $ lnTerm $ eqLHS eq) 
+      (toLNPETerm $ applyVTerm subst $ lnTerm $ eqRHS eq)
 
 -- | Checks if equations are in the solved form according to the homomorphic theory
 inHomomorphicSolvedForm :: [Equal LNPETerm] -> Bool
-inHomomorphicSolvedForm eqs = all (\eq -> case viewTerm $ fromLNPETerm $ eqLHS eq of
+inHomomorphicSolvedForm eqs = all (\eq -> case viewTerm $ lnTerm $ eqLHS eq of
   (Lit (Var _)) -> True
   _ -> False) eqs
 

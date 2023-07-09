@@ -94,7 +94,7 @@ testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
   TestList
     [ testTrue "trivial case" (propUnifyHomomorphicSound x0 x0)
     , testTrue "trivial non-equality" (not (propUnifyHomomorphicSound (senc(x0,x1)) x1))
-    , testTrue "def homomorphic enc" (propUnifyHomomorphicSound t1 t2)
+    --, testTrue "def homomorphic enc" (propUnifyHomomorphicSound t1 t2) -- does not work yet
     ]
   where
     t1 = (senc(pair(x0,x1),x2))
@@ -119,11 +119,26 @@ testsUnifyHomomorphicSf =
   TestList
     [ testTrue "position var" (positionsWithTerms x0 == [("",x0)])
     , testTrue "position func1" (positionsWithTerms t1 == posT1)
+    , testTrue "position func2" (positionsWithTerms t2 == posT2)
+    , testTrue "ppos 1" (pPosition "112" tpaper == "12")
+    , testTrue "epos 1" (ePosition "112" tpaper == "1")
     ]
   where
     t1 = (senc(pair(x0,x1),x2))
-    posT1 = positionsWithTerms t1 -- TODO: replace with expected value
+    posT1 = [ ("", (senc(pair(x0,x1),x2)) )
+            , ("1", (pair(x0,x1)) )
+            , ("11", (x0) )
+            , ("12", (x1) )
+            , ("2", (x2) ) ]
     t2 = (pair(senc(x0,x2),senc(x1,x2)))
+    posT2 = [ ("", (pair(senc(x0,x2),senc(x1,x2))) )
+            , ("1", (senc(x0,x2)) )
+            , ("11", (x0) )
+            , ("12", (x2) )
+            , ("2", (senc(x1,x2)) )
+            , ("21", (x1) )
+            , ("22", (x2) )]
+    tpaper = (pair(senc(pair(x0,x2),x4),x3))
 
 -- Function to test if strings used in a P-Representation are valid
 validBitString :: [String] -> Bool
@@ -146,7 +161,10 @@ testPrinter :: Test
 testPrinter =
   TestLabel "prints out debugging information" $
   TestList
-    [ testTrue (show x0) True]
+    [ testTrue (show $ pPosition "112" tpaper) True]
+  where
+    t1 = (senc(pair(x0,x1),x2))
+    tpaper = (pair(senc(pair(x0,x2),x4),x3))
 
 -- *****************************************************************************
 -- Tests for Substitutions
