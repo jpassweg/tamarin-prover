@@ -212,18 +212,24 @@ allHomomorphicRules = (\rules -> rules ++ map switchedWrapperHomomorphicRule rul
   , trivialHomomorphicRule
   , stdDecompositionHomomorphicRule]
 
+-- Since the equality sign used is not oriented, we need
+-- to look at the possibility of rule applications for 
+-- both x = t and t = x for any equation.
 switchedWrapperHomomorphicRule :: HomomorphicRule -> HomomorphicRule
 switchedWrapperHomomorphicRule rule eq sortOf eqs =
   rule (Equal (eqRHS eq) (eqLHS eq)) sortOf eqs
 
+-- | Standard syntatictic inference rules
+-----------------------------------------
+
 trivialHomomorphicRule :: HomomorphicRule
-trivialHomomorphicRule eq sortOf eqs = if 
+trivialHomomorphicRule eq _ _ = if 
     (uncurry eqSyntatic) $ (\e -> (fromLNPETerm $ eqLHS e, fromLNPETerm $ eqRHS e)) eq
   then HEqs []
   else HNothing
 
 stdDecompositionHomomorphicRule :: HomomorphicRule
-stdDecompositionHomomorphicRule eq sortOf eqs =
+stdDecompositionHomomorphicRule eq _ _ =
   case (viewTerm $ fromLNPETerm $ eqLHS eq, viewTerm $ fromLNPETerm $ eqRHS eq) of
     -- TODO finish implementation, also have a look at viewTerm2
     (FApp (NoEq lfsym) largs, FApp (NoEq rfsym) rargs)  -> 
@@ -236,12 +242,12 @@ stdDecompositionHomomorphicRule eq sortOf eqs =
       addArgs (lcsym == rcsym && length largs == length rargs) largs rargs
     (_,_)                                               -> HNothing
   where
-    addArgs b las ras = if b
+    addArgs bool las ras = if bool
       then HEqs $ map (\(a,b) -> Equal (toLNPETerm a) (toLNPETerm b)) $ zip las ras
       else HNothing
 
 variableSubstitutionHomomorphicRule :: HomomorphicRule
-variableSubstitutionHomomorphicRule eq sortOf eqs =
+variableSubstitutionHomomorphicRule eq _ eqs =
   case (viewTerm $ fromLNPETerm $ eqLHS eq) of
     (Lit (Var nameLHS)) -> if 
         (not $ occursVTerm nameLHS (fromLNPETerm $ eqRHS eq)) 
@@ -258,7 +264,7 @@ variableSubstitutionHomomorphicRule eq sortOf eqs =
 -- Find pairSym in Term.Term.FunctionSymbols 
 -- and sencSym in Term.Builtin.Signature
 clashHomomorphicRule :: HomomorphicRule
-clashHomomorphicRule eq sortOf eqs = 
+clashHomomorphicRule eq _ _ = 
   case (viewTerm $ fromLNPETerm $ eqLHS eq, viewTerm $ fromLNPETerm $ eqRHS eq) of
     (FApp (NoEq oleft) _, FApp (NoEq oright) _) -> if 
            (oleft == pairSym && oright == sencSym) 
@@ -269,7 +275,7 @@ clashHomomorphicRule eq sortOf eqs =
     _ -> HNothing
 
 occurCheckHomomorphicRule :: HomomorphicRule
-occurCheckHomomorphicRule eq sortOf eqs = 
+occurCheckHomomorphicRule eq _ _ = 
   case getVar $ fromLNPETerm $ eqLHS eq of
     Just v  -> if 
         (not $ eqSyntatic (fromLNPETerm $ eqLHS eq) (fromLNPETerm $ eqRHS eq))
@@ -278,10 +284,13 @@ occurCheckHomomorphicRule eq sortOf eqs =
       else HNothing
     Nothing -> HNothing
 
+-- | Homomorphic Patterns
+-------------------------
+
 shapingHomomorphicRule :: HomomorphicRule
-shapingHomomorphicRule eq sortOf eqs = let
-  eRepsLHS = terms $ pRep $ eqLHS eq
-  strLHS = bitString $ pRep $ eqLHS eq
+shapingHomomorphicRule eq _ eqs = let
+  eRepsLHS = eRepsTerms $ pRep $ eqLHS eq
+  strLHS = eRepsString $ pRep $ eqLHS eq
   eRepRHS = eRep $ eqRHS eq
   pl = (length $ eRepsLHS) 
   n = (length $ eRepRHS) - 1
@@ -320,11 +329,13 @@ shapingHomomorphicRule eq sortOf eqs = let
       $ (frees $ fromLNPETerm $ eqLHS q) ++ (frees $ fromLNPETerm $ eqRHS q)
 
 failureOneHomomorphicRule :: HomomorphicRule
-failureOneHomomorphicRule eq sortOf eqs = let
-    t1 = positionsWithTerms (fromLNPETerm $ eqLHS eq) ""
-    t2 = positionsWithTerms (fromLNPETerm $ eqRHS eq) ""
-    t1NonKey = filter (\(p,tt) -> all (\bc -> bc == '1') (ePosition p tt)) t1
-    t2NonKey = filter (\(p,tt) -> all (\bc -> bc == '1') (ePosition p tt)) t2
+failureOneHomomorphicRule eq _ _ = let
+    t1 = fromLNPETerm $ eqLHS eq
+    t2 = fromLNPETerm $ eqRHS eq
+    t1Pos = positionsWithTerms t1
+    t2Pos = positionsWithTerms t2
+    t1NonKey = filter (\(p,_) -> all (\bc -> bc == '1') (ePosition p t1)) t1Pos
+    t2NonKey = filter (\(p,_) -> all (\bc -> bc == '1') (ePosition p t2)) t2Pos
     matchedVars = matchVars t1NonKey t2NonKey
   in
   if any (uncurry4 positionsIncompatible) matchedVars
@@ -342,17 +353,17 @@ failureOneHomomorphicRule eq sortOf eqs = let
     uncurry4 f (a,b,c,d) = f a b c d
 
 failureTwoHomomorphicRule :: HomomorphicRule
-failureTwoHomomorphicRule eq sortOf eqs = let 
+failureTwoHomomorphicRule eq _ _ = let 
   n = (length $ eRep $ eqRHS eq) - 1 
-  eRepsLHS = terms $ pRep $ eqLHS eq
+  eRepsLHS = eRepsTerms $ pRep $ eqLHS eq
   in if any (\e -> (not $ isVar $ head $ e) && (length e < n + 1)) eRepsLHS
   then HFail
   else HNothing
 
 parsingHomomorphicRule :: HomomorphicRule
-parsingHomomorphicRule eq sortOf eqs = let
-  eRepsLHS = terms $ pRep $ eqLHS eq
-  strRepsLHS = bitString $ pRep $ eqLHS eq
+parsingHomomorphicRule eq _ _ = let
+  eRepsLHS = eRepsTerms $ pRep $ eqLHS eq
+  strRepsLHS = eRepsString $ pRep $ eqLHS eq
   newERepsLHS = map init eRepsLHS
   eRepRHS = eRep $ eqRHS eq
   newLHS = toLNPETerm $ fromPRepresentation $ PRep strRepsLHS newERepsLHS
@@ -406,26 +417,26 @@ unifyHomomorphicLTermFactored sortOf eqs =
         (FApp _ _, Lit (Var _)) -> Equal t2 t1
         (Lit (Con _), Lit (Var _)) -> Equal t2 t1
         (_, _) -> Equal t1 t2
-    liftMaybe jv = let Just v = jv in v 
+    liftMaybe jv = case jv of
+      Just v -> v
+      Nothing -> (LVar "VARNOTFOUND" LSortFresh 0)
 
 -- | Applies all homomorphic rules given en block, i.e., 
 -- it applies the first rule always first after each change
 applyHomomorphicRules :: (Name -> LSort) -> [HomomorphicRule] -> [Equal LNPETerm] -> [Equal LNPETerm]
-applyHomomorphicRules sortOf [] eqs = -- no more rules to apply 
-  if inHomomorphicSolvedForm eqs
-    then eqs
-    else []
-applyHomomorphicRules sortOf (rule:rules) eqs = 
-  if inHomomorphicSolvedForm eqs
-    then eqs
-    else case applyHomomorphicRule rule sortOf eqs [] of
-      Just newEqs -> applyHomomorphicRules sortOf allHomomorphicRules newEqs
-      Nothing     -> applyHomomorphicRules sortOf rules eqs
+applyHomomorphicRules _ [] eqs = if inHomomorphicSolvedForm eqs -- no more rules to apply 
+  then eqs
+  else []
+applyHomomorphicRules sortOf (rule:rules) eqs = if inHomomorphicSolvedForm eqs
+  then eqs
+  else case applyHomomorphicRule rule sortOf eqs [] of
+    Just newEqs -> applyHomomorphicRules sortOf allHomomorphicRules newEqs
+    Nothing     -> applyHomomorphicRules sortOf rules eqs
 
 -- | Applies the homomorphic rule to the first term possible in equation list or returns Nothing 
 -- if the rule is not applicable to any terms
 applyHomomorphicRule :: HomomorphicRule -> (Name -> LSort) -> [Equal LNPETerm] -> [Equal LNPETerm] -> Maybe [Equal LNPETerm]
-applyHomomorphicRule _ sortOf [] _ = Nothing
+applyHomomorphicRule _ _ [] _ = Nothing
 applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
   case rule equation sortOf (passedEqs ++ equations) of
     HEqs newEqs ->            Just (passedEqs ++ newEqs ++ equations)
@@ -433,8 +444,7 @@ applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
     HNothing ->               applyHomomorphicRule rule sortOf equations (equation:passedEqs)
     HFail ->                  Just []
   where
-    applySubstitution subst eq = 
-      Equal 
+    applySubstitution subst eq = Equal 
       (toLNPETerm $ applyVTerm subst $ fromLNPETerm $ eqLHS eq) 
       (toLNPETerm $ applyVTerm subst $ fromLNPETerm $ eqRHS eq)
 

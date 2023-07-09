@@ -42,7 +42,7 @@ module Term.LTerm (
   , LNTerm
   , LNPETerm(..)
   , PRepresentation(..)
-  , ERepresentation(..)
+  , ERepresentation
 
   , freshLVar
   , sortPrefix
@@ -289,8 +289,8 @@ type ERepresentation = [LNTerm]
 
 -- P representation as defined in the cap unification paper
 data PRepresentation = PRep 
-    { bitString :: [String]
-    , terms :: [ERepresentation] 
+    { eRepsString :: [String]
+    , eRepsTerms :: [ERepresentation] 
     }
     deriving (Show, Eq, Ord)
 
@@ -845,24 +845,20 @@ toLNPETerm t = LNPETerm t (buildPRepresentation t) (buildERepresentation t)
 fromLNPETerm :: LNPETerm -> LNTerm
 fromLNPETerm = lnTerm
 
-positions :: LNTerm -> String -> [String]
-positions t p = case viewTerm t of
-  (Lit(Con _)) -> [p]
-  (Lit(Var _)) -> [p]
-  (FApp _ args) -> [p] ++ (concat $ zipWith argFunc args [1..])
-  where
-    argFunc arg ind = 
-      map (\pos -> p ++ (show ind) ++ pos) $ positions arg (p ++ (show ind))
+positionsWithTerms :: LNTerm -> [(String,LNTerm)]
+positionsWithTerms t = positionsWithTerms' t ""
 
-positionsWithTerms :: LNTerm -> String -> [(String,LNTerm)]
-positionsWithTerms t p = case viewTerm t of
+positionsWithTerms' :: LNTerm -> String -> [(String,LNTerm)]
+positionsWithTerms' t p = case viewTerm t of
   (Lit(Con _)) -> [(p, t)]
   (Lit(Var _)) -> [(p, t)]
   (FApp _ args) -> [(p,t)] ++ (concat $ zipWith argFunc args [1..])
   where
-    argFunc arg ind = 
-      map (\(pos,term) -> (p ++ (show ind) ++ pos, term)) 
-        $ positionsWithTerms arg (p ++ (show ind))
+    argFunc :: LNTerm -> Int -> [(String, LNTerm)]
+    argFunc arg ind = let
+      newp = p ++ (show ind)
+      in map (\(pos,term) -> (newp ++ pos, term)) 
+      $ positionsWithTerms' arg newp
 
 pPosition :: String -> LNTerm -> String
 pPosition [] _ = ""
@@ -881,7 +877,7 @@ ePosition :: String -> LNTerm -> String
 ePosition [] _ = ""
 ePosition (i:q) t = case viewTerm t of
   FApp funsym args -> 
-    if length args >= read [i]
+    if length args > read [i]
     then if showFunSymName funsym == "senc"
     then [i] ++ (ePosition q $ args !! (read [i]))
     else if isPair t
@@ -906,15 +902,15 @@ positionsIncompatible q1 t1 q2 t2 = properPrefix (pPosition q1 t1) (pPosition q2
 findPurePPositions :: LNTerm -> [(String, LNTerm)]
 findPurePPositions t = map (\(a,_,c) -> (a,c)) 
   $ filter (\(_,b,_) -> b == "") 
-  $ map (\(p,tt) -> (p, ePosition p tt, tt)) 
-  $ positionsWithTerms t ""
+  $ map (\(p,tt) -> (p, ePosition p t, tt)) 
+  $ positionsWithTerms t
 
 findPenukEPositions :: LNTerm -> [(String, LNTerm)]
 findPenukEPositions t = map (\(a,_,c) -> (a,c))
   $ filter (\(a,_,_) -> penukPositions a) 
   $ filter (\(_,b,_) -> b == "") 
-  $ map (\(p,tt) -> (p, pPosition p tt, tt)) 
-  $ positionsWithTerms t ""
+  $ map (\(p,tt) -> (p, pPosition p t, tt)) 
+  $ positionsWithTerms t
   where 
     penukPositions [] = True
     penukPositions (x:xs) = 
@@ -922,9 +918,9 @@ findPenukEPositions t = map (\(a,_,c) -> (a,c))
 
 maximalPurePositions :: [(String, LNTerm)] -> [(String, LNTerm)]
 maximalPurePositions pures = 
-  filter (\(pure,term) -> not 
-  $ any (properPrefix pure) 
-  $ map (\(a,b) -> a) pures) pures
+  filter (\(purePos,_) -> not 
+  $ any (properPrefix purePos) 
+  $ map (\(a,_) -> a) pures) pures
   where
     properPrefix :: String -> String -> Bool
     properPrefix _ [] = False
@@ -943,15 +939,15 @@ buildERepresentation t = map snd $ maximalPurePositions $ findPenukEPositions t
 
 -- gonna be very hacky
 fromPRepresentation :: PRepresentation -> LNTerm
-fromPRepresentation p = if bitString p == [""]
-  then fromERepresentation $ head $ terms p
+fromPRepresentation p = if eRepsString p == [""]
+  then fromERepresentation $ head $ eRepsTerms p
   else (FAPP (NoEq ((BC.pack "pair"),(2, Public, Constructor))) [fromPRepresentation $ getOnes,
     fromPRepresentation $ getTwos])
   where
     getOnes = (uncurry PRep) $ unzip $ 
-      takeWhile (\(a,_) -> (head a) == '1') $ zip (bitString p) (terms p)
+      takeWhile (\(a,_) -> (head a) == '1') $ zip (eRepsString p) (eRepsTerms p)
     getTwos = (uncurry PRep) $ unzip $ 
-      dropWhile (\(a,_) -> (head a) == '1') $ zip (bitString p) (terms p)
+      dropWhile (\(a,_) -> (head a) == '1') $ zip (eRepsString p) (eRepsTerms p)
 
 -- very hacky
 fromERepresentation :: ERepresentation -> LNTerm

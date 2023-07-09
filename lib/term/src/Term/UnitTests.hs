@@ -87,18 +87,23 @@ propUnifySound hnd t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
 -- Tests for Unification modulo EpsilonH (For Homomorphic encryption)
 -- *****************************************************************************
 
--- multiple tests for unification modulo EpisolonH algorithm implemented in unifyHomomorphicLNTerm
+-- Multiple tests for unification modulo EpisolonH algorithm 
+-- implemented in unifyHomomorphicLNTerm
 testsUnifyHomomorphic :: Test
 testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
   TestList
     [ testTrue "trivial case" (propUnifyHomomorphicSound x0 x0)
     , testTrue "trivial non-equality" (not (propUnifyHomomorphicSound (senc(x0,x1)) x1))
-    , testTrue "def homomorphic enc" (propUnifyHomomorphicSound (senc(pair(x0,x1),x2)) (pair(senc(x0,x2),senc(x1,x2))))
+    , testTrue "def homomorphic enc" (propUnifyHomomorphicSound t1 t2)
     ]
+  where
+    t1 = (senc(pair(x0,x1),x2))
+    t2 = (pair(senc(x0,x2),senc(x1,x2)))
 
 -- Returns true if unifyHomomorphicLNTerm was able to unify both given terms
 -- Uses the same method for testing as propUnifySound
--- freshToFreeAvoiding converts return of type [SubstVFresh Name LVar] to [Subst Name LVar]
+-- freshToFreeAvoiding converts return of type 
+-- [SubstVFresh Name LVar] to [Subst Name LVar]
 propUnifyHomomorphicSound :: LNTerm -> LNTerm -> Bool
 propUnifyHomomorphicSound t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
                                   applyVTerm s' t1 == applyVTerm s' t2) substs
@@ -106,6 +111,21 @@ propUnifyHomomorphicSound t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,
   where
     substs = unifyHomomorphicLNTerm [Equal t1 t2]
 
+-- Multiple tests for the functions directly used by the 
+-- homomorphic encrytion unification algorithm 
+testsUnifyHomomorphicSf :: Test
+testsUnifyHomomorphicSf = 
+  TestLabel "Tests for Unify module EpsilonH subfunctions" $
+  TestList
+    [ testTrue "position var" (positionsWithTerms x0 == [("",x0)])
+    , testTrue "position func1" (positionsWithTerms t1 == posT1)
+    ]
+  where
+    t1 = (senc(pair(x0,x1),x2))
+    posT1 = positionsWithTerms t1 -- TODO: replace with expected value
+    t2 = (pair(senc(x0,x2),senc(x1,x2)))
+
+-- Function to test if strings used in a P-Representation are valid
 validBitString :: [String] -> Bool
 validBitString [""] = True
 validBitString s = contains12Pattern s 
@@ -315,6 +335,7 @@ tests maudePath = do
                       , testsNorm mhnd
                       , testsUnify mhnd
                       , testsUnifyHomomorphic
+                      , testsUnifyHomomorphicSf
                       , testsSimple mhnd
                       , testsMatching mhnd
                       ]
