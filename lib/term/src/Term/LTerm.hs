@@ -348,6 +348,7 @@ getMsgVar :: LNTerm -> Maybe [LVar]
 getMsgVar (viewTerm -> Lit (Var v)) | (lvarSort v == LSortMsg) = Just [v]
 getMsgVar _                                                    = Nothing
 
+
 -- Utility functions for constraint solving
 -------------------------------------------
 
