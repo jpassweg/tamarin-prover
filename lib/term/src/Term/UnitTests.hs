@@ -140,6 +140,14 @@ validBitString s = contains12Pattern s
     getOnes strings = map tail $ takeWhile (\x -> (head x)=='1') strings
     getTwos strings = map tail $ dropWhile (\x -> (head x)=='1') strings
 
+-- Test used to actually print what some functions return for debugging
+-- Set to false to print out values
+testPrinter :: Test
+testPrinter =
+  TestLabel "prints out debugging information" $
+  TestList
+    [ testTrue (show x0) True]
+
 -- *****************************************************************************
 -- Tests for Substitutions
 -- *****************************************************************************
@@ -338,6 +346,7 @@ tests maudePath = do
                       , testsUnifyHomomorphicSf
                       , testsSimple mhnd
                       , testsMatching mhnd
+                      , testPrinter
                       ]
 
 -- | Maude signatures with all builtin symbols.
