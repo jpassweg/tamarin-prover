@@ -199,16 +199,23 @@ type HomomorphicRule = Equal LNPETerm -> (Name -> LSort) -> [Equal LNPETerm] -> 
 
 -- | All homomorphic rules in order of application
 allHomomorphicRules :: [HomomorphicRule]
-allHomomorphicRules = [ failureOneHomomorphicRule
-                      , failureTwoHomomorphicRule
-                      , occurCheckHomomorphicRule
-                      , clashHomomorphicRule
-                      , shapingHomomorphicRule
-                      , parsingHomomorphicRule
-                      , variableSubstitutionHomomorphicRule
-                      , trivialHomomorphicRule
-                      , stdDecompositionHomomorphicRule]
- 
+allHomomorphicRules = (\rules -> rules ++ map switchedWrapperHomomorphicRule rules)
+  [ failureOneHomomorphicRule -- failure rules first
+  , failureTwoHomomorphicRule
+  , occurCheckHomomorphicRule
+  , clashHomomorphicRule      -- then Homomorphic patterns
+  , shapingHomomorphicRule    -- shaping best before parsing
+  , parsingHomomorphicRule
+  -- varSub en block with Homorphic patterns
+  , variableSubstitutionHomomorphicRule
+  -- then other rules
+  , trivialHomomorphicRule
+  , stdDecompositionHomomorphicRule]
+
+switchedWrapperHomomorphicRule :: HomomorphicRule -> HomomorphicRule
+switchedWrapperHomomorphicRule rule eq sortOf eqs =
+  rule (Equal (eqRHS eq) (eqLHS eq)) sortOf eqs
+
 trivialHomomorphicRule :: HomomorphicRule
 trivialHomomorphicRule eq sortOf eqs = if 
     (uncurry eqSyntatic) $ (\e -> (fromLNPETerm $ eqLHS e, fromLNPETerm $ eqRHS e)) eq
@@ -368,23 +375,37 @@ unifyHomomorphicLTermFactored :: (Name -> LSort) -> [Equal LNTerm] -> [LNSubstVF
 unifyHomomorphicLTermFactored sortOf eqs = 
   toSubst $ applyHomomorphicRules sortOf allHomomorphicRules (tpre eqs)
   where 
-    toSubst [] = if and $ map (uncurry eqSyntatic) $ map (\eq -> (eqLHS eq, eqRHS eq)) eqs
+    toSubst [] = 
+      if and 
+        $ map (uncurry eqSyntatic) 
+        $ map (\eq -> (eqLHS eq, eqRHS eq)) eqs
       then [emptySubstVFresh]
       else []
-    toSubst eqsSubst = if inHomomorphicSolvedForm eqsSubst
-      then [SubstVFresh $ M.fromList $ map (\eq -> 
-        (liftMaybe $ getVar $ fromLNPETerm $ eqLHS eq, fromLNPETerm $ eqRHS eq)) 
-        eqsSubst]
+    toSubst eqsSubst = 
+      let normEqsSubst = map normalizeEq eqsSubst in
+      if inHomomorphicSolvedForm normEqsSubst
+      then [SubstVFresh 
+        $ M.fromList 
+        $ map (\eq -> 
+          (liftMaybe $ getVar $ fromLNPETerm $ eqLHS eq, 
+          fromLNPETerm $ eqRHS eq)
+        ) 
+        normEqsSubst]
       else []
-    tpre eqsLN = map 
-      (\eq -> Equal (toLNPETerm $ eqLHS eq) (toLNPETerm $ eqRHS eq)) 
-      (map normalizeEq eqsLN)
-    normalizeEq eq =  let t1 = eqLHS eq
-                          t2 = eqRHS eq
-                      in case (viewTerm t1, viewTerm t2) of
-                          (FApp _ _, Lit (Var _)) -> Equal t2 t1
-                          (Lit (Con _), Lit (Var _)) -> Equal t2 t1
-                          (_, _) -> Equal t1 t2
+    tpre eqsLN = 
+      map (\eq -> Equal 
+      (toLNPETerm $ eqLHS eq) 
+      (toLNPETerm $ eqRHS eq)) eqsLN
+    normalizeEq eq =
+      let 
+      t1 = eqLHS eq
+      t2 = eqRHS eq
+      v1 = viewTerm $ fromLNPETerm t1
+      v2 = viewTerm $ fromLNPETerm t2
+      in case (v1,v2) of
+        (FApp _ _, Lit (Var _)) -> Equal t2 t1
+        (Lit (Con _), Lit (Var _)) -> Equal t2 t1
+        (_, _) -> Equal t1 t2
     liftMaybe jv = let Just v = jv in v 
 
 -- | Applies all homomorphic rules given en block, i.e., 

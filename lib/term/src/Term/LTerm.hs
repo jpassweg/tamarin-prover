@@ -866,22 +866,28 @@ positionsWithTerms t p = case viewTerm t of
 
 pPosition :: String -> LNTerm -> String
 pPosition [] _ = ""
-pPosition (i:q) t = case viewTerm t of
-  FApp funsym args -> if isPair t
+pPosition (i:q) t =  case viewTerm t of
+  FApp funsym args -> 
+    if length args > read [i] 
+    then if isPair t 
     then [i] ++ (pPosition q $ args !! (read [i]))
     else if showFunSymName funsym == "senc"
-      then pPosition q $ args !! (read [i])
-      else "F" -- TODO: better idea than just add FAIL?
-  _ -> "F"     -- Maybe find better way than paper?
+    then pPosition q $ args !! (read [i])
+    else "F"
+    else "F"
+  _ -> "F"
 
 ePosition :: String -> LNTerm -> String
 ePosition [] _ = ""
 ePosition (i:q) t = case viewTerm t of
-  FApp funsym args -> if showFunSymName funsym == "senc"
+  FApp funsym args -> 
+    if length args >= read [i]
+    then if showFunSymName funsym == "senc"
     then [i] ++ (ePosition q $ args !! (read [i]))
     else if isPair t
-      then ePosition q $ args !! (read [i])
-      else "F"
+    then ePosition q $ args !! (read [i])
+    else "F"
+    else "F"
   _ -> "F"
 
 positionsIncompatible :: String -> LNTerm -> String -> LNTerm -> Bool
