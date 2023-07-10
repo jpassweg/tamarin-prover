@@ -95,6 +95,7 @@ testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
     [ testTrue "trivial case" (propUnifyHomomorphicSound x0 x0)
     , testTrue "trivial non-equality" (not (propUnifyHomomorphicSound (senc(x0,x1)) x1))
     -- right now creates infinite loop
+    -- TODO: take away different rules to see which one creates infinity loop
     --, testTrue "def homomorphic enc" (propUnifyHomomorphicSound t1 t2) -- does not work yet
     ]
   where
@@ -121,8 +122,11 @@ testsUnifyHomomorphicSf =
     [ testTrue "position var" (positionsWithTerms x0 == [("",x0)])
     , testTrue "position func1" (positionsWithTerms t1 == posT1)
     , testTrue "position func2" (positionsWithTerms t2 == posT2)
-    , testTrue "ppos 1" (pPosition "112" tpaper == "12")
-    , testTrue "epos 1" (ePosition "112" tpaper == "1")
+    , testTrue "ppos paper" (pPosition "112" tpaper == "12")
+    , testTrue "epos paper" (ePosition "112" tpaper == "1")
+    -- TODO: also test valid bit string
+    -- TODO: add all examples from paper
+    -- TODO: test transformation from and back both representations
     ]
   where
     t1 = (senc(pair(x0,x1),x2))
