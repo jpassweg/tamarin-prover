@@ -122,8 +122,8 @@ testsUnifyHomomorphicSf =
     [ testTrue "position var" (positionsWithTerms x0 == [("",x0)])
     , testTrue "position func1" (positionsWithTerms t1 == posT1)
     , testTrue "position func2" (positionsWithTerms t2 == posT2)
-    , testTrue "ppos paper" (pPosition "112" tpaper == "12")
-    , testTrue "epos paper" (ePosition "112" tpaper == "1")
+    , testTrue "ppos paper" (pPosition "112" tpaper1 == "12")
+    , testTrue "epos paper" (ePosition "112" tpaper1 == "1")
     -- TODO: also test valid bit string
     -- TODO: add all examples from paper
     -- TODO: test transformation from and back both representations
@@ -142,8 +142,38 @@ testsUnifyHomomorphicSf =
             , ("12", (x2) )
             , ("2", (senc(x1,x2)) )
             , ("21", (x1) )
-            , ("22", (x2) )]
-    tpaper = (pair(senc(pair(x0,x2),x4),x3))
+            , ("22", (x2) ) ]
+    tpaper1 = (pair(senc(pair(x0,x2),x4),x3))
+    tpaper2 = (pair(pair(x0,x1),senc(pair(x2,x3),x4)))
+    pPurePosTPaper2 = 
+      [ ("", tpaper2 ) 
+      , ("1", pair(x0,x1) )
+      , ("11", (x0) )
+      , ("12", (x1) )
+      , ("2", (senc(pair(x2,x3),x4)) ) ]
+    maxPPurePosTPaper2 = 
+      [ ("11", (x0) )
+      , ("12", (x1) )
+      , ("2", (senc(pair(x2,x3),x4)) ) ]
+    tpaper3 = (senc(senc(x0,x1),senc(x2,x3) ))
+    ePurePosTPaper3 =
+      [ ("", tpaper3 )
+      , ("1", (senc(x0,x1)) )
+      , ("11", (x0) )
+      , ("12", (x1) )
+      , ("2", (senc(x2,x3)) )
+      , ("21", (x2) )
+      , ("22", (x3) ) ]
+    ePenukPosTPaper3 = 
+      [ ("", tpaper3 )
+      , ("1", (senc(x0,x1)) )
+      , ("11", (x0) )
+      , ("12", (x1) )
+      , ("2", (senc(x2,x3)) ) ]
+    maxEPenukPosTPaper3 =
+      [ ("11", (x0) )
+      , ("12", (x1) )
+      , ("2", (senc(x2,x3)) ) ]
 
 -- Function to test if strings used in a P-Representation are valid
 validBitString :: [String] -> Bool
