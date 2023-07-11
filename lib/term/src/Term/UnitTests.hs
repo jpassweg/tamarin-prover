@@ -96,7 +96,7 @@ testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
     , testTrue "trivial non-equality" (not (propUnifyHomomorphicSound (senc(x0,x1)) x1))
     -- right now creates infinite loop
     -- TODO: take away different rules to see which one creates infinity loop
-    --, testTrue "def homomorphic enc" (propUnifyHomomorphicSound t1 t2) -- does not work yet
+    , testTrue "def homomorphic enc" (propUnifyHomomorphicSound t1 t2) -- does not work yet
     ]
   where
     t1 = (senc(pair(x0,x1),x2))
@@ -124,25 +124,41 @@ testsUnifyHomomorphicSf =
     , testTrue "position func2" (positionsWithTerms t2 == posT2)
     , testTrue "ppos paper" (pPosition "112" tpaper1 == "12")
     , testTrue "epos paper" (ePosition "112" tpaper1 == "1")
+    , testTrue "purePPos paper" (findPurePPositions tpaper2 == pPurePosTPaper2)
+    , testTrue "maxPPurePos paper" (maximalPositions (findPurePPositions tpaper2) == maxPPurePosTPaper2)
+    , testTrue "penukEPos" (findPenukEPositions tpaper3 == ePenukPosTPaper3)
+    , testTrue "maxPenukEPos" (maximalPositions (findPenukEPositions tpaper3) == maxEPenukPosTPaper3)
+    , testTrue "fromtoERep 1" (fromERepresentation (buildERepresentation t1) == t1)
+    , testTrue "fromtoERep 2" (fromERepresentation (buildERepresentation t2) == t2)
+    , testTrue "fromtoERep paper1" (fromERepresentation (buildERepresentation tpaper1) == tpaper1)
+    , testTrue "fromtoERep paper2" (fromERepresentation (buildERepresentation tpaper2) == tpaper2)
+    , testTrue "fromtoERep paper3" (fromERepresentation (buildERepresentation tpaper3) == tpaper3)
+    , testTrue "fromtoPRep 1" (fromPRepresentation (buildPRepresentation t1) == t1)
+    , testTrue "fromtoPRep 2" (fromPRepresentation (buildPRepresentation t2) == t2)
+    , testTrue "fromtoPRep paper1" (fromPRepresentation (buildPRepresentation tpaper1) == tpaper1)
+    , testTrue "fromtoPRep paper2" (fromPRepresentation (buildPRepresentation tpaper2) == tpaper2)
+    , testTrue "fromtoPRep paper3" (fromPRepresentation (buildPRepresentation tpaper3) == tpaper3)
     -- TODO: also test valid bit string
     -- TODO: add all examples from paper
     -- TODO: test transformation from and back both representations
     ]
   where
     t1 = (senc(pair(x0,x1),x2))
-    posT1 = [ ("", (senc(pair(x0,x1),x2)) )
-            , ("1", (pair(x0,x1)) )
-            , ("11", (x0) )
-            , ("12", (x1) )
-            , ("2", (x2) ) ]
+    posT1 = 
+      [ ("", (senc(pair(x0,x1),x2)) )
+      , ("1", (pair(x0,x1)) )
+      , ("11", (x0) )
+      , ("12", (x1) )
+      , ("2", (x2) ) ]
     t2 = (pair(senc(x0,x2),senc(x1,x2)))
-    posT2 = [ ("", (pair(senc(x0,x2),senc(x1,x2))) )
-            , ("1", (senc(x0,x2)) )
-            , ("11", (x0) )
-            , ("12", (x2) )
-            , ("2", (senc(x1,x2)) )
-            , ("21", (x1) )
-            , ("22", (x2) ) ]
+    posT2 = 
+      [ ("", (pair(senc(x0,x2),senc(x1,x2))) )
+      , ("1", (senc(x0,x2)) )
+      , ("11", (x0) )
+      , ("12", (x2) )
+      , ("2", (senc(x1,x2)) )
+      , ("21", (x1) )
+      , ("22", (x2) ) ]
     tpaper1 = (pair(senc(pair(x0,x2),x4),x3))
     tpaper2 = (pair(pair(x0,x1),senc(pair(x2,x3),x4)))
     pPurePosTPaper2 = 

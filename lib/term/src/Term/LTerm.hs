@@ -120,6 +120,13 @@ module Term.LTerm (
   , prettyLNTerm
   , showLitName
 
+  -- * For debuggin Homomorphic Representations
+  , findPurePPositions
+  , findPenukEPositions
+  , maximalPositions
+  , buildPRepresentation
+  , buildERepresentation
+
   -- * Convenience exports
   , module Term.VTerm
 ) where
@@ -882,68 +889,67 @@ ePosition (i:q) t = case viewTerm t of
     else "ARGL"
   _ -> "NONF"
 
+-- TODO: not yet tested
 positionsIncompatible :: String -> LNTerm -> String -> LNTerm -> Bool
 positionsIncompatible q1 t1 q2 t2 = properPrefix (pPosition q1 t1) (pPosition q2 t2)
   || properPrefix (pPosition q2 t2) (pPosition q1 t1)
   || ((pPosition q2 t2) == (pPosition q1 t1) 
-      && containsOnlyOnes (pPosition q1 t1) 
-      && containsOnlyOnes (pPosition q2 t2))
-  where
-    properPrefix _ [] = False
-    properPrefix [] _ = True
-    properPrefix (s11:s1) (s21:s2) = s11 == s21 && properPrefix s1 s2
-    containsOnlyOnes [] = True
-    containsOnlyOnes (s1:s) = s1 == '1' && containsOnlyOnes s
+      && all ((==) '1') (pPosition q1 t1) 
+      && all ((==) '1') (pPosition q2 t2))
 
+-- | Returns all positions in t for which epos==""
 findPurePPositions :: LNTerm -> [(String, LNTerm)]
-findPurePPositions t = map (\(a,_,c) -> (a,c)) 
-  $ filter (\(_,b,_) -> b == "") 
-  $ map (\(p,tt) -> (p, ePosition p t, tt)) 
+findPurePPositions t = 
+  filter (\(p,_) -> ePosition p t == "")
   $ positionsWithTerms t
 
+-- | Returns all positions in t for which ppos=="" and are not position under a key
 findPenukEPositions :: LNTerm -> [(String, LNTerm)]
-findPenukEPositions t = map (\(a,_,c) -> (a,c))
-  $ filter (\(a,_,_) -> penukPositions a) 
-  $ filter (\(_,b,_) -> b == "") 
-  $ map (\(p,tt) -> (p, pPosition p t, tt)) 
+findPenukEPositions t = 
+  filter (\(p,_) -> pPosition p t == "" && penukPositions p) 
   $ positionsWithTerms t
   where 
     penukPositions [] = True
-    penukPositions (x:xs) = 
-      (x == '1' && penukPositions xs) || (x == '2' && null xs)
+    penukPositions (x:xs) = (x == '1' && penukPositions xs) || (x == '2' && null xs)
 
-maximalPurePositions :: [(String, LNTerm)] -> [(String, LNTerm)]
-maximalPurePositions pures = 
-  filter (\(purePos,_) -> not 
-  $ any (properPrefix purePos) 
-  $ map (\(a,_) -> a) pures) pures
-  where
-    properPrefix :: String -> String -> Bool
-    properPrefix _ [] = False
-    properPrefix [] _ = True
-    properPrefix (s11:s1) (s21:s2) = s11 == s21 && properPrefix s1 s2
+properPrefix :: String -> String -> Bool
+properPrefix _ [] = False
+properPrefix [] _ = True
+properPrefix (s11:s1) (s21:s2) = s11 == s21 && properPrefix s1 s2
 
--- Actually build P representation as needed for rules
+-- | Returns all positions that are not prefixes of other positions
+maximalPositions :: [(String, LNTerm)] -> [(String, LNTerm)]
+maximalPositions ps = 
+  filter (\p -> not $ any (properPrefix $ fst p) $ map fst ps) ps
+
+-- | returns P representation for Homomorphic Patterns
 buildPRepresentation :: LNTerm -> PRepresentation
-buildPRepresentation t = (uncurry PRep) 
-  $ unzip $ map (\(a,b) -> (a, buildERepresentation b)) 
-  $ maximalPurePositions $ findPurePPositions t
+buildPRepresentation t = 
+  (uncurry PRep) $ unzip 
+  $ map (\(a,b) -> (a, buildERepresentation b)) 
+  $ maximalPositions $ findPurePPositions t
 
--- Actually build E representation as needed for rules
+-- | returns E representation for Homomorphic Patterns
 buildERepresentation :: LNTerm -> ERepresentation
-buildERepresentation t = map snd $ maximalPurePositions $ findPenukEPositions t
+buildERepresentation t = map snd $ maximalPositions $ findPenukEPositions t
 
 -- gonna be very hacky
 fromPRepresentation :: PRepresentation -> LNTerm
-fromPRepresentation p = if eRepsString p == [""]
+fromPRepresentation p = 
+  if eRepsString p == [""]
   then fromERepresentation $ head $ eRepsTerms p
-  else (FAPP (NoEq ((BC.pack "pair"),(2, Public, Constructor))) [fromPRepresentation $ getOnes,
-    fromPRepresentation $ getTwos])
+  else fAppPair(
+      fromPRepresentation $ sRep takeWhile
+    , fromPRepresentation $ sRep dropWhile )
   where
-    getOnes = (uncurry PRep) $ unzip $ 
-      takeWhile (\(a,_) -> (head a) == '1') $ zip (eRepsString p) (eRepsTerms p)
-    getTwos = (uncurry PRep) $ unzip $ 
-      dropWhile (\(a,_) -> (head a) == '1') $ zip (eRepsString p) (eRepsTerms p)
+    sRep fWhile = 
+      (uncurry PRep) $ unzip 
+      $ map (\(a,b) -> (safeTail a, b)) 
+      $ fWhile (\(a,_) -> (head a) == '1')
+      $ zip (eRepsString p) (eRepsTerms p)
+    safeTail xs 
+      | null xs   = ""
+      | otherwise = tail xs
 
 -- very hacky
 fromERepresentation :: ERepresentation -> LNTerm
