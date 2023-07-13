@@ -108,7 +108,8 @@ px8  = pubVar "px" 8
 px9  = pubVar "px" 9
 px10 = pubVar "px" 10
 
-lx1,lx2,lx3,lx4,lx5,lx6,lx7,lx8,lx9,lx10 :: LVar
+lx0,lx1,lx2,lx3,lx4,lx5,lx6,lx7,lx8,lx9,lx10 :: LVar
+lx0 = LVar "x" LSortMsg 0
 lx1 = LVar "x" LSortMsg 1
 lx2 = LVar "x" LSortMsg 2
 lx3 = LVar "x" LSortMsg 3

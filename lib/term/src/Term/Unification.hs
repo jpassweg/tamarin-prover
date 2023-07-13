@@ -76,6 +76,10 @@ module Term.Unification (
   , addFunSym
   , addCtxtStRule
 
+  -- * For debugging
+  , debugHomomorphicRule
+  , HomomorphicRuleReturn(..)
+
   -- * Convenience exports
   , module Term.Substitution
   , module Term.Rewriting.Definitions
@@ -193,6 +197,7 @@ data HomomorphicRuleReturn = HEqs [Equal LNPETerm]
   | HSubstEqs LNSubst [Equal LNPETerm] 
   | HNothing
   | HFail
+  deriving (Show, Eq)
 
 -- | Type for rules applied to equations for unification modulo EpsilonH
 type HomomorphicRule = Equal LNPETerm -> (Name -> LSort) -> [Equal LNPETerm] -> HomomorphicRuleReturn
@@ -219,60 +224,72 @@ switchedWrapperHomomorphicRule :: HomomorphicRule -> HomomorphicRule
 switchedWrapperHomomorphicRule rule eq sortOf eqs =
   rule (Equal (eqRHS eq) (eqLHS eq)) sortOf eqs
 
+debugHomomorphicRule :: Int -> HomomorphicRule
+debugHomomorphicRule i eq sortOf eqs =
+  (allHomomorphicRules !! i) eq sortOf eqs
+
 -- | Standard syntatictic inference rules
 -----------------------------------------
 
 trivialHomomorphicRule :: HomomorphicRule
-trivialHomomorphicRule eq _ _ = if 
-    (uncurry eqSyntatic) $ (\e -> (lnTerm $ eqLHS e, lnTerm $ eqRHS e)) eq
+trivialHomomorphicRule eq _ _ = 
+  if (uncurry eqSyntatic) $ (\e -> (lnTerm $ eqLHS e, lnTerm $ eqRHS e)) eq
   then HEqs []
   else HNothing
 
 stdDecompositionHomomorphicRule :: HomomorphicRule
 stdDecompositionHomomorphicRule eq _ _ =
   case (viewTerm $ lnTerm $ eqLHS eq, viewTerm $ lnTerm $ eqRHS eq) of
-    -- TODO finish implementation, also have a look at viewTerm2
-    (FApp (NoEq lfsym) largs, FApp (NoEq rfsym) rargs)  -> 
+    (FApp (NoEq lfsym) largs, FApp (NoEq rfsym) rargs) -> 
       addArgs (lfsym == rfsym && length largs == length rargs) largs rargs 
-    (FApp List largs, FApp List rargs)                  -> 
+    (FApp List largs, FApp List rargs)                 -> 
       addArgs (length largs == length rargs) largs rargs
-    (FApp (AC lacsym) largs, FApp (AC racsym) rargs)    -> 
+    (FApp (AC lacsym) largs, FApp (AC racsym) rargs)   -> 
       addArgs (lacsym == racsym && length largs == length rargs) largs rargs
-    (FApp (C lcsym) largs, FApp (C rcsym) rargs)        -> 
+    (FApp (C lcsym) largs, FApp (C rcsym) rargs)       -> 
       addArgs (lcsym == rcsym && length largs == length rargs) largs rargs
-    (_,_)                                               -> HNothing
+    (_,_)                                              -> HNothing
   where
-    addArgs bool las ras = if bool
+    addArgs bool las ras = 
+      if bool
       then HEqs $ map (\(a,b) -> Equal (toLNPETerm a) (toLNPETerm b)) $ zip las ras
       else HNothing
 
+-- NOTE: might need to check if the substitution this function is returning
+-- does not violate rules about which sort of variables are allowed to be
+-- substituted.
 variableSubstitutionHomomorphicRule :: HomomorphicRule
 variableSubstitutionHomomorphicRule eq _ eqs =
   case (viewTerm $ lnTerm $ eqLHS eq) of
-    (Lit (Var nameLHS)) -> if 
-        (not $ occursVTerm nameLHS (lnTerm $ eqRHS eq)) 
-        && (occursEqs nameLHS eqs) 
-      then HSubstEqs 
-        (Subst $ M.fromList [(nameLHS, lnTerm $ eqRHS eq)]) [eq]
+    (Lit (Var vl)) -> 
+      if (not $ occursVTerm vl (lnTerm $ eqRHS eq)) && (occursEqs vl eqs) 
+      then HSubstEqs (Subst $ M.fromList [(vl, lnTerm $ eqRHS eq)]) [eq]
       else HNothing
     _ -> HNothing
   where
-    occursEqs n es = 
-      any (\(Equal a b) -> (occursVTerm n $ lnTerm a) 
-      || (occursVTerm n $ lnTerm b)) es
+    occursEqs v es = 
+      any (\(Equal a b) -> (occursVTerm v $ lnTerm a) || 
+                           (occursVTerm v $ lnTerm b)) es
 
--- Find pairSym in Term.Term.FunctionSymbols 
--- and sencSym in Term.Builtin.Signature
 clashHomomorphicRule :: HomomorphicRule
 clashHomomorphicRule eq _ _ = 
   case (viewTerm $ lnTerm $ eqLHS eq, viewTerm $ lnTerm $ eqRHS eq) of
-    (FApp (NoEq oleft) _, FApp (NoEq oright) _) -> if 
-           (oleft == pairSym && oright == sencSym) 
-        || (oleft == sencSym && oright == pairSym) 
-        || oleft == oright
+    (FApp (NoEq lfsym) _, FApp (NoEq rfsym) _) -> 
+      if lfsym == rfsym 
+        || (lfsym == pairSym && rfsym == sencSym)
+        || (lfsym == sencSym && rfsym == pairSym)
       then HNothing
       else HFail
-    _ -> HNothing
+    (FApp List _, FApp List _)                 -> HNothing
+    (FApp (AC lacsym) _, FApp (AC racsym) _)   -> 
+      if lacsym == racsym
+      then HNothing
+      else HFail
+    (FApp (C lcsym) _, FApp (C rcsym) _)       -> 
+      if lcsym == rcsym
+      then HNothing
+      else HFail
+    (_,_)                                      -> HNothing
 
 occurCheckHomomorphicRule :: HomomorphicRule
 occurCheckHomomorphicRule eq _ _ = 
@@ -290,41 +307,40 @@ occurCheckHomomorphicRule eq _ _ =
 shapingHomomorphicRule :: HomomorphicRule
 shapingHomomorphicRule eq _ eqs = let
   eRepsLHS = eRepsTerms $ pRep $ eqLHS eq
-  strLHS = eRepsString $ pRep $ eqLHS eq
+  strsLHS = eRepsString $ pRep $ eqLHS eq
   eRepRHS = eRep $ eqRHS eq
-  pl = (length $ eRepsLHS) 
   n = (length $ eRepRHS) - 1
-  in if pl >= 2 && n >= 2
-  then case findQualifyingETerm eRepsLHS 0 of
+  in if (length $ eRepsLHS) >= 1 && n >= 2
+  then case findQualifyingETerm eRepsLHS n 0 of
     Just qualifyingIndex -> let 
       qualifyingELhs = eRepsLHS !! qualifyingIndex
-      m = n + 1 - (length qualifyingELhs)
-      xnew = varTerm $ LVar "fxShapingHomomorphic" LSortFresh $ (getFreshVarCounter ([eq] ++ eqs) 0) + 1
+      m = n + 2 - (length qualifyingELhs)
+      xnew = varTerm $ LVar "fxShapingHomomorphic" LSortFresh $ gC ([eq] ++ eqs)
       x = toLNPETerm $ head qualifyingELhs
       lhs1NewETerm = ([xnew] ++ (take (m-1) (tail eRepRHS)) ++ (tail qualifyingELhs))
       lhs1NewPTerm = let (ys,zs) = splitAt qualifyingIndex eRepsLHS in
-        PRep strLHS (ys ++ [lhs1NewETerm] ++ (tail zs))
-      rhs2ETerm = [xnew] ++ (take (m-1) (tail eRepRHS))
+        PRep strsLHS (ys ++ [lhs1NewETerm] ++ (tail zs))
       lhs1 = toLNPETerm $ fromPRepresentation lhs1NewPTerm
-      rhs1 = eqRHS eq
-      lhs2 = x
-      rhs2 = toLNPETerm $ fromERepresentation rhs2ETerm
+      rhs2 = toLNPETerm $ fromERepresentation $ [xnew] ++ (take (m-1) (tail eRepRHS))
       in 
-        HEqs [Equal lhs1 rhs1, Equal lhs2 rhs2] 
+        HEqs [Equal lhs1 (eqRHS eq), Equal x rhs2] 
     Nothing -> HNothing
   else HNothing
   where
-    findQualifyingETerm :: [[LNTerm]] -> Int -> Maybe Int
-    findQualifyingETerm [] _ = Nothing
-    findQualifyingETerm (e:es) ind =
-      if length e >= 2
+    findQualifyingETerm :: [ERepresentation] -> Int -> Int -> Maybe Int
+    findQualifyingETerm [] _ _ = Nothing
+    findQualifyingETerm (e:es) nt ind =
+      if length e - 2 <= nt && length e >= 2
       then Just ind
-      else findQualifyingETerm es (ind+1)
-    getFreshVarCounter [] n = n
-    getFreshVarCounter (q:qs) n = getFreshVarCounter qs $ max n 
-      $ lvarIdx
-      $ foldr (\lv1 lv2 -> if lvarIdx lv1 >= lvarIdx lv2 then lv1 else lv2) 
-      (LVar "fxShapingHomomorphic" LSortFresh 0)
+      else findQualifyingETerm es nt (ind+1)
+    gC :: [Equal LNPETerm] -> Integer
+    gC qs = (gC' qs 0) + 1
+    gC' :: [Equal LNPETerm] -> Integer -> Integer
+    gC' [] num = num
+    gC' (q:qs) num = gC' qs $ max num (maxQ q)
+    maxQ :: Equal LNPETerm -> Integer
+    maxQ q = foldr max 0
+      $ map lvarIdx
       $ filter (\lv -> lvarName lv == "fxShapingHomomorphic")
       $ (frees $ lnTerm $ eqLHS q) ++ (frees $ lnTerm $ eqRHS q)
 
@@ -334,23 +350,23 @@ failureOneHomomorphicRule eq _ _ = let
     t2 = lnTerm $ eqRHS eq
     t1Pos = positionsWithTerms t1
     t2Pos = positionsWithTerms t2
-    t1NonKey = filter (\(p,_) -> all (\bc -> bc == '1') (ePosition p t1)) t1Pos
-    t2NonKey = filter (\(p,_) -> all (\bc -> bc == '1') (ePosition p t2)) t2Pos
+    t1NonKey = filter (\(p,_) -> all ((==) '1') (ePosition p t1)) t1Pos
+    t2NonKey = filter (\(p,_) -> all ((==) '1') (ePosition p t2)) t2Pos
     matchedVars = matchVars t1NonKey t2NonKey
   in
-  if any (uncurry4 positionsIncompatible) matchedVars
+  if (not $ eqSyntatic t1 t2) 
+    && any (\(m1,m2) -> positionsIncompatible m1 t1 m2 t2) matchedVars
   then HFail
   else HNothing
   where 
-    matchVars :: [(String,LNTerm)] -> [(String,LNTerm)] -> [(String,LNTerm,String,LNTerm)]
+    matchVars :: [(String,LNTerm)] -> [(String,LNTerm)] -> [(String,String)]
     matchVars [] _ = []
     matchVars _ [] = []
     matchVars (v:vs) vs2 =
-      let matches = filter (\v2 -> eqSyntatic (snd v) (snd v2)) vs2 in
+      let matches = filter (\vv2 -> eqSyntatic (snd v) (snd vv2)) vs2 in
       if (isVar $ snd v) && (not $ null matches)
-      then (map (\(m1,m2) -> (fst v, snd v, m1, m2)) matches) ++ matchVars vs vs2
+      then (map (\(m,_) -> (fst v, m)) matches) ++ matchVars vs vs2
       else matchVars vs vs2
-    uncurry4 f (a,b,c,d) = f a b c d
 
 failureTwoHomomorphicRule :: HomomorphicRule
 failureTwoHomomorphicRule eq _ _ = let 

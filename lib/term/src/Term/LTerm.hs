@@ -893,9 +893,10 @@ ePosition (i:q) t = case viewTerm t of
 positionsIncompatible :: String -> LNTerm -> String -> LNTerm -> Bool
 positionsIncompatible q1 t1 q2 t2 = properPrefix (pPosition q1 t1) (pPosition q2 t2)
   || properPrefix (pPosition q2 t2) (pPosition q1 t1)
-  || ((pPosition q2 t2) == (pPosition q1 t1) 
-      && all ((==) '1') (pPosition q1 t1) 
-      && all ((==) '1') (pPosition q2 t2))
+  || ((pPosition q1 t1) == (pPosition q2 t2) 
+      && (ePosition q1 t1) /= (ePosition q2 t2)
+      && all ((==) '1') (ePosition q1 t1) 
+      && all ((==) '1') (ePosition q2 t2))
 
 -- | Returns all positions in t for which epos==""
 findPurePPositions :: LNTerm -> [(String, LNTerm)]
