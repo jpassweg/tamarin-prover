@@ -414,6 +414,7 @@ variableToConst cvar = constTerm (Name (nameOfSort cvar) (NameId ("constVar_" ++
     nameOfSort (LVar _ LSortNode  _) = NodeName
     nameOfSort (LVar _ LSortMsg   _) = error "Invalid sort Msg"
 
+
 -- Destructors
 --------------
 
