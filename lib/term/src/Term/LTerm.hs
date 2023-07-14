@@ -64,7 +64,6 @@ module Term.LTerm (
   , containsPrivate
   , containsNoPrivateExcept
   , neverContainsFreshPriv
-  , eqSyntatic
 
   -- ** Destructors
   , ltermVar
@@ -414,23 +413,6 @@ variableToConst cvar = constTerm (Name (nameOfSort cvar) (NameId ("constVar_" ++
     nameOfSort (LVar _ LSortPub   _) = PubName
     nameOfSort (LVar _ LSortNode  _) = NodeName
     nameOfSort (LVar _ LSortMsg   _) = error "Invalid sort Msg"
-
--- | @eqSyntatic t1 t2@ checks wheter @t1@ is equal to @t2@
-eqSyntatic :: LNTerm -> LNTerm -> Bool
-eqSyntatic t1 t2 =
-  case (viewTerm t1, viewTerm t2) of
-    (Lit (Con nameLHS), Lit (Con nameRHS))              -> nameLHS == nameRHS
-    (Lit (Var nameLHS), Lit (Var nameRHS))              -> nameLHS == nameRHS
-    -- NeEq function symbols. Most builtins functions
-    (FApp (NoEq lfsym) largs, FApp (NoEq rfsym) rargs)  -> lfsym == rfsym && checkEQSyntaticArgs largs rargs 
-    -- free n-ary function symbol of TOP sort
-    (FApp List largs, FApp List rargs)                  -> checkEQSyntaticArgs largs rargs
-    -- AC function symbols. Union | Mult | Xor
-    (FApp (AC lacsym) largs, FApp (AC racsym) rargs)    -> lacsym == racsym && checkEQSyntaticArgs largs rargs
-    -- C(ommutative) function symbols
-    (FApp (C lcsym) largs, FApp (C rcsym) rargs)        -> lcsym == rcsym && checkEQSyntaticArgs largs rargs
-    (_, _)                                              -> False
-  where checkEQSyntaticArgs la ra = length la == length ra && all (uncurry eqSyntatic) (zip la ra)
 
 -- Destructors
 --------------
@@ -869,7 +851,7 @@ pPosition (i:q) t = case viewTerm t of
     if length args > read [i] - 1 
     then if isPair t 
     then [i] ++ (pPosition q $ args !! (read [i] - 1))
-    else if showFunSymName funsym == "senc"
+    else if isHenc funsym
     then pPosition q $ args !! (read [i] - 1)
     else "DIFF"
     else "ARGL"
@@ -881,7 +863,7 @@ ePosition [] _ = ""
 ePosition (i:q) t = case viewTerm t of
   FApp funsym args -> 
     if length args > read [i] - 1
-    then if showFunSymName funsym == "senc"
+    then if isHenc funsym
     then [i] ++ (ePosition q $ args !! (read [i] - 1))
     else if isPair t
     then ePosition q $ args !! (read [i] - 1)
@@ -889,7 +871,9 @@ ePosition (i:q) t = case viewTerm t of
     else "ARGL"
   _ -> "NONF"
 
--- TODO: not yet tested
+isHenc :: FunSym -> Bool
+isHenc funsym = (showFunSymName funsym) == "henc"
+
 positionsIncompatible :: String -> LNTerm -> String -> LNTerm -> Bool
 positionsIncompatible q1 t1 q2 t2 = properPrefix (pPosition q1 t1) (pPosition q2 t2)
   || properPrefix (pPosition q2 t2) (pPosition q1 t1)
@@ -956,7 +940,9 @@ fromPRepresentation p =
 fromERepresentation :: ERepresentation -> LNTerm
 fromERepresentation e = if length e == 1
   then head e
-  else (FAPP (NoEq ((BC.pack "senc"),(2, Public, Constructor))) ([fromERepresentation (init e)] ++ [last e]))
+  else (FAPP hencSym ([fromERepresentation (init e)] ++ [last e]))
+  where
+    hencSym = NoEq ((BC.pack "henc"),(2, Public, Constructor))
 
 ------------------------------------------------------------------------------
 -- Pretty Printing

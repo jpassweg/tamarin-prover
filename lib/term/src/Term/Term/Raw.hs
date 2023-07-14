@@ -64,11 +64,33 @@ import           Term.Term.FunctionSymbols
 -- or 'viewTerm2' to inspect it.
 data Term a = LIT a                 -- ^ atomic terms (constants, variables, ..)
             | FAPP FunSym [Term a]  -- ^ function applications
-  deriving (Eq, Ord, Typeable, Data, Generic, NFData, Binary )
+  deriving (Ord, Typeable, Data, Generic, NFData, Binary )
 
 instance Functor Term  where
     fmap f (LIT a)      = LIT (f a)
     fmap f (FAPP fs ts) = FAPP fs (map (fmap f) ts)
+
+hencSym :: NoEqSym
+hencSym = (BC.pack "henc",(2, Public, Constructor))
+
+instance Eq a => Eq (Term a) where
+    (LIT x1) == (LIT x2) = x1 == x2 
+    (FAPP (NoEq sym1) [(FAPP (NoEq pair1) [(LIT x1),(LIT x2)]), (LIT x3)]) == 
+      (FAPP (NoEq pair2) 
+      [ (FAPP (NoEq sym2) [(LIT x4), (LIT x5)]) 
+      , (FAPP (NoEq sym3) [(LIT x6), (LIT x7)]) ] ) = 
+        x1 == x4 && x2 == x6 && x3 == x5 && x3 == x7 
+        && sym1 == hencSym && sym2 == hencSym && sym3 == hencSym 
+        && pair1 == pairSym && pair2 == pairSym
+    (FAPP (NoEq pair2) 
+      [ (FAPP (NoEq sym2) [(LIT x4), (LIT x5)]) 
+      , (FAPP (NoEq sym3) [(LIT x6), (LIT x7)]) ] ) ==
+      (FAPP (NoEq sym1) [(FAPP (NoEq pair1) [(LIT x1),(LIT x2)]), (LIT x3)]) =
+        x1 == x4 && x2 == x6 && x3 == x5 && x3 == x7 
+        && sym1 == hencSym && sym2 == hencSym && sym3 == hencSym 
+        && pair1 == pairSym && pair2 == pairSym
+    (FAPP f1 args1) == (FAPP f2 args2) = f1 == f2 && args1 == args2
+    _ == _ = False
 
 ----------------------------------------------------------------------
 -- Diff Type - whether left/right interpretation of diff is desired,

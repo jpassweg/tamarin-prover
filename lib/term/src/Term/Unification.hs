@@ -204,7 +204,7 @@ type HomomorphicRule = Equal LNPETerm -> (Name -> LSort) -> [Equal LNPETerm] -> 
 
 -- | All homomorphic rules in order of application
 allHomomorphicRules :: [HomomorphicRule]
-allHomomorphicRules = (\rules -> rules ++ map switchedWrapperHomomorphicRule rules)
+allHomomorphicRules = map (\r -> combineWrapperHomomorphicRule r (switchedWrapperHomomorphicRule r))
   [ failureOneHomomorphicRule -- failure rules first
   , failureTwoHomomorphicRule
   , occurCheckHomomorphicRule
@@ -217,13 +217,23 @@ allHomomorphicRules = (\rules -> rules ++ map switchedWrapperHomomorphicRule rul
   , trivialHomomorphicRule
   , stdDecompositionHomomorphicRule]
 
--- Since the equality sign used is not oriented, we need
+-- | Combines two rules and runs one after the other if the first returns HNothing
+combineWrapperHomomorphicRule :: HomomorphicRule -> HomomorphicRule -> HomomorphicRule
+combineWrapperHomomorphicRule rule1 rule2 eq sortOf eqs =
+  case rule1 eq sortOf eqs of
+    HEqs newEqs             -> HEqs newEqs
+    HSubstEqs subst newEqs  -> HSubstEqs subst newEqs
+    HNothing                -> rule2 eq sortOf eqs
+    HFail                   -> HFail
+
+-- | Since the equality sign used is not oriented, we need
 -- to look at the possibility of rule applications for 
 -- both x = t and t = x for any equation.
 switchedWrapperHomomorphicRule :: HomomorphicRule -> HomomorphicRule
 switchedWrapperHomomorphicRule rule eq sortOf eqs =
   rule (Equal (eqRHS eq) (eqLHS eq)) sortOf eqs
 
+-- | used to export homomorphic rules for debugging
 debugHomomorphicRule :: Int -> HomomorphicRule
 debugHomomorphicRule i eq sortOf eqs =
   (allHomomorphicRules !! i) eq sortOf eqs
@@ -232,8 +242,7 @@ debugHomomorphicRule i eq sortOf eqs =
 -----------------------------------------
 
 trivialHomomorphicRule :: HomomorphicRule
-trivialHomomorphicRule eq _ _ = 
-  if (uncurry eqSyntatic) $ (\e -> (lnTerm $ eqLHS e, lnTerm $ eqRHS e)) eq
+trivialHomomorphicRule eq _ _ = if (lnTerm $ eqLHS eq) == (lnTerm $ eqRHS eq)
   then HEqs []
   else HNothing
 
@@ -276,8 +285,8 @@ clashHomomorphicRule eq _ _ =
   case (viewTerm $ lnTerm $ eqLHS eq, viewTerm $ lnTerm $ eqRHS eq) of
     (FApp (NoEq lfsym) _, FApp (NoEq rfsym) _) -> 
       if lfsym == rfsym 
-        || (lfsym == pairSym && rfsym == sencSym)
-        || (lfsym == sencSym && rfsym == pairSym)
+        || (lfsym == pairSym && rfsym == hencSym)
+        || (lfsym == hencSym && rfsym == pairSym)
       then HNothing
       else HFail
     (FApp List _, FApp List _)                 -> HNothing
@@ -295,7 +304,7 @@ occurCheckHomomorphicRule :: HomomorphicRule
 occurCheckHomomorphicRule eq _ _ = 
   case getVar $ lnTerm $ eqLHS eq of
     Just v  -> if 
-        (not $ eqSyntatic (lnTerm $ eqLHS eq) (lnTerm $ eqRHS eq))
+        ((lnTerm $ eqLHS eq) /= (lnTerm $ eqRHS eq))
         && (occursVTerm v (lnTerm $ eqRHS eq))
       then HFail
       else HNothing
@@ -330,7 +339,7 @@ shapingHomomorphicRule eq _ eqs = let
     findQualifyingETerm :: [ERepresentation] -> Int -> Int -> Maybe Int
     findQualifyingETerm [] _ _ = Nothing
     findQualifyingETerm (e:es) nt ind =
-      if length e - 2 <= nt && length e >= 2
+      if length e - 2 <= nt && length e >= 2 && (isVar $ head e)
       then Just ind
       else findQualifyingETerm es nt (ind+1)
     gC :: [Equal LNPETerm] -> Integer
@@ -353,8 +362,7 @@ failureOneHomomorphicRule eq _ _ = let
     t1NonKey = filter (\(p,_) -> all ((==) '1') (ePosition p t1)) t1Pos
     t2NonKey = filter (\(p,_) -> all ((==) '1') (ePosition p t2)) t2Pos
     matchedVars = matchVars t1NonKey t2NonKey
-  in
-  if (not $ eqSyntatic t1 t2) 
+  in if (t1 /= t2) 
     && any (\(m1,m2) -> positionsIncompatible m1 t1 m2 t2) matchedVars
   then HFail
   else HNothing
@@ -363,7 +371,7 @@ failureOneHomomorphicRule eq _ _ = let
     matchVars [] _ = []
     matchVars _ [] = []
     matchVars (v:vs) vs2 =
-      let matches = filter (\vv2 -> eqSyntatic (snd v) (snd vv2)) vs2 in
+      let matches = filter (\vv2 -> (snd v) == (snd vv2)) vs2 in
       if (isVar $ snd v) && (not $ null matches)
       then (map (\(m,_) -> (fst v, m)) matches) ++ matchVars vs vs2
       else matchVars vs vs2
@@ -403,9 +411,7 @@ unifyHomomorphicLTermFactored sortOf eqs =
   toSubst $ applyHomomorphicRules sortOf allHomomorphicRules (tpre eqs)
   where 
     toSubst [] = 
-      if and 
-        $ map (uncurry eqSyntatic) 
-        $ map (\eq -> (eqLHS eq, eqRHS eq)) eqs
+      if and $ map (\eq -> (eqLHS eq) == (eqRHS eq)) eqs
       then [emptySubstVFresh]
       else []
     toSubst eqsSubst = 
@@ -466,9 +472,12 @@ applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
 
 -- | Checks if equations are in the solved form according to the homomorphic theory
 inHomomorphicSolvedForm :: [Equal LNPETerm] -> Bool
-inHomomorphicSolvedForm eqs = all (\eq -> case viewTerm $ lnTerm $ eqLHS eq of
+inHomomorphicSolvedForm eqs = (all (\eq -> case viewTerm $ lnTerm $ eqLHS eq of
   (Lit (Var _)) -> True
-  _ -> False) eqs
+  _ -> False) eqs)
+  && (not $ any (\eq1 -> any (\eq2 -> 
+    ((lnTerm $ eqLHS eq1) == (lnTerm $ eqLHS eq2) && (lnTerm $ eqRHS eq1) /= (lnTerm $ eqRHS eq2)) 
+    ) eqs) eqs)
 
 -- | @unifyHomomorphicLNTerm eqs@ returns a set of unifiers for @eqs@ modulo EpsilonH.
 --

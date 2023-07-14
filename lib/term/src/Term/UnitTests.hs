@@ -94,13 +94,13 @@ testsUnifyHomomorphic :: Test
 testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
   TestList
     [ testTrue "trivial case" (propUnifyHomomorphicSound x0 x0)
-    , testTrue "trivial non-equality" (not (propUnifyHomomorphicSound (senc(x0,x1)) x1))
-    -- TODO: fix
-    --, testTrue "def homomorphic enc" (propUnifyHomomorphicSound t1 t2) -- does not work yet
+    , testTrue "trivial non-equality" (not (propUnifyHomomorphicSound (henc(x0,x1)) x1))
+    , testTrue "def homomorphic enc" (propUnifyHomomorphicSound t1 t2)
+    , testTrue "def homomorphic enc 2" (propUnifyHomomorphicSound t2 t1)
     ]
   where
-    t1 = (senc(pair(x0,x1),x2))
-    t2 = (pair(senc(x0,x2),senc(x1,x2)))
+    t1 = (henc(pair(x0,x1),x2))
+    t2 = (pair(henc(x0,x2),henc(x1,x2)))
 
 -- Returns true if unifyHomomorphicLNTerm was able to unify both given terms
 -- Uses the same method for testing as propUnifySound
@@ -140,53 +140,53 @@ testsUnifyHomomorphicSf =
     , testTrue "fromtoPRep paper3" (fromPRepresentation (buildPRepresentation tpaper3) == tpaper3)
     ]
   where
-    t1 = (senc(pair(x0,x1),x2))
+    t1 = (henc(pair(x0,x1),x2))
     posT1 = 
-      [ ("", (senc(pair(x0,x1),x2)) )
+      [ ("", (henc(pair(x0,x1),x2)) )
       , ("1", (pair(x0,x1)) )
       , ("11", (x0) )
       , ("12", (x1) )
       , ("2", (x2) ) ]
-    t2 = (pair(senc(x0,x2),senc(x1,x2)))
+    t2 = (pair(henc(x0,x2),henc(x1,x2)))
     posT2 = 
-      [ ("", (pair(senc(x0,x2),senc(x1,x2))) )
-      , ("1", (senc(x0,x2)) )
+      [ ("", (pair(henc(x0,x2),henc(x1,x2))) )
+      , ("1", (henc(x0,x2)) )
       , ("11", (x0) )
       , ("12", (x2) )
-      , ("2", (senc(x1,x2)) )
+      , ("2", (henc(x1,x2)) )
       , ("21", (x1) )
       , ("22", (x2) ) ]
-    tpaper1 = (pair(senc(pair(x0,x2),x4),x3))
-    tpaper2 = (pair(pair(x0,x1),senc(pair(x2,x3),x4)))
+    tpaper1 = (pair(henc(pair(x0,x2),x4),x3))
+    tpaper2 = (pair(pair(x0,x1),henc(pair(x2,x3),x4)))
     pPurePosTPaper2 = 
       [ ("", tpaper2 ) 
       , ("1", pair(x0,x1) )
       , ("11", (x0) )
       , ("12", (x1) )
-      , ("2", (senc(pair(x2,x3),x4)) ) ]
+      , ("2", (henc(pair(x2,x3),x4)) ) ]
     maxPPurePosTPaper2 = 
       [ ("11", (x0) )
       , ("12", (x1) )
-      , ("2", (senc(pair(x2,x3),x4)) ) ]
-    tpaper3 = (senc(senc(x0,x1),senc(x2,x3) ))
+      , ("2", (henc(pair(x2,x3),x4)) ) ]
+    tpaper3 = (henc(henc(x0,x1),henc(x2,x3)))
     ePurePosTPaper3 =
       [ ("", tpaper3 )
-      , ("1", (senc(x0,x1)) )
+      , ("1", (henc(x0,x1)) )
       , ("11", (x0) )
       , ("12", (x1) )
-      , ("2", (senc(x2,x3)) )
+      , ("2", (henc(x2,x3)) )
       , ("21", (x2) )
       , ("22", (x3) ) ]
     ePenukPosTPaper3 = 
       [ ("", tpaper3 )
-      , ("1", (senc(x0,x1)) )
+      , ("1", (henc(x0,x1)) )
       , ("11", (x0) )
       , ("12", (x1) )
-      , ("2", (senc(x2,x3)) ) ]
+      , ("2", (henc(x2,x3)) ) ]
     maxEPenukPosTPaper3 =
       [ ("11", (x0) )
       , ("12", (x1) )
-      , ("2", (senc(x2,x3)) ) ]
+      , ("2", (henc(x2,x3)) ) ]
 
 -- debugHomomorphicRule: 
 --  [ failureOneHomomorphicRule             0
@@ -230,33 +230,45 @@ testsUnifyHomomorphicRules = TestLabel "Tests for Unify module EpsilonH Rules" $
     , testTrue "fail1   2" (debugHomomorphicRule 0 tFE1 s [] == HNothing)
     , testTrue "fail1   3" (debugHomomorphicRule 0 tFFE1 s [] == HNothing)
     , testTrue "fail1   4" (debugHomomorphicRule 0 tFE6 s [] == HNothing)
+    , testTrue "fail2   1" (debugHomomorphicRule 1 tFFE5 s [] == HFail)
+    , testTrue "fail2   2" (debugHomomorphicRule 1 tFFE1 s [] == HNothing)
+    , testTrue "fail2   3" (debugHomomorphicRule 1 tE1 s [] == HNothing)
+    , testTrue "fail2   4" (debugHomomorphicRule 1 tFFE6 s [] == HNothing)
+    , testTrue "fail2   5" (debugHomomorphicRule 1 tFFE7 s [] == HNothing)
+    , testTrue "parsing 1" (debugHomomorphicRule 5 tFE1 s [] == HEqs [tE1, tE4])
     ]
   where
     tE1 = Equal (fH x0) (fH x0)
     tE2 = Equal (fH x0) (fH x2)
-    tE3 = Equal (fH x1) (fH x3) 
-    tFE1 = Equal (fH (senc(x0,x1))) (fH (senc(x0,x1)))
-    tFE2 = Equal (fH (senc(x0,x1))) (fH (senc(x2,x3)))
-    tFE3 = Equal (fH (pair(x0,x1))) (fH (senc(x2,x3)))
-    tFE4 = Equal (fH (sdec(x0,x1))) (fH (senc(x2,x3)))
-    tFE5 = Equal (fH (pair(x0,x1))) (fH (senc(x0,x3))) -- out of phase on t5
-    tFE6 = Equal (fH (senc(x0,x1))) (fH (senc(x0,x2)))
-    tHE1 = Equal (fH x0) (fH (senc(x2,x3)))
-    tHE1S = (Subst $ M.fromList [(lx0, (senc(x2,x3)))])
-    tHE2 = Equal (fH x0) (fH (senc(x2,x0)))
+    tE3 = Equal (fH x1) (fH x3)
+    tE4 = Equal (fH x1) (fH x1)
+    tFE1 = Equal (fH (henc(x0,x1))) (fH (henc(x0,x1)))
+    tFE2 = Equal (fH (henc(x0,x1))) (fH (henc(x2,x3)))
+    tFE3 = Equal (fH (pair(x0,x1))) (fH (henc(x2,x3)))
+    tFE4 = Equal (fH (sdec(x0,x1))) (fH (henc(x2,x3)))
+    tFE5 = Equal (fH (pair(x0,x1))) (fH (henc(x0,x3))) -- out of phase on t5
+    tFE6 = Equal (fH (henc(x0,x1))) (fH (henc(x0,x2)))
+    tHE1 = Equal (fH x0) (fH (henc(x2,x3)))
+    tHE1S = (Subst $ M.fromList [(lx0, (henc(x2,x3)))])
+    tHE2 = Equal (fH x0) (fH (henc(x2,x0)))
     xH1 = varTerm $ LVar "fxShapingHomomorphic" LSortFresh 1
     xH2 = varTerm $ LVar "fxShapingHomomorphic" LSortFresh 2
-    tFFE1 = Equal (fH (senc(x0,x1))) (fH (senc(senc(x2,x3),x4)))
-    tFFE2 = Equal (fH (senc(senc(xH1,x3),x1))) (fH (senc(senc(x2,x3),x4)))
-    tFFE2' = Equal (fH (senc(senc(xH2,x3),x1))) (fH (senc(senc(x2,x3),x4)))
-    tFFE3 = Equal (fH x0) (fH (senc(xH1,x3)))
-    tFFE3' = Equal (fH x0) (fH (senc(xH2,x3)))
-    tFFE4 = Equal (fH (x0)) (fH (senc(senc(x2,x3),x4)))
+    tFFE1 = Equal (fH (henc(x0,x1))) (fH (henc(henc(x2,x3),x4)))
+    tFFE2 = Equal (fH (henc(henc(xH1,x3),x1))) (fH (henc(henc(x2,x3),x4)))
+    tFFE2' = Equal (fH (henc(henc(xH2,x3),x1))) (fH (henc(henc(x2,x3),x4)))
+    tFFE3 = Equal (fH x0) (fH (henc(xH1,x3)))
+    tFFE3' = Equal (fH x0) (fH (henc(xH2,x3)))
+    tFFE4 = Equal (fH (x0)) (fH (henc(henc(x2,x3),x4)))
+    tFFE5 = Equal (fH (pair(henc(pair(x0,x1),x2),x3))) (fH (henc(henc(x4,x5),x6)))
+    tFFE6 = Equal (fH (pair(henc(x0,x2),x3))) (fH (henc(henc(x4,x5),x6)))
+    tFFE7 = Equal (fH (pair(henc(pair(x0,x1),x2),x3))) (fH (henc(x4,x6)))
     s = sortOfName
     fH = toLNPETerm
-    -- shaping: tFFE1 = Equal P_[""] [[x,x.1]] E [x.2,x.3,x.4] with n = 2, m = 2
-    --   Return tFFE2 = Equal P_[""] [[xH.1, x.3, x.1]] E [x.2,x.3,x.4]
-    --          tFFE3 = Equal x.0                       E [xH.1, x.3]
+    -- shaping:  tFFE1 = Equal P [""] [[x,x.1]] E [x.2,x.3,x.4] with n = 2, m = 2
+    --    Return tFFE2 = Equal P [""] [[xH.1, x.3, x.1]] E [x.2,x.3,x.4]
+    --           tFFE3 = Equal x.0                       E [xH.1, x.3]
+    -- failure2: tFFE5 = Equal P ["1","2"] [[pair(x,x.1),x.2],[x.3]] 
+    --                         E [x.4,x.5,x.6] with n = 2, m = 1
 
 -- Function to test if strings used in a P-Representation are valid
 validBitString :: [String] -> Bool
