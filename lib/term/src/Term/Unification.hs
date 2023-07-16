@@ -204,12 +204,15 @@ type HomomorphicRule = Equal LNPETerm -> (Name -> LSort) -> [Equal LNPETerm] -> 
 
 -- | All homomorphic rules in order of application
 allHomomorphicRules :: [HomomorphicRule]
-allHomomorphicRules = map (\r -> combineWrapperHomomorphicRule r (switchedWrapperHomomorphicRule r))
-  [ failureOneHomomorphicRule -- failure rules first
+allHomomorphicRules = map (\r -> combineWrapperHomomorphicRule r (switchedWrapperHomomorphicRule r)) 
+  -- failure rules first
+  [ failureOneHomomorphicRule 
   , failureTwoHomomorphicRule
   , occurCheckHomomorphicRule
-  , clashHomomorphicRule      -- then Homomorphic patterns
-  , shapingHomomorphicRule    -- shaping best before parsing
+  , clashHomomorphicRule 
+  -- then Homomorphic patterns   
+  -- shaping best before parsing  
+  , shapingHomomorphicRule    
   , parsingHomomorphicRule
   -- varSub en block with Homorphic patterns
   , variableSubstitutionHomomorphicRule
@@ -269,8 +272,9 @@ stdDecompositionHomomorphicRule eq _ _ =
 -- substituted.
 variableSubstitutionHomomorphicRule :: HomomorphicRule
 variableSubstitutionHomomorphicRule eq _ eqs =
-  case (viewTerm $ lnTerm $ eqLHS eq) of
-    (Lit (Var vl)) -> 
+  case (viewTerm $ lnTerm $ eqLHS eq, viewTerm $ lnTerm $ eqRHS eq) of
+    (Lit (Var _), Lit (Var _)) -> HNothing
+    (Lit (Var vl), _) -> 
       if (not $ occursVTerm vl (lnTerm $ eqRHS eq)) && (occursEqs vl eqs) 
       then HSubstEqs (Subst $ M.fromList [(vl, lnTerm $ eqRHS eq)]) [eq]
       else HNothing
@@ -331,17 +335,16 @@ shapingHomomorphicRule eq _ eqs = let
         PRep strsLHS (ys ++ [lhs1NewETerm] ++ (tail zs))
       lhs1 = toLNPETerm $ fromPRepresentation lhs1NewPTerm
       rhs2 = toLNPETerm $ fromERepresentation $ [xnew] ++ (take (m-1) (tail eRepRHS))
-      in 
-        HEqs [Equal lhs1 (eqRHS eq), Equal x rhs2] 
+      in HEqs [Equal lhs1 (eqRHS eq), Equal x rhs2] 
     Nothing -> HNothing
   else HNothing
   where
     findQualifyingETerm :: [ERepresentation] -> Int -> Int -> Maybe Int
     findQualifyingETerm [] _ _ = Nothing
-    findQualifyingETerm (e:es) nt ind =
-      if length e - 2 <= nt && length e >= 2 && (isVar $ head e)
+    findQualifyingETerm (e:es) n ind =
+      if (length e <= n) && (length e >= 2) && (isVar $ head e)
       then Just ind
-      else findQualifyingETerm es nt (ind+1)
+      else findQualifyingETerm es n (ind+1)
     gC :: [Equal LNPETerm] -> Integer
     gC qs = (gC' qs 0) + 1
     gC' :: [Equal LNPETerm] -> Integer -> Integer
@@ -406,52 +409,31 @@ parsingHomomorphicRule eq _ _ = let
 -- | Takes a sort and equation and returns a substitution for terms so that they unify or an empty list 
 -- if it is not possible to unify the terms
 -- from SubstVFresh.hs: LNSubstVFresh = SubstVFresh { svMap :: Map LVar LNTerm }
-unifyHomomorphicLTermFactored :: (Name -> LSort) -> [Equal LNTerm] -> [LNSubstVFresh]
+unifyHomomorphicLTermFactored :: (Name -> LSort) -> [Equal LNTerm] -> [LNSubst]
 unifyHomomorphicLTermFactored sortOf eqs = 
   toSubst $ applyHomomorphicRules sortOf allHomomorphicRules (tpre eqs)
   where 
     toSubst [] = 
       if and $ map (\eq -> (eqLHS eq) == (eqRHS eq)) eqs
-      then [emptySubstVFresh]
+      then [emptySubst]
       else []
-    toSubst eqsSubst = 
-      let normEqsSubst = map normalizeEq eqsSubst in
-      if inHomomorphicSolvedForm normEqsSubst
-      then [SubstVFresh 
-        $ M.fromList 
-        $ map (\eq -> 
-          (liftMaybe $ getVar $ lnTerm $ eqLHS eq, 
-          lnTerm $ eqRHS eq)
-        ) 
-        normEqsSubst]
-      else []
+    toSubst eqsSubst = case normalizeEqs eqsSubst of
+      Just normEqsSubst -> [Subst $ M.fromList $ map (\eq -> (getLeftVar eq, eqRHS eq)) normEqsSubst]
+      Nothing -> []
     tpre eqsLN = 
       map (\eq -> Equal 
       (toLNPETerm $ eqLHS eq) 
       (toLNPETerm $ eqRHS eq)) eqsLN
-    normalizeEq eq =
-      let 
-      t1 = eqLHS eq
-      t2 = eqRHS eq
-      v1 = viewTerm $ lnTerm t1
-      v2 = viewTerm $ lnTerm t2
-      in case (v1,v2) of
-        (FApp _ _, Lit (Var _)) -> Equal t2 t1
-        (Lit (Con _), Lit (Var _)) -> Equal t2 t1
-        (_, _) -> Equal t1 t2
-    liftMaybe jv = case jv of
+    getLeftVar e = case getVar $ eqLHS e of
       Just v -> v
       Nothing -> (LVar "VARNOTFOUND" LSortFresh 0)
 
 -- | Applies all homomorphic rules given en block, i.e., 
 -- it applies the first rule always first after each change
 applyHomomorphicRules :: (Name -> LSort) -> [HomomorphicRule] -> [Equal LNPETerm] -> [Equal LNPETerm]
-applyHomomorphicRules _ [] eqs = if inHomomorphicSolvedForm eqs -- no more rules to apply 
-  then eqs
-  else []
-applyHomomorphicRules sortOf (rule:rules) eqs = if inHomomorphicSolvedForm eqs
-  then eqs
-  else case applyHomomorphicRule rule sortOf eqs [] of
+applyHomomorphicRules _ [] eqs = eqs -- no more rules to apply 
+applyHomomorphicRules sortOf (rule:rules) eqs =
+  case applyHomomorphicRule rule sortOf eqs [] of
     Just newEqs -> applyHomomorphicRules sortOf allHomomorphicRules newEqs
     Nothing     -> applyHomomorphicRules sortOf rules eqs
 
@@ -470,14 +452,63 @@ applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
       (toLNPETerm $ applyVTerm subst $ lnTerm $ eqLHS eq) 
       (toLNPETerm $ applyVTerm subst $ lnTerm $ eqRHS eq)
 
--- | Checks if equations are in the solved form according to the homomorphic theory
-inHomomorphicSolvedForm :: [Equal LNPETerm] -> Bool
-inHomomorphicSolvedForm eqs = (all (\eq -> case viewTerm $ lnTerm $ eqLHS eq of
-  (Lit (Var _)) -> True
-  _ -> False) eqs)
-  && (not $ any (\eq1 -> any (\eq2 -> 
-    ((lnTerm $ eqLHS eq1) == (lnTerm $ eqLHS eq2) && (lnTerm $ eqRHS eq1) /= (lnTerm $ eqRHS eq2)) 
-    ) eqs) eqs)
+-- | Normalizes equations to Homomorphic Solved Form
+-- Returns Nothing if equations not possible to put in Homomorphic Solved Form
+normalizeEqs :: [Equal LNPETerm] -> Maybe [Equal LNTerm]
+normalizeEqs eqs = let
+  eqsLN = map (\eq -> (Equal (lnTerm $ eqLHS eq) (lnTerm $ eqRHS eq))) eqs
+  varLeftEqs = map moveVarLeft eqsLN
+  doubleVarEqs = filter doubleVarEq varLeftEqs
+  singleVarEqs = filter (not . doubleVarEq) varLeftEqs
+  sLeftVars = map eqLHS singleVarEqs
+  sRightTerms = map eqRHS singleVarEqs
+  dVarsOrdered = getDoubleVarEqsOrder doubleVarEqs (sLeftVars ++ sRightTerms)
+  in if (allLeftVarsUnique sLeftVars) && (allLeftVarsNotRight sLeftVars sRightTerms)
+  then case dVarsOrdered of
+    Just dVEO -> Just (dVEO ++ singleVarEqs)
+    Nothing   -> Nothing
+  else Nothing
+  where
+    moveVarLeft :: Equal LNTerm -> Equal LNTerm
+    moveVarLeft e =
+      case (viewTerm $ eqLHS e, viewTerm $ eqRHS e) of 
+        (FApp _ _, Lit (Var _))    -> Equal (eqRHS e) (eqLHS e)
+        (Lit (Con _), Lit (Var _)) -> Equal (eqRHS e) (eqLHS e)
+        (_, _)                     -> Equal (eqLHS e) (eqRHS e)
+    doubleVarEq :: Equal LNTerm -> Bool
+    doubleVarEq e = 
+      case (viewTerm $ eqLHS e, viewTerm $ eqRHS e) of
+        (Lit (Var _), Lit (Var _)) -> True
+        (_, _)                     -> False
+    allLeftVarsUnique :: [LNTerm] -> Bool
+    allLeftVarsUnique [] = True
+    allLeftVarsUnique (l:ls) = 
+      case (viewTerm l) of
+        (Lit (Var _)) -> (not $ any ((==) l) ls) && (allLeftVarsUnique ls)
+        (_)           -> False
+    allLeftVarsNotRight :: [LNTerm] -> [LNTerm] -> Bool
+    allLeftVarsNotRight [] _ = True
+    allLeftVarsNotRight (l:ls) rs = (varNotPartOfTerms l rs) && (allLeftVarsNotRight ls rs)
+    getDoubleVarEqsOrder :: [Equal LNTerm] -> [LNTerm] -> Maybe [Equal LNTerm]
+    getDoubleVarEqsOrder [] _ = Just []
+    getDoubleVarEqsOrder (e:es) rs =
+      case (getDoubleVarEqsOrder es rs, varNotPartOfTerms (eqLHS e) rs, varNotPartOfTerms (eqRHS e) rs) of
+        (Nothing,    _,     _)     -> Nothing
+        (Just _,     True,  True)  -> Nothing
+        (Just terms, False, _)     -> Just (e:terms)
+        (Just terms, True,  False) -> Just ((Equal (eqRHS e) (eqLHS e)):terms)
+    varNotPartOfTerms :: LNTerm -> [LNTerm] -> Bool
+    varNotPartOfTerms _ [] = True
+    varNotPartOfTerms l (r:rs) = 
+      case (viewTerm l) of
+        (Lit (Var _)) -> (varNotPartOfTerm l r) && (varNotPartOfTerms l rs)
+        (_)           -> False
+    varNotPartOfTerm :: LNTerm -> LNTerm -> Bool
+    varNotPartOfTerm l r =
+      case (viewTerm r) of
+        (FApp _ args) -> any (varNotPartOfTerm l) args
+        (Lit (Var _)) -> l == r
+        (Lit (Con _)) -> False
 
 -- | @unifyHomomorphicLNTerm eqs@ returns a set of unifiers for @eqs@ modulo EpsilonH.
 --
@@ -487,7 +518,7 @@ inHomomorphicSolvedForm eqs = (all (\eq -> case viewTerm $ lnTerm $ eqLHS eq of
 --
 -- sortOfName :: Name -> LSort
 -- data LSort = LSortPub | LSortFresh | LSortMsg | LSortNode -- Nodes are for dependency graphs
-unifyHomomorphicLNTerm :: [Equal LNTerm] -> [LNSubstVFresh]
+unifyHomomorphicLNTerm :: [Equal LNTerm] -> [LNSubst]
 unifyHomomorphicLNTerm eqs = unifyHomomorphicLTermFactored sortOfName eqs
 
 -- Matching modulo AC

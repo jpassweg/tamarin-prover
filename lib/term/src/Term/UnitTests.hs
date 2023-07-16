@@ -94,9 +94,14 @@ testsUnifyHomomorphic :: Test
 testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
   TestList
     [ testTrue "trivial case" (propUnifyHomomorphicSound x0 x0)
+    , testTrue "trivial case 2" (propUnifyHomomorphicSound x0 x1)
     , testTrue "trivial non-equality" (not (propUnifyHomomorphicSound (henc(x0,x1)) x1))
-    , testTrue "def homomorphic enc" (propUnifyHomomorphicSound t1 t2)
+    , testTrue "case 1" (propUnifyHomomorphicSound x0 (henc(x1,x2)))
+    , testTrue "case 2" (propUnifyHomomorphicSound t1 x0)
+    , testTrue "case 3" (propUnifyHomomorphicSound (henc(t1,x0)) (henc(x5,x6)))
+    , testTrue "def homomorphic enc 1" (propUnifyHomomorphicSound t1 t2)
     , testTrue "def homomorphic enc 2" (propUnifyHomomorphicSound t2 t1)
+    , testTrue "def homomorphic enc 3" (propUnifyHomomorphicSound (henc(t1,x0)) (henc(t2,x0)))
     ]
   where
     t1 = (henc(pair(x0,x1),x2))
@@ -107,8 +112,7 @@ testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
 -- freshToFreeAvoiding converts return of type 
 -- [SubstVFresh Name LVar] to [Subst Name LVar]
 propUnifyHomomorphicSound :: LNTerm -> LNTerm -> Bool
-propUnifyHomomorphicSound t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
-                                  applyVTerm s' t1 == applyVTerm s' t2) substs
+propUnifyHomomorphicSound t1 t2 = all (\s -> applyVTerm s t1 == applyVTerm s t2) substs
                                && not (null substs)
   where
     substs = unifyHomomorphicLNTerm [Equal t1 t2]
@@ -291,7 +295,7 @@ testPrinter :: Test
 testPrinter =
   TestLabel "prints out debugging information" $
   TestList
-    [ testTrue (show $ "") True]
+    [ testTrue (show "") True]
   where
     s = sortOfName 
 
