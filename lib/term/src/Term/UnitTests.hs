@@ -97,7 +97,7 @@ testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
     , testTrue "trivial case 2" (propUnifyHomomorphicSound x0 x1)
     , testTrue "trivial non-equality" (not (propUnifyHomomorphicSound (henc(x0,x1)) x1))
     , testTrue "case 1" (propUnifyHomomorphicSound x0 (henc(x1,x2)))
-    , testTrue "case 2" (propUnifyHomomorphicSound t1 x0)
+    , testTrue "case 2" (propUnifyHomomorphicSound t1 x4)
     , testTrue "case 3" (propUnifyHomomorphicSound (henc(t1,x0)) (henc(x5,x6)))
     , testTrue "def homomorphic enc 1" (propUnifyHomomorphicSound t1 t2)
     , testTrue "def homomorphic enc 2" (propUnifyHomomorphicSound t2 t1)
@@ -295,8 +295,10 @@ testPrinter :: Test
 testPrinter =
   TestLabel "prints out debugging information" $
   TestList
-    [ testTrue (show "") True]
+    [ testTrue (show $ unifyHomomorphicLNTerm [Equal (henc(t1,x0)) (henc(x5,x6))]) True]
   where
+    t1 = (henc(pair(x0,x1),x2))
+    t2 = (pair(henc(x0,x2),henc(x1,x2)))
     s = sortOfName 
 
 -- *****************************************************************************

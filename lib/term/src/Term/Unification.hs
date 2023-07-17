@@ -462,17 +462,19 @@ normalizeEqs eqs = let
   singleVarEqs = filter (not . doubleVarEq) varLeftEqs
   sLeftVars = map eqLHS singleVarEqs
   sRightTerms = map eqRHS singleVarEqs
-  dVarsOrdered = getDoubleVarEqsOrder doubleVarEqs (sLeftVars ++ sRightTerms)
-  in if (allLeftVarsUnique sLeftVars) && (allLeftVarsNotRight sLeftVars sRightTerms)
-  then case dVarsOrdered of
-    Just dVEO -> Just (dVEO ++ singleVarEqs)
-    Nothing   -> Nothing
+  orderedDVarEqs = orderDoubleVarEqs doubleVarEqs (sLeftVars ++ sRightTerms)
+  dLeftVars = map eqLHS orderedDVarEqs
+  dRightTerms = map eqRHS orderedDVarEqs
+  leftVars = sLeftVars ++ dLeftVars
+  rightTerms = sRightTerms ++ dRightTerms
+  in if (allLeftVarsUnique leftVars) && (allLeftVarsNotRight leftVars rightTerms)
+  then Just (singleVarEqs ++ orderedDVarEqs)
   else Nothing
   where
     moveVarLeft :: Equal LNTerm -> Equal LNTerm
     moveVarLeft e =
       case (viewTerm $ eqLHS e, viewTerm $ eqRHS e) of 
-        (FApp _ _, Lit (Var _))    -> Equal (eqRHS e) (eqLHS e)
+        (FApp _ _,    Lit (Var _)) -> Equal (eqRHS e) (eqLHS e)
         (Lit (Con _), Lit (Var _)) -> Equal (eqRHS e) (eqLHS e)
         (_, _)                     -> Equal (eqLHS e) (eqRHS e)
     doubleVarEq :: Equal LNTerm -> Bool
@@ -482,21 +484,20 @@ normalizeEqs eqs = let
         (_, _)                     -> False
     allLeftVarsUnique :: [LNTerm] -> Bool
     allLeftVarsUnique [] = True
-    allLeftVarsUnique (l:ls) = 
-      case (viewTerm l) of
-        (Lit (Var _)) -> (not $ any ((==) l) ls) && (allLeftVarsUnique ls)
-        (_)           -> False
+    allLeftVarsUnique (l:ls) = (varNotPartOfTerms l ls) && (allLeftVarsUnique ls)
     allLeftVarsNotRight :: [LNTerm] -> [LNTerm] -> Bool
     allLeftVarsNotRight [] _ = True
     allLeftVarsNotRight (l:ls) rs = (varNotPartOfTerms l rs) && (allLeftVarsNotRight ls rs)
-    getDoubleVarEqsOrder :: [Equal LNTerm] -> [LNTerm] -> Maybe [Equal LNTerm]
-    getDoubleVarEqsOrder [] _ = Just []
-    getDoubleVarEqsOrder (e:es) rs =
-      case (getDoubleVarEqsOrder es rs, varNotPartOfTerms (eqLHS e) rs, varNotPartOfTerms (eqRHS e) rs) of
-        (Nothing,    _,     _)     -> Nothing
-        (Just _,     True,  True)  -> Nothing
-        (Just terms, False, _)     -> Just (e:terms)
-        (Just terms, True,  False) -> Just ((Equal (eqRHS e) (eqLHS e)):terms)
+    orderDoubleVarEqs :: [Equal LNTerm] -> [LNTerm] -> [Equal LNTerm]
+    orderDoubleVarEqs [] _ = []
+    orderDoubleVarEqs (e:es) rs =
+      case (varNotPartOfTerms (eqLHS e) (rs ++ (eqsToTerms es)), varNotPartOfTerms (eqRHS e) (rs ++ (eqsToTerms es))) of
+        (True, _) -> e : (orderDoubleVarEqs es (rs ++ [(eqLHS e), (eqRHS e)]))
+        (_, True) -> (Equal (eqRHS e) (eqLHS e)) : (orderDoubleVarEqs es (rs ++ [(eqLHS e), (eqRHS e)]))
+        (_,_) -> e : (orderDoubleVarEqs es (rs ++ [(eqLHS e), (eqRHS e)]))
+    eqsToTerms :: [Equal LNTerm] -> [LNTerm]
+    eqsToTerms [] = []
+    eqsToTerms (e:es) = [eqLHS e, eqRHS e] ++ (eqsToTerms es)
     varNotPartOfTerms :: LNTerm -> [LNTerm] -> Bool
     varNotPartOfTerms _ [] = True
     varNotPartOfTerms l (r:rs) = 
@@ -506,9 +507,11 @@ normalizeEqs eqs = let
     varNotPartOfTerm :: LNTerm -> LNTerm -> Bool
     varNotPartOfTerm l r =
       case (viewTerm r) of
-        (FApp _ args) -> any (varNotPartOfTerm l) args
-        (Lit (Var _)) -> l == r
-        (Lit (Con _)) -> False
+        (FApp _ args) -> all (varNotPartOfTerm l) args
+        (Lit (Var _)) -> l /= r
+        (Lit (Con _)) -> True
+    
+
 
 -- | @unifyHomomorphicLNTerm eqs@ returns a set of unifiers for @eqs@ modulo EpsilonH.
 --
