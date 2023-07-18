@@ -58,6 +58,7 @@ module Term.Unification (
   , pairMaudeSig
   , symEncMaudeSig
   , asymEncMaudeSig
+  , hsymEncMaudeSig
   , signatureMaudeSig
   , pairDestMaudeSig
   , symEncDestMaudeSig
@@ -417,7 +418,7 @@ unifyHomomorphicLTermFactored sortOf eqs =
       if and $ map (\eq -> (eqLHS eq) == (eqRHS eq)) eqs
       then [emptySubst]
       else []
-    toSubst eqsSubst = case normalizeEqs eqsSubst of
+    toSubst eqsSubst = case toHomomorphicSolvedForm eqsSubst of
       Just normEqsSubst -> [Subst $ M.fromList $ map (\eq -> (getLeftVar eq, eqRHS eq)) normEqsSubst]
       Nothing -> []
     tpre eqsLN = 
@@ -454,12 +455,13 @@ applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
 
 -- | Normalizes equations to Homomorphic Solved Form
 -- Returns Nothing if equations not possible to put in Homomorphic Solved Form
-normalizeEqs :: [Equal LNPETerm] -> Maybe [Equal LNTerm]
-normalizeEqs eqs = let
+toHomomorphicSolvedForm :: [Equal LNPETerm] -> Maybe [Equal LNTerm]
+toHomomorphicSolvedForm eqs = let
   eqsLN = map (\eq -> (Equal (lnTerm $ eqLHS eq) (lnTerm $ eqRHS eq))) eqs
   varLeftEqs = map moveVarLeft eqsLN
-  doubleVarEqs = filter doubleVarEq varLeftEqs
-  singleVarEqs = filter (not . doubleVarEq) varLeftEqs
+  vLEqsNoDups = removeDuplicates varLeftEqs
+  doubleVarEqs = filter doubleVarEq vLEqsNoDups
+  singleVarEqs = filter (not . doubleVarEq) vLEqsNoDups
   sLeftVars = map eqLHS singleVarEqs
   sRightTerms = map eqRHS singleVarEqs
   orderedDVarEqs = orderDoubleVarEqs doubleVarEqs (sLeftVars ++ sRightTerms)
@@ -477,6 +479,13 @@ normalizeEqs eqs = let
         (FApp _ _,    Lit (Var _)) -> Equal (eqRHS e) (eqLHS e)
         (Lit (Con _), Lit (Var _)) -> Equal (eqRHS e) (eqLHS e)
         (_, _)                     -> Equal (eqLHS e) (eqRHS e)
+    removeDuplicates :: [Equal LNTerm] -> [Equal LNTerm]
+    removeDuplicates [] = []
+    removeDuplicates (e:es) = if any (\e2 -> 
+         ((eqLHS e) == (eqLHS e2) && (eqRHS e) == (eqRHS e2))
+      || ((eqLHS e) == (eqRHS e2) && (eqRHS e) == (eqLHS e2))) es
+      then es
+      else e:(removeDuplicates es)
     doubleVarEq :: Equal LNTerm -> Bool
     doubleVarEq e = 
       case (viewTerm $ eqLHS e, viewTerm $ eqRHS e) of
@@ -510,8 +519,6 @@ normalizeEqs eqs = let
         (FApp _ args) -> all (varNotPartOfTerm l) args
         (Lit (Var _)) -> l /= r
         (Lit (Con _)) -> True
-    
-
 
 -- | @unifyHomomorphicLNTerm eqs@ returns a set of unifiers for @eqs@ modulo EpsilonH.
 --

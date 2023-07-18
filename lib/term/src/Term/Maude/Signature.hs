@@ -31,6 +31,7 @@ module Term.Maude.Signature (
   , pairMaudeSig
   , asymEncMaudeSig
   , symEncMaudeSig
+  , hsymEncMaudeSig
   , signatureMaudeSig
   , pairDestMaudeSig
   , asymEncDestMaudeSig
@@ -174,10 +175,11 @@ xorMaudeSig  = maudeSig $ mempty {enableXor=True}
 -- | Maude signatures for the default subterm symbols.
 --pairMaudeSig :: Bool -> MaudeSig
 --pairMaudeSig flag = maudeSig $ mempty {stFunSyms=pairFunSig,stRules=pairRules,enableDiff=flag}
-pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig, locationReportMaudeSig, symEncDestMaudeSig, asymEncDestMaudeSig, signatureDestMaudeSig, pairDestMaudeSig :: MaudeSig
+pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, hsymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig, locationReportMaudeSig, symEncDestMaudeSig, asymEncDestMaudeSig, signatureDestMaudeSig, pairDestMaudeSig :: MaudeSig
 pairMaudeSig            = maudeSig $ mempty {stFunSyms=pairFunSig,stRules=pairRules}
 symEncMaudeSig          = maudeSig $ mempty {stFunSyms=symEncFunSig,stRules=symEncRules}
 asymEncMaudeSig         = maudeSig $ mempty {stFunSyms=asymEncFunSig,stRules=asymEncRules}
+hsymEncMaudeSig         = maudeSig $ mempty {stFunSyms=hsymEncFunSig,stRules=hsymEncRules}
 signatureMaudeSig       = maudeSig $ mempty {stFunSyms=signatureFunSig,stRules=signatureRules}
 revealSignatureMaudeSig = maudeSig $ mempty {stFunSyms=revealSignatureFunSig,stRules=revealSignatureRules}
 hashMaudeSig            = maudeSig $ mempty {stFunSyms=hashFunSig}

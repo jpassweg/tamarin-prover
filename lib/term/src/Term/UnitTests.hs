@@ -101,21 +101,29 @@ testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
     , testTrue "case 3" (propUnifyHomomorphicSound (henc(t1,x0)) (henc(x5,x6)))
     , testTrue "def homomorphic enc 1" (propUnifyHomomorphicSound t1 t2)
     , testTrue "def homomorphic enc 2" (propUnifyHomomorphicSound t2 t1)
-    , testTrue "def homomorphic enc 3" (propUnifyHomomorphicSound (henc(t1,x0)) (henc(t2,x0)))
+    , testTrue "def homomorphic enc 3" (propUnifyHomomorphicSound (henc(t1,x0)) (henc(t1,x0)))
+    , testTrue "case norm 1" (propUnifyHomomorphicSound (pair(pair(x0,x0),x0)) (pair(pair(x2,x3),x4)))
+    , testTrue "case norm 2" (propUnifyHomomorphicSound (pair(pair(x2,x3),x4)) (pair(pair(x0,x0),x0)))
+    , testTrue "case norm 3" (propUnifyHomomorphicSound t1v0 t2v1)
+    , testTrue "case norm 4" (propUnifyHomomorphicSound t1v0 t2v2)
     ]
   where
     t1 = (henc(pair(x0,x1),x2))
+    t1v0 = (henc(pair(x0,x0),x0))
     t2 = (pair(henc(x0,x2),henc(x1,x2)))
+    t2v1 = (pair(henc(x1,x2),henc(x3,x4)))
+    t2v2 = (pair(henc(x1,x2),henc(x2,x4)))
 
 -- Returns true if unifyHomomorphicLNTerm was able to unify both given terms
 -- Uses the same method for testing as propUnifySound
 -- freshToFreeAvoiding converts return of type 
 -- [SubstVFresh Name LVar] to [Subst Name LVar]
 propUnifyHomomorphicSound :: LNTerm -> LNTerm -> Bool
-propUnifyHomomorphicSound t1 t2 = all (\s -> applyVTerm s t1 == applyVTerm s t2) substs
-                               && not (null substs)
-  where
-    substs = unifyHomomorphicLNTerm [Equal t1 t2]
+propUnifyHomomorphicSound t1 t2 = let
+    t1N = normHomomorphic' t1
+    t2N = normHomomorphic' t2
+    substs = unifyHomomorphicLNTerm [Equal t1N t2N]
+  in all (\s -> applyVTerm s t1N == applyVTerm s t2N) substs && not (null substs)
 
 -- Multiple tests for the functions directly used by the 
 -- homomorphic encrytion unification algorithm 
@@ -295,10 +303,8 @@ testPrinter :: Test
 testPrinter =
   TestLabel "prints out debugging information" $
   TestList
-    [ testTrue (show $ unifyHomomorphicLNTerm [Equal (henc(t1,x0)) (henc(x5,x6))]) True]
+    [ testTrue (show "") True]
   where
-    t1 = (henc(pair(x0,x1),x2))
-    t2 = (pair(henc(x0,x2),henc(x1,x2)))
     s = sortOfName 
 
 -- *****************************************************************************
@@ -507,7 +513,7 @@ tests maudePath = do
 allMaudeSig :: MaudeSig
 allMaudeSig = mconcat
     [ bpMaudeSig, msetMaudeSig
-    , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
+    , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, hsymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
 
 
 -- testing in ghci

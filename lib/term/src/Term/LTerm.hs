@@ -111,6 +111,8 @@ module Term.LTerm (
   , positionsIncompatible
   , fromPRepresentation
   , fromERepresentation
+  , isHenc
+  , getHencSym
 
   -- * Pretty-Printing
   , prettyLVar
@@ -875,6 +877,9 @@ ePosition (i:q) t = case viewTerm t of
 isHenc :: FunSym -> Bool
 isHenc funsym = (showFunSymName funsym) == "henc"
 
+getHencSym :: FunSym
+getHencSym = NoEq ((BC.pack "henc"),(2, Public, Constructor))
+
 positionsIncompatible :: String -> LNTerm -> String -> LNTerm -> Bool
 positionsIncompatible q1 t1 q2 t2 = properPrefix (pPosition q1 t1) (pPosition q2 t2)
   || properPrefix (pPosition q2 t2) (pPosition q1 t1)
@@ -941,9 +946,7 @@ fromPRepresentation p =
 fromERepresentation :: ERepresentation -> LNTerm
 fromERepresentation e = if length e == 1
   then head e
-  else (FAPP hencSym ([fromERepresentation (init e)] ++ [last e]))
-  where
-    hencSym = NoEq ((BC.pack "henc"),(2, Public, Constructor))
+  else (FAPP (getHencSym) ([fromERepresentation (init e)] ++ [last e]))
 
 ------------------------------------------------------------------------------
 -- Pretty Printing
