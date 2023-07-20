@@ -84,6 +84,9 @@ library
       Term.Maude.Types
       Term.Maude.Parser
 
+      Term.Homomorphism.LNPETerm
+      Term.Homomorphism.Unification
+
       Term.UnitTests
 
     other-modules:

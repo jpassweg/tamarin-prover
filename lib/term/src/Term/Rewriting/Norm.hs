@@ -9,7 +9,6 @@
 -- This module implements normalization and normal-form checks of terms.
 module Term.Rewriting.Norm (
     norm'
-  , normHomomorphic'
   , nf'
   , nfSubstVFresh'
   , normSubstVFresh'
@@ -47,16 +46,6 @@ norm sortOf t         = reader $ \hnd -> unsafePerformIO $ normViaMaude hnd sort
 -- | @norm' t@ normalizes the term @t@ using Maude.
 norm' :: LNTerm -> WithMaude LNTerm
 norm' = norm sortOfName
-
--- | @normHomomorphic t@ normalizes the term @t@ if the top function is the homomorphic encryption
-normHomomorphic' :: LNTerm -> LNTerm
-normHomomorphic' t = case viewTerm t of
-  (FApp sym [FAPP (NoEq sym2) [t1, t2], t3]) -> 
-    if (isHenc sym) && (isPair (FAPP (NoEq sym2) [t1, t2]))
-    then fAppPair (FAPP (getHencSym) [t1, t3], FAPP (getHencSym) [t2, t3])
-    else FAPP sym (map normHomomorphic' [FAPP (NoEq sym2) [t1, t2], t3])
-  (FApp sym args) -> FAPP sym (map normHomomorphic' args)
-  (_) -> t
 
 ----------------------------------------------------------------------
 -- Normal-form check using Maude and Haskell

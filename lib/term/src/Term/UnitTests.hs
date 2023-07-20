@@ -28,6 +28,9 @@ import Test.HUnit
 import Control.Monad.Reader
 -- import Data.Monoid
 
+import Term.Homomorphism.Unification
+import Term.Homomorphism.LNPETerm
+
 
 testEqual :: (Eq a, Show a) => String -> a -> a -> Test
 testEqual t a b = TestLabel t $ TestCase $ assertEqual t b a
@@ -120,9 +123,9 @@ testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
 -- [SubstVFresh Name LVar] to [Subst Name LVar]
 propUnifyHomomorphicSound :: LNTerm -> LNTerm -> Bool
 propUnifyHomomorphicSound t1 t2 = let
-    t1N = normHomomorphic' t1
-    t2N = normHomomorphic' t2
-    substs = unifyHomomorphicLNTerm [Equal t1N t2N]
+    t1N = normHomomorphic t1
+    t2N = normHomomorphic t2
+    substs = unifyHomomorphicLNTerm [Equal t1 t2]
   in all (\s -> applyVTerm s t1N == applyVTerm s t2N) substs && not (null substs)
 
 -- Multiple tests for the functions directly used by the 
