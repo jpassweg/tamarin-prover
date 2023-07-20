@@ -70,9 +70,6 @@ instance Functor Term  where
     fmap f (LIT a)      = LIT (f a)
     fmap f (FAPP fs ts) = FAPP fs (map (fmap f) ts)
 
-hencSym :: NoEqSym
-hencSym = (BC.pack "henc",(2, Public, Constructor))
-
 ----------------------------------------------------------------------
 -- Diff Type - whether left/right interpretation of diff is desired,
 --             or no diff should occur

@@ -784,6 +784,7 @@ instance (Ord k, HasFrees k, HasFrees v) => HasFrees (M.Map k v) where
         combine k v m = foldFreesOcc f p (k,v) `mappend` m
     mapFrees f = fmap M.fromList . mapFrees f . M.toList
 
+
 ------------------------------------------------------------------------------
 -- Pretty Printing
 ------------------------------------------------------------------------------

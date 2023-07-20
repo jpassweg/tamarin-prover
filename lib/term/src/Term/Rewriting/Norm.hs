@@ -47,6 +47,7 @@ norm sortOf t         = reader $ \hnd -> unsafePerformIO $ normViaMaude hnd sort
 norm' :: LNTerm -> WithMaude LNTerm
 norm' = norm sortOfName
 
+
 ----------------------------------------------------------------------
 -- Normal-form check using Maude and Haskell
 ----------------------------------------------------------------------
