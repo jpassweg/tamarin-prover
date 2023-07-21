@@ -101,7 +101,8 @@ pairRules = S.fromList
     , fAppSnd (fAppPair (x1,x2)) `CtxtStRule` (StRhs [[0,1]] x2) ]
 symEncRules    = S.fromList [ sdec (senc (x1,x2), x2)     `CtxtStRule` (StRhs [[0,0]] x1) ]
 asymEncRules   = S.fromList [ adec (aenc (x1, pk x2), x2) `CtxtStRule` (StRhs [[0,0]] x1) ]
-hsymEncRules   = S.fromList [ henc (fAppPair (x1,x2), x3) `CtxtStRule` (StRhs [[0,0]] (fAppPair (henc (x1,x3), henc (x2,x3))))]
+-- For Maude, we want homomorphic encrytion to be just like symmetric encryption
+hsymEncRules   = S.fromList [ hdec (henc (x1,x2), x2)     `CtxtStRule` (StRhs [[0,0]] x1) ]
 signatureRules = S.fromList [ verify (sign (x1,x2), x1, pk x2) `CtxtStRule` (StRhs [[0,0]] trueC) ]
 revealSignatureRules = S.fromList [ revealVerify (revealSign (x1,x2), x1, pk x2) `CtxtStRule` (StRhs [[0,0]] trueC),
                                     extractMessage (revealSign (x1,x2)) `CtxtStRule` (StRhs [[0,0]] x1)]
