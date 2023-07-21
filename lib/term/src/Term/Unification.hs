@@ -95,9 +95,8 @@ import qualified Term.Maude.Process as UM
 import           Term.Maude.Process
                    (MaudeHandle, WithMaude, startMaude, getMaudeStats, mhMaudeSig, mhFilePath)
 import           Term.Maude.Signature
-import           Debug.Trace.Ignore
-
 import           Term.Homomorphism.Unification
+import           Debug.Trace.Ignore
 
 -- Unification modulo AC
 ----------------------------------------------------------------------
