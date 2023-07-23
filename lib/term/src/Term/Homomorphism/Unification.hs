@@ -1,9 +1,10 @@
 module Term.Homomorphism.Unification (
   -- * Unification modulo EpsilonH for Homomorphic Encryption
   unifyHomomorphicLNTerm
-  , unifyHomomorphicFakeMaudeAndIO
-  , unifyHomomorphicFakeMaude
-  , unifyHomomorphicFakeSubstFresh
+  
+  -- * Maude wrappers
+  , unifyHomomorphicLNTermWithMaude
+  , unifyHomomorphicLNTermFactored
 
   -- * For debugging
   , debugHomomorphicRule
@@ -12,6 +13,7 @@ module Term.Homomorphism.Unification (
 ) where
 
 import qualified Data.Map as M
+import Control.Monad.RWS (reader)
 
 import Term.Homomorphism.LNPETerm
 
@@ -19,19 +21,34 @@ import Term.LTerm (
   LNTerm, Lit(Var, Con), LVar(..), getVar, isVar, varTerm, occursVTerm, frees,
   LSort(LSortFresh), Name, sortOfName, isPair, fAppPair,
   TermView(FApp, Lit), viewTerm, termViewToTerm)
-import Term.Rewriting.Definitions (Equal(..))
-import Term.Substitution.SubstVFree (LNSubst, Subst(..), emptySubst, applyVTerm)
-import Term.Substitution.SubstVFresh (LNSubstVFresh, SubstVFresh(..), emptySubstVFresh)
 -- isVar, varTerm, occursVTerm come from Term.VTerm
 -- isPair, fAppPair come from Term.Term
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
 
-import Term.Maude.Process (MaudeHandle)
+import Term.Rewriting.Definitions (Equal(..))
+import Term.Substitution.SubstVFree (LNSubst, Subst(..), emptySubst, applyVTerm)
+import Term.Substitution.SubstVFresh (SubstVFresh(..))
+import Term.Maude.Process (WithMaude)
+import Debug.Trace.Ignore (trace)
 
 -- Unification Algorithm using the Homomorphic Rules
 ----------------------------------------------------
 
+-- | Homomorphic encryption wrapper
+unifyHomomorphicLNTermFactored :: [Equal LNTerm] -> WithMaude (LNSubst, [SubstVFresh Name LVar])
+unifyHomomorphicLNTermFactored eqs = (\s -> (emptySubst,s)) <$> unifyHomomorphicLNTermWithMaude eqs
+
+-- | Homomorphic encryption wrapper
+unifyHomomorphicLNTermWithMaude :: [Equal LNTerm] -> WithMaude [SubstVFresh Name LVar]
+unifyHomomorphicLNTermWithMaude eqs = 
+  reader $ \_ -> (\res -> 
+    trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ subst
+  where
+    subst = map (\s -> case s of Subst s' -> SubstVFresh s') $ unifyHomomorphicLNTerm eqs
+
 -- | @unifyHomomorphicLNTerm eqs@ returns a set of unifiers for @eqs@ modulo EpsilonH.
+-- returns a substitution for terms so that they unify or an empty list 
+-- if it is not possible to unify the terms
 -- Types used:
 -- LNTerm = Term (Lit (Con Name | Var LVar) | FApp FunSym [Term Lit ((Con Name | Var LVar))])
 -- use viewTerm to use "case of" term
@@ -39,30 +56,8 @@ import Term.Maude.Process (MaudeHandle)
 -- sortOfName :: Name -> LSort
 -- data LSort = LSortPub | LSortFresh | LSortMsg | LSortNode -- Nodes are for dependency graphs
 unifyHomomorphicLNTerm :: [Equal LNTerm] -> [LNSubst]
-unifyHomomorphicLNTerm eqs = unifyHomomorphicLTermFactored sortOfName eqs
-
--- | Fakes maude call and IO
-unifyHomomorphicFakeMaudeAndIO :: MaudeHandle -> (Name -> LSort) -> [Equal LNTerm] -> IO [LNSubstVFresh]
-unifyHomomorphicFakeMaudeAndIO _ sortOf eqs = do
-  return (unifyHomomorphicFakeSubstFresh sortOf eqs)
-
--- | Fakes maude call
-unifyHomomorphicFakeMaude :: MaudeHandle -> (Name -> LSort) -> [Equal LNTerm] -> [LNSubstVFresh]
-unifyHomomorphicFakeMaude _ sortOf eqs = unifyHomomorphicFakeSubstFresh sortOf eqs
-
--- | Turns the substitution from unifyHomomorphicLTermFactored to LNSubstVFresh type
-unifyHomomorphicFakeSubstFresh :: (Name -> LSort) -> [Equal LNTerm] -> [LNSubstVFresh]
-unifyHomomorphicFakeSubstFresh sortOf eqs = if substs == [emptySubst]
-  then [emptySubstVFresh]
-  else map (\s -> case s of Subst subst -> SubstVFresh subst) substs
-  where
-    substs = unifyHomomorphicLTermFactored sortOf eqs
-
--- | Takes a sort and equation and returns a substitution for terms so that they unify or an empty list 
--- if it is not possible to unify the terms
-unifyHomomorphicLTermFactored :: (Name -> LSort) -> [Equal LNTerm] -> [LNSubst]
-unifyHomomorphicLTermFactored sortOf eqs =
-  toSubst $ applyHomomorphicRules sortOf allHomomorphicRules (tpre eqsN)
+unifyHomomorphicLNTerm eqs =
+  toSubst $ applyHomomorphicRules sortOfName allHomomorphicRules (tpre eqsN)
   where 
     eqsN = map (fmap normHomomorphic) eqs
     toSubst [] = 

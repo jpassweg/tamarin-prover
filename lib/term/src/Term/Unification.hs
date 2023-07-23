@@ -98,6 +98,9 @@ import           Term.Maude.Signature
 import           Term.Homomorphism.Unification
 import           Debug.Trace.Ignore
 
+useCapUnification :: Bool
+useCapUnification = False
+
 -- Unification modulo AC
 ----------------------------------------------------------------------
 
@@ -121,7 +124,9 @@ unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unify
 -- | @unifyLTerm sortOf eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLNTermFactored :: [Equal LNTerm]
                     -> WithMaude (LNSubst, [SubstVFresh Name LVar])
-unifyLNTermFactored = unifyLTermFactored sortOfName
+unifyLNTermFactored = if useCapUnification
+  then unifyHomomorphicLNTermFactored
+  else unifyLTermFactored sortOfName
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLTerm :: (IsConst c)
@@ -133,7 +138,9 @@ unifyLTerm sortOf eqs = flattenUnif <$> unifyLTermFactored sortOf eqs
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLNTerm :: [Equal LNTerm] -> WithMaude [SubstVFresh Name LVar]
-unifyLNTerm = unifyLTerm sortOfName
+unifyLNTerm = if useCapUnification
+  then unifyHomomorphicLNTermWithMaude
+  else unifyLTerm sortOfName
 
 -- | 'True' iff the terms are unifiable.
 unifiableLNTerms :: LNTerm -> LNTerm -> WithMaude Bool
