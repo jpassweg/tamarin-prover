@@ -65,11 +65,11 @@ unifyHomomorphicLNTerm eqs =
       then [emptySubst]
       else []
     toSubst eqsSubst = case toHomomorphicSolvedForm eqsSubst of
-      Just normEqsSubst -> [Subst $ M.fromList $ map (\eq -> (getLeftVar eq, eqRHS eq)) normEqsSubst]
+      Just normEqsSubst -> [Subst $ M.fromList $ map getLeftVar normEqsSubst]
       Nothing -> []
     getLeftVar e = case getVar $ eqLHS e of
-      Just v -> v
-      Nothing -> (LVar "VARNOTFOUND" LSortFresh 0)
+      Just v ->  (v, eqRHS e)
+      Nothing -> (LVar "VARNOTFOUND" LSortFresh 0, eqRHS e)
 
 -- | Applies all homomorphic rules given en block, i.e., 
 -- it applies the first rule always first after each change
