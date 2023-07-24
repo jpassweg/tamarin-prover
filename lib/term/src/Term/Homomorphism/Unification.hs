@@ -57,7 +57,7 @@ unifyHomomorphicLNTermWithMaude eqs =
 -- data LSort = LSortPub | LSortFresh | LSortMsg | LSortNode -- Nodes are for dependency graphs
 unifyHomomorphicLNTerm :: [Equal LNTerm] -> [LNSubst]
 unifyHomomorphicLNTerm eqs =
-  toSubst $ applyHomomorphicRules sortOfName allHomomorphicRules (tpre eqsN)
+  toSubst $ applyHomomorphicRules sortOfName allHomomorphicRules (map (fmap toLNPETerm) eqsN)
   where 
     eqsN = map (fmap normHomomorphic) eqs
     toSubst [] = 
@@ -67,8 +67,6 @@ unifyHomomorphicLNTerm eqs =
     toSubst eqsSubst = case toHomomorphicSolvedForm eqsSubst of
       Just normEqsSubst -> [Subst $ M.fromList $ map (\eq -> (getLeftVar eq, eqRHS eq)) normEqsSubst]
       Nothing -> []
-    tpre eqsLN = 
-      map (fmap toLNPETerm) eqsLN
     getLeftVar e = case getVar $ eqLHS e of
       Just v -> v
       Nothing -> (LVar "VARNOTFOUND" LSortFresh 0)
@@ -97,8 +95,10 @@ applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
       (toLNPETerm $ applyVTerm subst $ lnTerm $ eqLHS eq) 
       (toLNPETerm $ applyVTerm subst $ lnTerm $ eqRHS eq)
 
--- | Normalizes equations to Homomorphic Solved Form
--- Returns Nothing if equations not possible to put in Homomorphic Solved Form
+-- | Transforms equations to Homomorphic Solved Form
+-- Returns Nothing if it is not possible to put the equations Homomorphic Solved Form
+-- This function does not change the equations themselves, but assures that the variables
+-- on the left side of all equations are unique.
 toHomomorphicSolvedForm :: [Equal LNPETerm] -> Maybe [Equal LNTerm]
 toHomomorphicSolvedForm eqs = let
   eqsLN = map (fmap lnTerm) eqs
@@ -190,9 +190,15 @@ data HomomorphicRuleReturn = HEqs [Equal LNPETerm]
   deriving (Show, Eq)
 
 -- | Type for rules applied to equations for unification modulo EpsilonH
+-- @arg1 = equation which we try to apply the rule on
+-- @arg2 = translation from terms to sorts
+-- @arg3 = all other equations (may be needed to check if a variable occurs in them)
 type HomomorphicRule = Equal LNPETerm -> (Name -> LSort) -> [Equal LNPETerm] -> HomomorphicRuleReturn
 
 -- | All homomorphic rules in order of application
+-- All rules are added as such that they are first applied on the equation
+-- Equal (eqLHS eq) (eqRHS eq) and then on the equation Equal (eqRHS eq) (eqLHS eq)
+-- with eq being the first argument given to the function
 allHomomorphicRules :: [HomomorphicRule]
 allHomomorphicRules = map (\r -> combineWrapperHomomorphicRule r (switchedWrapperHomomorphicRule r)) 
   -- failure rules first
@@ -210,7 +216,7 @@ allHomomorphicRules = map (\r -> combineWrapperHomomorphicRule r (switchedWrappe
   , trivialHomomorphicRule
   , stdDecompositionHomomorphicRule ]
 
--- | Combines two rules and runs the second rule first returns HNothing
+-- | Combines two rules and runs the second rule if first returns HNothing
 combineWrapperHomomorphicRule :: HomomorphicRule -> HomomorphicRule -> HomomorphicRule
 combineWrapperHomomorphicRule rule1 rule2 eq sortOf eqs =
   case rule1 eq sortOf eqs of
@@ -222,6 +228,7 @@ combineWrapperHomomorphicRule rule1 rule2 eq sortOf eqs =
 -- | Since the equality sign used is not oriented, we need
 -- to look at the possibility of rule applications for 
 -- both x = t and t = x for any equation.
+-- This function is used in combination with combineWrapperHomomorphicRule
 switchedWrapperHomomorphicRule :: HomomorphicRule -> HomomorphicRule
 switchedWrapperHomomorphicRule rule eq sortOf eqs =
   rule (Equal (eqRHS eq) (eqLHS eq)) sortOf eqs
@@ -248,9 +255,6 @@ stdDecompositionHomomorphicRule eq _ _ =
       else HNothing
     (_,_) -> HNothing
 
--- NOTE: might need to check if the substitution this function is returning
--- does not violate rules about which sort of variables are allowed to be
--- substituted.
 variableSubstitutionHomomorphicRule :: HomomorphicRule
 variableSubstitutionHomomorphicRule eq _ eqs =
   case (viewTerm $ lnTerm $ eqLHS eq, viewTerm $ lnTerm $ eqRHS eq) of
