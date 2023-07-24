@@ -1,0 +1,30 @@
+theory HomomorphicDefinitionSymEnc
+begin
+
+builtins: symmetric-encryption
+
+rule GetVars:
+  [ Fr(~x0), Fr(~x1) ]
+  --[]->
+  [ !Vars(~x0,~x1) ]
+
+rule GetKey:
+  [ Fr(~x2) ]
+  --[]->
+  [ !Key(~x2) ]
+
+rule S1:
+  [ !Vars(x0,x1), !Key(x2) ]
+  --[ Send(x0, x1, x2) ]->
+  [ S1Out( senc(<x0, x1>, x2) ) ]
+
+rule S2:
+  [ !Vars(x0,x1), !Key(x2)
+  , S1Out( < senc(x0,x2), senc(x1,x2) > ) ]
+  --[ Receive(x0, x1, x2) ]->
+  []
+
+lemma Send_And_Received: exists-trace
+  "Ex x0 x1 x2 #i #j . Send(x0, x1, x2) @i & Receive(x0, x1, x2) @j"
+
+end

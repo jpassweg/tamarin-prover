@@ -109,6 +109,7 @@ testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
     , testTrue "case norm 2" (propUnifyHomomorphicSound (pair(pair(x2,x3),x4)) (pair(pair(x0,x0),x0)))
     , testTrue "case norm 3" (propUnifyHomomorphicSound t1v0 t2v1)
     , testTrue "case norm 4" (propUnifyHomomorphicSound t1v0 t2v2)
+    , testTrue "not sym homomorphic" (not $ propUnifyHomomorphicSound t1Sym t2Sym)
     ]
   where
     t1 = (henc(pair(x0,x1),x2))
@@ -116,6 +117,8 @@ testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
     t2 = (pair(henc(x0,x2),henc(x1,x2)))
     t2v1 = (pair(henc(x1,x2),henc(x3,x4)))
     t2v2 = (pair(henc(x1,x2),henc(x2,x4)))
+    t1Sym = (senc(pair(x0,x1),x2))
+    t2Sym = (pair(senc(x0,x2),senc(x1,x2)))
 
 -- Returns true if unifyHomomorphicLNTerm was able to unify both given terms
 -- Uses the same method for testing as propUnifySound
