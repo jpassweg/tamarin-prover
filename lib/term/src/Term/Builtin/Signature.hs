@@ -51,9 +51,10 @@ trueSym = ("true",(0, Public, Constructor))
 mkDestSym :: NoEqSym -> NoEqSym
 mkDestSym (name,(k,p,_)) = (name,(k,p, Destructor))
 
-sdecDestSym, adecDestSym, verifyDestSym :: NoEqSym
+sdecDestSym, adecDestSym, hdecDestSym, verifyDestSym :: NoEqSym
 sdecDestSym = mkDestSym sdecSym
 adecDestSym = mkDestSym adecSym
+hdecDestSym = mkDestSym hdecSym
 verifyDestSym = mkDestSym verifySym
 ----------------------------------------------------------------------
 -- Builtin signatures
@@ -101,7 +102,7 @@ asymEncFunDestSig = S.fromList $ [ adecDestSym, aencSym, pkSym ]
 
 -- | The signature for homomorphic encryption
 hsymEncFunDestSig :: NoEqFunSig
-hsymEncFunDestSig = S.fromList $ [ hdecSym, hencSym ]
+hsymEncFunDestSig = S.fromList $ [ hdecDestSym, hencSym ]
 
 -- | The signature for cryptographic signatures.
 signatureFunDestSig :: NoEqFunSig

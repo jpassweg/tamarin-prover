@@ -18,10 +18,10 @@ import Control.Monad.RWS (reader)
 import Term.Homomorphism.LNPETerm
 
 import Term.LTerm (
-  LNTerm, Lit(Var, Con), LVar(..), getVar, isVar, varTerm, occursVTerm, frees,
-  LSort(LSortFresh), Name, sortOfName, isPair, fAppPair,
+  LNTerm, Lit(Var, Con), LVar(..), getVar, isVar, varTerm, occursVTerm, varsVTerm,
+  LSort(LSortFresh, LSortMsg), Name, sortOfName, isPair, fAppPair,
   TermView(FApp, Lit), viewTerm, termViewToTerm)
--- isVar, varTerm, occursVTerm come from Term.VTerm
+-- isVar, varTerm, varsVTerm, occursVTerm come from Term.VTerm
 -- isPair, fAppPair come from Term.Term
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
 
@@ -64,7 +64,7 @@ unifyHomomorphicLNTerm eqs =
       if and $ map (\eq -> (eqLHS eq) == (eqRHS eq)) eqsN
       then [emptySubst]
       else []
-    toSubst eqsSubst = case toHomomorphicSolvedForm eqsSubst of
+    toSubst eqsSubst = case toHomomorphicSolvedForm (map (fmap lnTerm) eqsSubst) of
       Just normEqsSubst -> [Subst $ M.fromList $ map getLeftVar normEqsSubst]
       Nothing -> []
     getLeftVar e = case getVar $ eqLHS e of
@@ -95,14 +95,75 @@ applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
       (toLNPETerm $ applyVTerm subst $ lnTerm $ eqLHS eq) 
       (toLNPETerm $ applyVTerm subst $ lnTerm $ eqRHS eq)
 
--- | Transforms equations to Homomorphic Solved Form
+{-
+toHomomorphicSolvedForm :: [Equal LNTerm] -> Maybe [Equal LNTerm]
+toHomomorphicSolvedForm eqs = let
+  varLeftEqs = map moveVarLeft eqs
+  -- todo: try to make left vars unique
+  newEqs = replaceVarsRights varLeftEqs []
+  -- todo: remove doubles
+  in Just newEqs
+  where
+    moveVarLeft :: Equal LNTerm -> Equal LNTerm
+    moveVarLeft e =
+      case (viewTerm $ eqLHS e, viewTerm $ eqRHS e) of 
+        (FApp _ _,    Lit (Var _)) -> Equal (eqRHS e) (eqLHS e)
+        (Lit (Con _), Lit (Var _)) -> Equal (eqRHS e) (eqLHS e)
+        (_, _)                     -> Equal (eqLHS e) (eqRHS e)
+    replaceVarsRights :: [Equal LNTerm] -> [Equal LNTerm] -> [Equal LNTerm]
+    replaceVarsRights [] newEqs = newEqs
+    replaceVarsRights (e:es) esO = 
+      replaceVarsRights es ((replaceVarsRight e (es++esO)) ++ esO)
+    replaceVarsRight :: Equal LNTerm -> [Equal LNTerm] -> [Equal LNTerm]
+    replaceVarsRight e es =
+      case viewTerm $ eqRHS e of
+        (Lit (Con _)) -> [e]
+        (Lit (Var x)) -> let newVar = getNewVarTerm x (e:es) in 
+          [(Equal (eqLHS e) newVar), (Equal (eqRHS e) newVar)]
+        (FApp funsym args) -> let newArgs = getNewTerms args (e:es) [] in
+          [Equal (eqLHS e) (termViewToTerm $ FApp funsym newArgs)] ++ (getEqsFromArgsTrans args newArgs)
+    getEqsFromArgsTrans :: [LNTerm] -> [LNTerm] -> [Equal LNTerm]
+    getEqsFromArgsTrans [] _ = []
+    getEqsFromArgsTrans _ [] = []
+    getEqsFromArgsTrans (l:ls) (r:rs) = let rest = getEqsFromArgsTrans ls rs in
+      case (viewTerm l, viewTerm r) of
+        (Lit (Con _), _) -> rest
+        (Lit (Var _), _) -> (Equal l r):rest
+        (FApp _ largs, FApp _ rargs) -> (getEqsFromArgsTrans largs rargs) ++ rest
+        (_,_) -> rest
+    getNewTerms :: [LNTerm] -> [Equal LNTerm] -> [Equal LNTerm] -> [LNTerm]
+    getNewTerms [] _ _ -> []
+    getNewTerms (t:ts) es nes =
+      if any ((==) t) (eqLHS nes)
+      then 
+      else getNewTerm 
+    getNewTerm :: LNTerm -> [Equal LNTerm] -> LNTerm
+    getNewTerm es t = 
+      case viewTerm t of 
+        (Lit (Con _)) -> t
+        (Lit (Var x)) -> getNewVarTerm x es
+        (FApp funsym args) -> termViewToTerm (FApp funsym $ map (getNewTerm es) args)
+    getNewVarTerm :: LVar -> [Equal LNTerm] -> LNTerm
+    getNewVarTerm x es = varTerm $ LVar (lvarName x) LSortMsg 
+      $ (+) 1
+      $ foldr max (lvarIdx x) 
+      $ map (\e -> lvarIdx e) 
+      $ filter (\e -> lvarName x == lvarName e) 
+      $ concat 
+      $ map (\e -> (varsVTerm $ eqLHS e) ++ (varsVTerm $ eqRHS e)) es
+-}
+
+
+-- varsVTerm
+
+
+-- Transforms equations to Homomorphic Solved Form
 -- Returns Nothing if it is not possible to put the equations Homomorphic Solved Form
 -- This function does not change the equations themselves, but assures that the variables
 -- on the left side of all equations are unique.
-toHomomorphicSolvedForm :: [Equal LNPETerm] -> Maybe [Equal LNTerm]
+toHomomorphicSolvedForm :: [Equal LNTerm] -> Maybe [Equal LNTerm]
 toHomomorphicSolvedForm eqs = let
-  eqsLN = map (fmap lnTerm) eqs
-  varLeftEqs = map moveVarLeft eqsLN
+  varLeftEqs = map moveVarLeft eqs
   vLEqsNoDups = removeDuplicates varLeftEqs
   doubleVarEqs = filter doubleVarEq vLEqsNoDups
   singleVarEqs = filter (not . doubleVarEq) vLEqsNoDups
@@ -113,8 +174,13 @@ toHomomorphicSolvedForm eqs = let
   dRightTerms = map eqRHS orderedDVarEqs
   leftVars = sLeftVars ++ dLeftVars
   rightTerms = sRightTerms ++ dRightTerms
+  allVars = foldVars (leftVars ++ rightTerms)
+  freeAvoidingEqs = snd $ getFreeAvoidingEqsOfTerms allVars rightTerms []
+  freeAvoidedRightTerms = applyEqsToTerms freeAvoidingEqs rightTerms
+  freeAvoidedEqs = (zipWith Equal leftVars freeAvoidedRightTerms)
+  completeSubstitution = freeAvoidingEqs ++ freeAvoidedEqs
   in if (allLeftVarsUnique leftVars) && (allLeftVarsNotRight leftVars rightTerms)
-  then Just (singleVarEqs ++ orderedDVarEqs)
+  then Just completeSubstitution
   else Nothing
   where
     moveVarLeft :: Equal LNTerm -> Equal LNTerm
@@ -138,6 +204,7 @@ toHomomorphicSolvedForm eqs = let
     allLeftVarsUnique :: [LNTerm] -> Bool
     allLeftVarsUnique [] = True
     allLeftVarsUnique (l:ls) = (varNotPartOfTerms l ls) && (allLeftVarsUnique ls)
+    -- can be improved by precomputing all variables and then only checking if inside list
     allLeftVarsNotRight :: [LNTerm] -> [LNTerm] -> Bool
     allLeftVarsNotRight [] _ = True
     allLeftVarsNotRight (l:ls) rs = (varNotPartOfTerms l rs) && (allLeftVarsNotRight ls rs)
@@ -163,6 +230,40 @@ toHomomorphicSolvedForm eqs = let
         (FApp _ args) -> all (varNotPartOfTerm l) args
         (Lit (Var _)) -> l /= r
         (Lit (Con _)) -> True
+    foldVars :: [LNTerm] -> [LVar]
+    foldVars ts = concat $ map varsVTerm ts
+    getFreeAvoidingEqsOfTerms :: [LVar] -> [LNTerm] -> [Equal LNTerm] -> ([LVar], [Equal LNTerm])
+    getFreeAvoidingEqsOfTerms allVs [] newEs = (allVs, newEs)
+    getFreeAvoidingEqsOfTerms allVs (t:ts) newEs =
+      let (nV, nEs) = getFreeAvoidingEqsOfTerm allVs t newEs 
+      in getFreeAvoidingEqsOfTerms nV ts nEs
+    getFreeAvoidingEqsOfTerm :: [LVar] -> LNTerm -> [Equal LNTerm] -> ([LVar], [Equal LNTerm])
+    getFreeAvoidingEqsOfTerm allVs t newEs =
+      case viewTerm t of
+        (Lit (Con _)) -> (allVs, newEs)
+        (Lit (Var x)) -> if t /= (applyEqsToTerm newEs t)
+          then (allVs, newEs)
+          else let newV = getNewVar allVs x in (newV:allVs, (Equal t $ varTerm newV):newEs)
+        (FApp _ args) -> getFreeAvoidingEqsOfTerms allVs args newEs
+    getNewVar :: [LVar] -> LVar -> LVar
+    getNewVar allVs x = LVar (lvarName x) LSortMsg 
+      $ (+) 1
+      $ foldr max (lvarIdx x) 
+      $ map (\e -> lvarIdx e) 
+      $ filter (\e -> lvarName x == lvarName e) allVs
+    applyEqsToTerms :: [Equal LNTerm] -> [LNTerm] -> [LNTerm]
+    applyEqsToTerms _ [] = []
+    applyEqsToTerms newEs (t:ts) = (applyEqsToTerm newEs t):(applyEqsToTerms newEs ts)
+    applyEqsToTerm :: [Equal LNTerm] -> LNTerm -> LNTerm
+    applyEqsToTerm newEs t =
+      case viewTerm t of
+        (Lit (Var _)) -> foldr applyEqToTerm t newEs
+        (Lit (Con _)) -> t
+        (FApp funsym args) -> 
+          termViewToTerm $ FApp funsym $ map (applyEqsToTerm newEs) args
+    applyEqToTerm :: Equal LNTerm -> LNTerm -> LNTerm
+    applyEqToTerm e t = if t == eqLHS e then eqRHS e else t
+
 
 -- | @normHomomorphic t@ normalizes the term @t@ if the top function is the homomorphic encryption
 normHomomorphic :: LNTerm -> LNTerm
@@ -328,7 +429,7 @@ shapingHomomorphicRule eq _ eqs = let
     maxQ q = foldr max 0
       $ map lvarIdx
       $ filter (\lv -> lvarName lv == "fxShapingHomomorphic")
-      $ (frees $ lnTerm $ eqLHS q) ++ (frees $ lnTerm $ eqRHS q)
+      $ (varsVTerm $ lnTerm $ eqLHS q) ++ (varsVTerm $ lnTerm $ eqRHS q)
 
 failureOneHomomorphicRule :: HomomorphicRule
 failureOneHomomorphicRule eq _ _ = let

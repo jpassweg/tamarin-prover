@@ -91,25 +91,34 @@ propUnifySound hnd t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
 -- Tests for Unification modulo EpsilonH (For Homomorphic encryption)
 -- *****************************************************************************
 
+testAllHomomorphic :: MaudeHandle -> Test
+testAllHomomorphic mhnd = TestLabel "All Homomorphic tests" $
+  TestList 
+    [ testsUnifyHomomorphic mhnd
+    , testsUnifyHomomorphicSf
+    , testsUnifyHomomorphicRules
+    , testPrinterHomomorphic
+    ]
+
 -- Multiple tests for unification modulo EpisolonH algorithm 
 -- implemented in unifyHomomorphicLNTerm
-testsUnifyHomomorphic :: Test
-testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
+testsUnifyHomomorphic :: MaudeHandle -> Test
+testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify module EpsilonH" $
   TestList
-    [ testTrue "trivial case" (propUnifyHomomorphicSound x0 x0)
-    , testTrue "trivial case 2" (propUnifyHomomorphicSound x0 x1)
-    , testTrue "trivial non-equality" (not (propUnifyHomomorphicSound (henc(x0,x1)) x1))
-    , testTrue "case 1" (propUnifyHomomorphicSound x0 (henc(x1,x2)))
-    , testTrue "case 2" (propUnifyHomomorphicSound t1 x4)
-    , testTrue "case 3" (propUnifyHomomorphicSound (henc(t1,x0)) (henc(x5,x6)))
-    , testTrue "def homomorphic enc 1" (propUnifyHomomorphicSound t1 t2)
-    , testTrue "def homomorphic enc 2" (propUnifyHomomorphicSound t2 t1)
-    , testTrue "def homomorphic enc 3" (propUnifyHomomorphicSound (henc(t1,x0)) (henc(t1,x0)))
-    , testTrue "case norm 1" (propUnifyHomomorphicSound (pair(pair(x0,x0),x0)) (pair(pair(x2,x3),x4)))
-    , testTrue "case norm 2" (propUnifyHomomorphicSound (pair(pair(x2,x3),x4)) (pair(pair(x0,x0),x0)))
-    , testTrue "case norm 3" (propUnifyHomomorphicSound t1v0 t2v1)
-    , testTrue "case norm 4" (propUnifyHomomorphicSound t1v0 t2v2)
-    , testTrue "not sym homomorphic" (not $ propUnifyHomomorphicSound t1Sym t2Sym)
+    [ testUnifyWithPrint mhnd "trivial case" True x0 x0
+    , testUnifyWithPrint mhnd "trivial case 2" True x0 x1
+    , testUnifyWithPrint mhnd "trivial non-equality" False (henc(x0,x1)) x1
+    , testUnifyWithPrint mhnd "case 1" True x0 (henc(x1,x2))
+    , testUnifyWithPrint mhnd "case 2" True t1 x4
+    , testUnifyWithPrint mhnd "case 3" True (henc(t1,x0)) (henc(x5,x6))
+    , testUnifyWithPrint mhnd "def henc 1" True t1 t2
+    , testUnifyWithPrint mhnd "def henc 2" True t2 t1
+    , testUnifyWithPrint mhnd "def henc 3" True (henc(t1,x0)) (henc(t1,x0))
+    , testUnifyWithPrint mhnd "case norm 1" True pair1 pair2
+    , testUnifyWithPrint mhnd "case norm 2" True pair2 pair1
+    , testUnifyWithPrint mhnd "case norm 3" True t1v0 t2v1
+    , testUnifyWithPrint mhnd "case norm 4" True t1v0 t2v2
+    , testUnifyWithPrint mhnd "not sym homomorphic" False t1Sym t2Sym
     ]
   where
     t1 = (henc(pair(x0,x1),x2))
@@ -119,17 +128,53 @@ testsUnifyHomomorphic = TestLabel "Tests for Unify module EpsilonH" $
     t2v2 = (pair(henc(x1,x2),henc(x2,x4)))
     t1Sym = (senc(pair(x0,x1),x2))
     t2Sym = (pair(senc(x0,x2),senc(x1,x2)))
+    pair1 = (pair(pair(x0,x0),x0))
+    pair2 = (pair(pair(x2,x3),x4))
+
+testUnifyWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
+testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
+  TestLabel caseName $ TestCase $ assertBool (
+    "------ TEST PRINTER ------" ++ "\n"
+    ++ "Case: " ++ caseName ++ "\n"
+    ++ "Terms: " ++ (show t1) ++ ", " ++ (show t2) ++ "\n"
+    ++ "--- unifyLNTerm ---" ++ "\n"
+    ++ "NumUnifiers: " ++ (show numUnifiers) ++ "\n"
+    ++ "First unifier: " ++ (show subst) ++ "\n"
+    ++ "After fTFA:    VSubst: " ++ (show subst') ++ "\n"
+    ++ "New Terms: " ++ (show t1Subst') ++ ", " ++ (show t2Subst') ++ "\n"
+    ++ "--- unifyHomomorphicLNTermWithMaude ---" ++ "\n"
+    ++ "First unifier: " ++ (show substH) ++ "\n"
+    ++ "After fTFA     VSubst: " ++ (show substH') ++ "\n"
+    ++ "New Terms: " ++ (show t1SubstH') ++ ", " ++ (show t2SubstH') ++ "\n"
+    ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n"
+    ++ "------ END TEST PRINTER ------"
+  ) (caseOutcome == (propUnifyHomomorphicSound mhnd t1 t2))
+  where
+    t1N = normHomomorphic t1
+    t2N = normHomomorphic t2
+    substs = unifyLNTerm [Equal t1 t2] `runReader` mhnd
+    numUnifiers = length substs
+    subst = safeHead substs
+    subst' = freshToFreeAvoiding subst [t1,t2]
+    t1Subst' = applyVTerm subst' t1
+    t2Subst' = applyVTerm subst' t2
+    substH = safeHead $ unifyHomomorphicLNTermWithMaude [Equal t1 t2] `runReader` mhnd
+    substH' =  freshToFreeAvoiding substH [t1,t2]
+    t1SubstH' = applyVTerm substH' t1
+    t2SubstH' = applyVTerm substH' t2
+    safeHead s = if null s then (SubstVFresh $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)]) else head s
 
 -- Returns true if unifyHomomorphicLNTerm was able to unify both given terms
 -- Uses the same method for testing as propUnifySound
 -- freshToFreeAvoiding converts return of type 
 -- [SubstVFresh Name LVar] to [Subst Name LVar]
-propUnifyHomomorphicSound :: LNTerm -> LNTerm -> Bool
-propUnifyHomomorphicSound t1 t2 = let
+propUnifyHomomorphicSound :: MaudeHandle -> LNTerm -> LNTerm -> Bool
+propUnifyHomomorphicSound mhnd t1 t2 = let
     t1N = normHomomorphic t1
     t2N = normHomomorphic t2
-    substs = unifyHomomorphicLNTerm [Equal t1 t2]
-  in all (\s -> applyVTerm s t1N == applyVTerm s t2N) substs && not (null substs)
+    substs = unifyHomomorphicLNTermWithMaude [Equal t1 t2] `runReader` mhnd
+    substs' = map (\s -> freshToFreeAvoiding s [t1,t2]) substs
+  in all (\s -> applyVTerm s t1N == applyVTerm s t2N) substs' && not (null substs)
 
 -- Multiple tests for the functions directly used by the 
 -- homomorphic encrytion unification algorithm 
@@ -289,6 +334,7 @@ testsUnifyHomomorphicRules = TestLabel "Tests for Unify module EpsilonH Rules" $
     --                         E [x.4,x.5,x.6] with n = 2, m = 1
 
 -- Function to test if strings used in a P-Representation are valid
+-- Note: not used
 validBitString :: [String] -> Bool
 validBitString [""] = True
 validBitString s = contains12Pattern s 
@@ -305,8 +351,8 @@ validBitString s = contains12Pattern s
 
 -- Test used to actually print what some functions return for debugging
 -- Set to false to print out values
-testPrinter :: Test
-testPrinter =
+testPrinterHomomorphic :: Test
+testPrinterHomomorphic =
   TestLabel "prints out debugging information" $
   TestList
     [ testTrue (show "") True]
@@ -507,12 +553,9 @@ tests maudePath = do
                       , testsSubst
                       , testsNorm mhnd
                       , testsUnify mhnd
-                      , testsUnifyHomomorphic
-                      , testsUnifyHomomorphicSf
-                      , testsUnifyHomomorphicRules
+                      , testAllHomomorphic mhnd
                       , testsSimple mhnd
                       , testsMatching mhnd
-                      , testPrinter
                       ]
 
 -- | Maude signatures with all builtin symbols.

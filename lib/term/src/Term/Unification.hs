@@ -60,6 +60,7 @@ module Term.Unification (
   , pairDestMaudeSig
   , symEncDestMaudeSig
   , asymEncDestMaudeSig
+  , hsymEncDestMaudeSig
   , signatureDestMaudeSig  
   , locationReportMaudeSig
   , revealSignatureMaudeSig
