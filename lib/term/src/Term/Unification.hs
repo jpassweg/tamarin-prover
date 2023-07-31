@@ -100,7 +100,7 @@ import           Term.Homomorphism.Unification
 import           Debug.Trace.Ignore
 
 useCapUnification :: Bool
-useCapUnification = False
+useCapUnification = True
 
 -- Unification modulo AC
 ----------------------------------------------------------------------

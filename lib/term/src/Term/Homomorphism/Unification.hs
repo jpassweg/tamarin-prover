@@ -19,8 +19,9 @@ import Term.Homomorphism.LNPETerm
 
 import Term.LTerm (
   LNTerm, Lit(Var, Con), LVar(..), getVar, isVar, varTerm, occursVTerm, varsVTerm,
-  LSort(LSortFresh, LSortMsg), Name, sortOfName, isPair, fAppPair,
-  TermView(FApp, Lit), viewTerm, termViewToTerm)
+  LSort(..), Name, sortOfName, isPair, fAppPair,
+  TermView(FApp, Lit), viewTerm, termViewToTerm,
+  sortCompare, sortOfLNTerm)
 -- isVar, varTerm, varsVTerm, occursVTerm come from Term.VTerm
 -- isPair, fAppPair come from Term.Term
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
@@ -95,68 +96,6 @@ applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
       (toLNPETerm $ applyVTerm subst $ lnTerm $ eqLHS eq) 
       (toLNPETerm $ applyVTerm subst $ lnTerm $ eqRHS eq)
 
-{-
-toHomomorphicSolvedForm :: [Equal LNTerm] -> Maybe [Equal LNTerm]
-toHomomorphicSolvedForm eqs = let
-  varLeftEqs = map moveVarLeft eqs
-  -- todo: try to make left vars unique
-  newEqs = replaceVarsRights varLeftEqs []
-  -- todo: remove doubles
-  in Just newEqs
-  where
-    moveVarLeft :: Equal LNTerm -> Equal LNTerm
-    moveVarLeft e =
-      case (viewTerm $ eqLHS e, viewTerm $ eqRHS e) of 
-        (FApp _ _,    Lit (Var _)) -> Equal (eqRHS e) (eqLHS e)
-        (Lit (Con _), Lit (Var _)) -> Equal (eqRHS e) (eqLHS e)
-        (_, _)                     -> Equal (eqLHS e) (eqRHS e)
-    replaceVarsRights :: [Equal LNTerm] -> [Equal LNTerm] -> [Equal LNTerm]
-    replaceVarsRights [] newEqs = newEqs
-    replaceVarsRights (e:es) esO = 
-      replaceVarsRights es ((replaceVarsRight e (es++esO)) ++ esO)
-    replaceVarsRight :: Equal LNTerm -> [Equal LNTerm] -> [Equal LNTerm]
-    replaceVarsRight e es =
-      case viewTerm $ eqRHS e of
-        (Lit (Con _)) -> [e]
-        (Lit (Var x)) -> let newVar = getNewVarTerm x (e:es) in 
-          [(Equal (eqLHS e) newVar), (Equal (eqRHS e) newVar)]
-        (FApp funsym args) -> let newArgs = getNewTerms args (e:es) [] in
-          [Equal (eqLHS e) (termViewToTerm $ FApp funsym newArgs)] ++ (getEqsFromArgsTrans args newArgs)
-    getEqsFromArgsTrans :: [LNTerm] -> [LNTerm] -> [Equal LNTerm]
-    getEqsFromArgsTrans [] _ = []
-    getEqsFromArgsTrans _ [] = []
-    getEqsFromArgsTrans (l:ls) (r:rs) = let rest = getEqsFromArgsTrans ls rs in
-      case (viewTerm l, viewTerm r) of
-        (Lit (Con _), _) -> rest
-        (Lit (Var _), _) -> (Equal l r):rest
-        (FApp _ largs, FApp _ rargs) -> (getEqsFromArgsTrans largs rargs) ++ rest
-        (_,_) -> rest
-    getNewTerms :: [LNTerm] -> [Equal LNTerm] -> [Equal LNTerm] -> [LNTerm]
-    getNewTerms [] _ _ -> []
-    getNewTerms (t:ts) es nes =
-      if any ((==) t) (eqLHS nes)
-      then 
-      else getNewTerm 
-    getNewTerm :: LNTerm -> [Equal LNTerm] -> LNTerm
-    getNewTerm es t = 
-      case viewTerm t of 
-        (Lit (Con _)) -> t
-        (Lit (Var x)) -> getNewVarTerm x es
-        (FApp funsym args) -> termViewToTerm (FApp funsym $ map (getNewTerm es) args)
-    getNewVarTerm :: LVar -> [Equal LNTerm] -> LNTerm
-    getNewVarTerm x es = varTerm $ LVar (lvarName x) LSortMsg 
-      $ (+) 1
-      $ foldr max (lvarIdx x) 
-      $ map (\e -> lvarIdx e) 
-      $ filter (\e -> lvarName x == lvarName e) 
-      $ concat 
-      $ map (\e -> (varsVTerm $ eqLHS e) ++ (varsVTerm $ eqRHS e)) es
--}
-
-
--- varsVTerm
-
-
 -- Transforms equations to Homomorphic Solved Form
 -- Returns Nothing if it is not possible to put the equations Homomorphic Solved Form
 -- This function does not change the equations themselves, but assures that the variables
@@ -179,7 +118,9 @@ toHomomorphicSolvedForm eqs = let
   freeAvoidedRightTerms = applyEqsToTerms freeAvoidingEqs rightTerms
   freeAvoidedEqs = (zipWith Equal leftVars freeAvoidedRightTerms)
   completeSubstitution = freeAvoidingEqs ++ freeAvoidedEqs
-  in if (allLeftVarsUnique leftVars) && (allLeftVarsNotRight leftVars rightTerms)
+  in if (allLeftVarsUnique leftVars)
+    && (allLeftVarsNotRight leftVars rightTerms)
+    && (sortCorrectEqs completeSubstitution)
   then Just completeSubstitution
   else Nothing
   where
@@ -210,11 +151,17 @@ toHomomorphicSolvedForm eqs = let
     allLeftVarsNotRight (l:ls) rs = (varNotPartOfTerms l rs) && (allLeftVarsNotRight ls rs)
     orderDoubleVarEqs :: [Equal LNTerm] -> [LNTerm] -> [Equal LNTerm]
     orderDoubleVarEqs [] _ = []
-    orderDoubleVarEqs (e:es) rs =
-      case (varNotPartOfTerms (eqLHS e) (rs ++ (eqsToTerms es)), varNotPartOfTerms (eqRHS e) (rs ++ (eqsToTerms es))) of
-        (True, _) -> e : (orderDoubleVarEqs es (rs ++ [(eqLHS e), (eqRHS e)]))
-        (_, True) -> (Equal (eqRHS e) (eqLHS e)) : (orderDoubleVarEqs es (rs ++ [(eqLHS e), (eqRHS e)]))
-        (_,_) -> e : (orderDoubleVarEqs es (rs ++ [(eqLHS e), (eqRHS e)]))
+    orderDoubleVarEqs (e:es) rs = let 
+      rsPlusEs = rs ++ (eqsToTerms es) 
+      rsPlusE = rs ++ [(eqLHS e), (eqRHS e)] 
+      in case (varNotPartOfTerms (eqLHS e) rsPlusEs, varNotPartOfTerms (eqRHS e) rsPlusEs) of
+        (True,True) -> if sortCompare 
+          (sortOfLNTerm (eqLHS e)) (sortOfLNTerm (eqRHS e)) `elem` [Just EQ, Just GT]
+          then e : (orderDoubleVarEqs es rsPlusE)
+          else (Equal (eqRHS e) (eqLHS e)) : (orderDoubleVarEqs es rsPlusE)
+        (True, _)   -> e : (orderDoubleVarEqs es rsPlusE)
+        (_, True)   -> (Equal (eqRHS e) (eqLHS e)) : (orderDoubleVarEqs es rsPlusE)
+        (_,_)       -> e : (orderDoubleVarEqs es rsPlusE)
     eqsToTerms :: [Equal LNTerm] -> [LNTerm]
     eqsToTerms [] = []
     eqsToTerms (e:es) = [eqLHS e, eqRHS e] ++ (eqsToTerms es)
@@ -246,7 +193,7 @@ toHomomorphicSolvedForm eqs = let
           else let newV = getNewVar allVs x in (newV:allVs, (Equal t $ varTerm newV):newEs)
         (FApp _ args) -> getFreeAvoidingEqsOfTerms allVs args newEs
     getNewVar :: [LVar] -> LVar -> LVar
-    getNewVar allVs x = LVar (lvarName x) LSortMsg 
+    getNewVar allVs x = LVar (lvarName x) (lvarSort x) 
       $ (+) 1
       $ foldr max (lvarIdx x) 
       $ map (\e -> lvarIdx e) 
@@ -263,7 +210,15 @@ toHomomorphicSolvedForm eqs = let
           termViewToTerm $ FApp funsym $ map (applyEqsToTerm newEs) args
     applyEqToTerm :: Equal LNTerm -> LNTerm -> LNTerm
     applyEqToTerm e t = if t == eqLHS e then eqRHS e else t
-
+    sortCorrectEqs :: [Equal LNTerm] -> Bool
+    sortCorrectEqs es = all sortCorrectEq es
+    sortCorrectEq :: Equal LNTerm -> Bool
+    sortCorrectEq (Equal l r) = 
+      case (sortOfLNTerm l, sortOfLNTerm r) of
+        (sl, sr) | sl == sr -> True
+        (LSortNode, _)      -> False
+        (_, LSortNode)      -> False
+        (sl, sr)            -> sortCompare sl sr `elem` [Just EQ, Just GT]
 
 -- | @normHomomorphic t@ normalizes the term @t@ if the top function is the homomorphic encryption
 normHomomorphic :: LNTerm -> LNTerm
