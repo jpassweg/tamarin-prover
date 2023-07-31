@@ -24,7 +24,7 @@ rule S_1:
     , In( <<$A, $B>, NA> )
     , Fr(~KAB) ]
     --[ Sending( henc(<~KAB, $A>, KBS), $S, $A) ]->
-    [ Out( henc( <<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS) ) ]
+    [ Out(< henc(NA, KAS), henc($B,KAS), henc(~KAB,KAS), henc(henc(<~KAB, $A>, KBS)>, KAS) > ) ]
 
 rule A_2:
     [ A_1_State($S, $A, $B, KAS, ~NA)

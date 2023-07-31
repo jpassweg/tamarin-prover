@@ -27,4 +27,7 @@ rule S2:
 lemma Send_And_Received: exists-trace
   "Ex x0 x1 x2 #i #j . Send(x0, x1, x2) @i & Receive(x0, x1, x2) @j"
 
+restriction mzname: 
+  "All x0 x1 x2 #i #j.  Send(x0, x1, x2) @i & Send(x0, x1, x2) @j ==> #i = #j"
+
 end
