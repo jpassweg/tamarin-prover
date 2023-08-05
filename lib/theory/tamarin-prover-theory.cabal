@@ -44,6 +44,7 @@ library
     build-depends:
         aeson
       , aeson-pretty
+      , array
       , attoparsec
       , base
       , binary
@@ -116,6 +117,7 @@ library
       Theory.Text.Parser.Token
       Theory.Text.Parser.Restriction
       Theory.Text.Parser.Signature
+      Theory.Text.Parser.Macro 
 
       Theory.Tools.MessageDerivationChecks
       Theory.Tools.AbstractInterpretation
@@ -124,6 +126,7 @@ library
       Theory.Tools.IntruderRules
       Theory.Tools.LoopBreakers
       Theory.Tools.RuleVariants
+      Theory.Tools.SubtermStore
       Theory.Tools.Wellformedness
       TheoryObject
       Lemma

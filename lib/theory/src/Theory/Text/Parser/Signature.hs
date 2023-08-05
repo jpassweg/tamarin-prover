@@ -69,7 +69,8 @@ builtinsDiffNames = [
   ("dest-homomorphic-encryption", hsymEncDestMaudeSig),
   ("dest-signing", signatureDestMaudeSig),  
   ("revealing-signing", revealSignatureMaudeSig),
-  ("hashing", hashMaudeSig)
+  ("hashing", hashMaudeSig),
+  ("natural-numbers", natMaudeSig)
               ]
 
 -- | Describes the mapping between a builtin name, its potential Maude Signatures

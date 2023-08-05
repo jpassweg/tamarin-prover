@@ -115,7 +115,7 @@ import           Debug.Trace                  (trace)
 import Control.Monad.Except (runExceptT)
 import Main.TheoryLoader
 import Main.Console (renderDoc)
-import Theory.Tools.Wellformedness (prettyWfErrorReport, WfErrorReport)
+import Theory.Tools.Wellformedness (prettyWfErrorReport)
 
 -- Quasi-quotation syntax changed from GHC 6 to 7,
 -- so we need this switch in order to support both
@@ -902,26 +902,26 @@ getTheoryGraphR idx path = withTheory idx ( \ti -> do
       compact <- isNothing <$> lookupGetParam "uncompact"
       compress <- isNothing <$> lookupGetParam "uncompress"
       abbreviate <- isNothing <$> lookupGetParam "unabbreviate"
-      simplificationLevel <- fromMaybe "1" <$> lookupGetParam "simplification"
+      simplificationLevel <- fromMaybe "2" <$> lookupGetParam "simplification"
       showAutosource <- isNothing <$> lookupGetParam "no-auto-sources"
       img <- liftIO $ traceExceptions "getTheoryGraphR" $
         imgThyPath
           (imageFormat yesod)
           (graphCmd yesod)
           (cacheDir yesod)
-          (graphStyle compact compress ( not showAutosource) )
+          (graphStyle compact compress ( not showAutosource) ( read $ T.unpack simplificationLevel) )
           (sequentToJSONPretty)
           (show simplificationLevel)
           (abbreviate)
           (tiTheory ti) path
       sendFile (fromString . imageFormatMIME $ imageFormat yesod) img)
   where
-    graphStyle d c s = dotStyle s d . compression c
+    graphStyle d c s l= dotStyle s d .simplifySystem l. compression c
     dotStyle s True = dotSystemCompact CompactBoringNodes s
     dotStyle s False = dotSystemCompact FullBoringNodes s
     compression True = compressSystem
     compression False = id
-    
+
 -- | Get rendered graph for theory and given path.
 getTheoryGraphDiffR :: TheoryIdx -> DiffTheoryPath -> Handler ()
 getTheoryGraphDiffR idx path = getTheoryGraphDiffR' idx path False
@@ -933,23 +933,23 @@ getTheoryGraphDiffR' idx path mirror = withDiffTheory idx ( \ti -> do
       compact <- isNothing <$> lookupGetParam "uncompact"
       compress <- isNothing <$> lookupGetParam "uncompress"
       abbreviate <- isNothing <$> lookupGetParam "unabbreviate"
-      simplificationLevel <- fromMaybe "1" <$> lookupGetParam "simplification"
+      simplificationLevel <- fromMaybe "2" <$> lookupGetParam "simplification"
       showAutosource <- isNothing <$> lookupGetParam "auto-sources"
       img <- liftIO $ traceExceptions "getTheoryGraphDiffR" $
         imgDiffThyPath
           (imageFormat yesod)
           (snd $ graphCmd yesod)
           (cacheDir yesod)
-          (graphStyle compact compress showAutosource)
+          (graphStyle compact compress showAutosource (read $ T.unpack simplificationLevel))
           (show simplificationLevel)
           (abbreviate)
           (dtiTheory ti) path
           (mirror)
       sendFile (fromString . imageFormatMIME $ imageFormat yesod) img)
   where
-    graphStyle d c s = dotStyle s d . compression c
-    dotStyle s True = dotSystemCompact CompactBoringNodes (not s)
-    dotStyle s False = dotSystemCompact FullBoringNodes (not s)
+    graphStyle d c s l= dotStyle s d .simplifySystem l. compression c
+    dotStyle s True = dotSystemCompact CompactBoringNodes s
+    dotStyle s False = dotSystemCompact FullBoringNodes s
     compression True = compressSystem
     compression False = id
 
