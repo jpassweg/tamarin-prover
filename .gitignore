@@ -53,3 +53,5 @@ out/
 **/benchmark
 **/input
 **/diff
+
+homomorphic-tests-results/*
