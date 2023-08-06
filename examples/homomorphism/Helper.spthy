@@ -1,4 +1,4 @@
-theory MessageFill
+theory Helper
 begin
 
 builtins: homomorphic-encryption
@@ -14,19 +14,13 @@ rule A1:
   --[]->
   [ Out(henc(~x0, k)) ]
 
-rule A2:
-  [ Fr(~x1)
-  , !Key(k) ]
+rule Helper:
+  [ In(henc(x0, k))
+  , In(henc(x1, k)) ]
   --[]->
-  [ Out(henc(~x1, k)) ] 
-
-rule B1:
-  [ !Key(k)
-  , In(henc(<x0, x1>, k)) ]
-  --[ Received(k) ]->
-  []
+  [ Out(henc(<x0, x1>, k)) ]
 
 lemma Intruder_Fills_Message: exists-trace
-  "Ex k #i . Received(k) @i & not K(k) @i"
+  "Ex x0 x1 k #i . K(henc(<x0, x1>, k)) @i & not K(k) @i"
 
 end

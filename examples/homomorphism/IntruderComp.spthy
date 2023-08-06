@@ -1,0 +1,20 @@
+theory IntruderComposition
+begin
+
+builtins: homomorphic-encryption
+
+rule GetKey:
+  [ Fr(~k) ]
+  --[]->
+  [ !Key(~k) ]
+
+rule A1:
+  [ Fr(~x0)
+  , !Key(k) ]
+  --[]->
+  [ Out(henc(~x0, k)) ]
+
+lemma Intruder_Fills_Message: exists-trace
+  "Ex x0 x1 k #i . K(henc(<x0, x1>, k)) @i & not K(k) @i"
+
+end

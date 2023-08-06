@@ -1,4 +1,4 @@
-theory DecompositionInvader
+theory IntruderDecomposition
 begin
 
 builtins: homomorphic-encryption
@@ -15,11 +15,13 @@ rule A1:
   --[]->
   [ Out(henc(<~x0, ~x1>, k)) ]
 
+/*
 rule B1:
   [ !Key(k)
   , In(henc(<x0, x1>, k)) ]
   --[]->
   []
+*/
 
 lemma Intruder_Cant_Decompose: all-traces
   "All x0 k #i . K(henc(x0,k)) @i ==> K(k) @i"

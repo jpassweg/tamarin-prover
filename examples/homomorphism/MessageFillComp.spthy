@@ -1,0 +1,35 @@
+theory MessageFillComposition
+begin
+
+builtins: homomorphic-encryption
+
+rule GetKey:
+  [ Fr(~k) ]
+  --[]->
+  [ !Key(~k) ]
+
+rule A1:
+  [ Fr(~x0)
+  , !Key(k) ]
+  --[]->
+  [ Out(henc(~x0, k)) ]
+
+rule B1:
+  [ !Key(k)
+  , In(<henc(x0, k), henc(x1, k)>) ]
+  --[ Received_1(k) ]->
+  []
+
+rule C1:
+  [ !Key(k)
+  , In(henc(<x0, x1>, k)) ]
+  --[ Received_2(k) ]->
+  []
+
+lemma Intruder_Fills_Message_1: exists-trace
+  "Ex k #i . Received_1(k) @i & not K(k) @i"
+
+lemma Intruder_Fills_Message_2: exists-trace
+  "Ex k #i . Received_2(k) @i & not K(k) @i"
+
+end
