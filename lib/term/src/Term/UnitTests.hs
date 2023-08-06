@@ -28,9 +28,9 @@ import Test.HUnit
 import Control.Monad.Reader
 -- import Data.Monoid
 
-import Term.Homomorphism.Unification
+import Term.Homomorphism.Norm
 import Term.Homomorphism.LNPETerm
-
+import Term.Homomorphism.Unification
 
 testEqual :: (Eq a, Show a) => String -> a -> a -> Test
 testEqual t a b = TestLabel t $ TestCase $ assertEqual t b a

@@ -9,21 +9,21 @@ module Term.Homomorphism.Unification (
   -- * For debugging
   , debugHomomorphicRule
   , HomomorphicRuleReturn(..)
-  , normHomomorphic
 ) where
 
 import qualified Data.Map as M
 import Control.Monad.RWS (reader)
 
+import Term.Homomorphism.Norm
 import Term.Homomorphism.LNPETerm
 
 import Term.LTerm (
   LNTerm, Lit(Var, Con), LVar(..), getVar, isVar, varTerm, occursVTerm, varsVTerm,
-  LSort(..), Name, sortOfName, isPair, fAppPair,
+  LSort(..), Name, sortOfName, isPair,
   TermView(FApp, Lit), viewTerm, termViewToTerm,
   sortCompare, sortOfLNTerm)
 -- isVar, varTerm, varsVTerm, occursVTerm come from Term.VTerm
--- isPair, fAppPair come from Term.Term
+-- isPair come from Term.Term
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
 
 import Term.Rewriting.Definitions (Equal(..))
@@ -219,21 +219,6 @@ toHomomorphicSolvedForm eqs = let
         (LSortNode, _)      -> False
         (_, LSortNode)      -> False
         (sl, sr)            -> sortCompare sl sr `elem` [Just EQ, Just GT]
-
--- | @normHomomorphic t@ normalizes the term @t@ if the top function is the homomorphic encryption
-normHomomorphic :: LNTerm -> LNTerm
-normHomomorphic t = case viewTerm t of
-  (FApp sym1 [t1, t2]) -> 
-    case viewTerm t1 of
-      (FApp _ [t11,t12]) ->
-        if (isHenc sym1) && (isPair t1) 
-        then fAppPair(fAppHenc (n t11, n t2), fAppHenc (n t12, n t2))
-        else termViewToTerm $ FApp sym1 (map n [t1,t2])
-      (_) -> termViewToTerm $ FApp sym1 (map n [t1,t2])
-  (FApp sym args) -> termViewToTerm $ FApp sym (map n args)
-  (_) -> t
-  where
-    n = normHomomorphic
 
 -- Homomorphic Rules Managers
 -----------------------------

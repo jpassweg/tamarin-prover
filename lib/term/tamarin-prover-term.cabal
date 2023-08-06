@@ -87,6 +87,7 @@ library
       Term.Maude.Parser
 
       Term.Homomorphism.LNPETerm
+      Term.Homomorphism.Norm
       Term.Homomorphism.Unification
 
       Term.UnitTests
