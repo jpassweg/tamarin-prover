@@ -32,6 +32,7 @@ import           Term.Maude.Signature
 import           Term.Substitution
 import           Term.SubtermRule
 import           Term.Unification
+-- import           Term.Homomorphism.Norm
 
 ----------------------------------------------------------------------
 -- Normalization using Maude
@@ -45,7 +46,7 @@ norm sortOf t         = reader $ \hnd -> unsafePerformIO $ normViaMaude hnd sort
 
 -- | @norm' t@ normalizes the term @t@ using Maude.
 norm' :: LNTerm -> WithMaude LNTerm
-norm' = norm sortOfName
+norm' = norm sortOfName -- . normHomomorphic
 
 
 ----------------------------------------------------------------------
