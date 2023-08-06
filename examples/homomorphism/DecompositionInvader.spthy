@@ -1,0 +1,27 @@
+theory DecompositionInvader
+begin
+
+builtins: homomorphic-encryption
+
+rule GetKey:
+  [ Fr(~k) ]
+  --[]->
+  [ !Key(~k) ]
+
+rule A1:
+  [ Fr(~x0)
+  , Fr(~x1)
+  , !Key(k) ]
+  --[]->
+  [ Out(henc(<~x0, ~x1>, k)) ]
+
+rule B1:
+  [ !Key(k)
+  , In(henc(<x0, x1>, k)) ]
+  --[]->
+  []
+
+lemma Intruder_Cant_Decompose: all-traces
+  "All x0 k #i . K(henc(x0,k)) @i ==> K(k) @i"
+
+end
