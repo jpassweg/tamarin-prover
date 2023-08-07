@@ -14,7 +14,7 @@ rule A1:
   --[]->
   [ Out(henc(~x0, k)) ]
 
-/* FORBIDDEN HELPER
+/* FORBIDDEN HELPER - tamarin runs into infinite loop
 rule Helper:
   [ In(henc(x0, k))
   , In(henc(x1, k)) ]
@@ -28,6 +28,7 @@ rule C1:
   --[ Received(k) ]->
   []
 
+// Intruder_Fills_Message (exists-trace): falsified - no trace found (4 steps)
 lemma Intruder_Fills_Message: exists-trace
   "Ex k #i . Received(k) @i & not K(k) @i"
 

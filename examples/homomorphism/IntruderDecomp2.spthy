@@ -24,6 +24,7 @@ rule B1:
   []
 */
 
+// Intruder_Cant_Decompose (all-traces): falsified - found trace (3 steps)
 lemma Intruder_Cant_Decompose: all-traces
   "All x0 k #i . K(henc(x0,k)) @i ==> K(k) @i"
 
