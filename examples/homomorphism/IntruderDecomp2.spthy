@@ -24,8 +24,8 @@ rule B1:
   []
 */
 
-// Intruder_Cant_Decompose (all-traces): falsified - found trace (3 steps)
-lemma Intruder_Cant_Decompose: all-traces
-  "All x0 k #i . K(henc(x0,k)) @i ==> K(k) @i"
+// Intruder_Decomposes_Message (exists-trace): verified (3 steps)
+lemma Intruder_Decomposes_Message: exists-trace
+  "Ex x0 k #i . K(henc(x0,k)) @i & not K(k) @i"
 
 end

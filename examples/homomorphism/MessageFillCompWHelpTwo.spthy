@@ -1,0 +1,32 @@
+theory MessageFillCompositionWithHelperTwo
+begin
+
+builtins: homomorphic-encryption
+
+rule GetKey:
+  [ Fr(~k) ]
+  --[]->
+  [ !Key(~k) ]
+
+rule A1:
+  [ Fr(~x0)
+  , !Key(k) ]
+  --[]->
+  [ Out(henc(~x0, k)) ]
+
+rule Helper:
+  [ In(<henc(x0, k), henc(x1, k)>) ]
+  --[]->
+  [ Out(henc(<x0, x1>, k)) ]
+
+rule C1:
+  [ !Key(k)
+  , In(henc(<x0, x1>, k)) ]
+  --[ Received(k) ]->
+  []
+
+// Intruder_Fills_Message (exists-trace): falsified - no trace found (4 steps)
+lemma Intruder_Fills_Message: exists-trace
+  "Ex k #i . Received(k) @i & not K(k) @i"
+
+end
