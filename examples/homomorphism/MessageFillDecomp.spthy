@@ -8,14 +8,14 @@ rule GetKey:
   --[]->
   [ !Key(~k) ]
 
-rule A1:
+rule A:
   [ Fr(~x0)
   , Fr(~x1)
   , !Key(k) ]
   --[]->
   [ Out(henc(<~x0, ~x1>, k)) ]
 
-rule B1:
+rule B:
   [ !Key(k)
   , In(henc(x0, k)) ]
   --[ Received(k) ]->
@@ -23,6 +23,6 @@ rule B1:
 
 // Intruder_Fills_Message (exists-trace): verified (4 steps)
 lemma Intruder_Fills_Message: exists-trace
-  "Ex k #i . Received(k) @i & not K(k) @i"
+  "Ex k #i. Received(k) @i & not K(k) @i"
 
 end

@@ -8,7 +8,7 @@ rule GetKey:
   --[]->
   [ !Key(~k) ]
 
-rule A1:
+rule A:
   [ Fr(~x0)
   , !Key(k) ]
   --[]->
@@ -16,6 +16,6 @@ rule A1:
 
 // Intruder_Composes_Message (exists-trace): verified (4 steps)
 lemma Intruder_Composes_Message: exists-trace
-  "Ex x0 x1 k #i . K(henc(<x0, x1>, k)) @i & not K(k) @i"
+  "Ex x0 x1 k #i. K(henc(<x0, x1>, k)) @i & not K(k) @i"
 
 end
