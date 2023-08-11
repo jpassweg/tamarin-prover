@@ -1,8 +1,6 @@
 theory TestBedOne
 begin
 
-builtins: symmetric-encryption
-
 functions: create_pair/1, menc/2, mdec/2
 
 equations: 
