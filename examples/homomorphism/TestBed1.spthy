@@ -1,0 +1,38 @@
+theory TestBedOne
+begin
+
+builtins: symmetric-encryption
+
+functions: create_pair/1, menc/2, mdec/2
+
+equations: 
+  create_pair(x) = <x,x>, 
+  mdec(menc(x,k),k) = x, 
+  menc(<x,y>,k) = <menc(x,k),menc(y,k)>
+
+rule GetVars:
+  [ Fr(~x0), Fr(~x1) ]
+  --[]->
+  [ !Vars(~x0,~x1) ]
+
+rule GetKey:
+  [ Fr(~x2) ]
+  --[]->
+  [ !Key(~x2) ]
+
+rule A:
+  [ !Vars(x0,x1), !Key(x2) ]
+  --[ Send(x0, x1, x2) ]->
+  [ S1Out( senc(<x0, x1>, x2) ) ]
+
+rule B:
+  [ !Vars(x0,x1), !Key(x2)
+  , S1Out( < senc(x0,x2), senc(x1,x2) > ) ]
+  --[ Receive(x0, x1, x2) ]->
+  []
+
+// Send_And_Received (exists-trace): falsified - no trace found (6 steps)
+lemma Send_And_Received: exists-trace
+  "Ex x0 x1 x2 #i #j. Send(x0, x1, x2) @i & Receive(x0, x1, x2) @j"
+
+end
