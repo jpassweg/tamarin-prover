@@ -46,6 +46,7 @@ module Term.Unification (
   , enableMSet
   , enableNat
   , enableXor
+  , enableHomomorphic
   , enableDiff
   , minimalMaudeSig
   , enableDiffMaudeSig
@@ -117,6 +118,7 @@ unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unify
     solve h $ execRWST unif sortOf M.empty
   where
     unif = sequence [ unifyRaw t p | Equal t p <- eqs ]
+    --solve h _ | enableHomomorphic mhMaudeSig h = 
     solve _ Nothing         = (emptySubst, [])
     solve _ (Just (m, []))  = (substFromMap m, [emptySubstVFresh])
     solve h (Just (m, leqs)) =
@@ -129,7 +131,7 @@ unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unify
 unifyLNTermFactored :: [Equal LNTerm]
                     -> WithMaude (LNSubst, [SubstVFresh Name LVar])
 unifyLNTermFactored = if useCapUnification
-  then unifyHomomorphicLNTermFactored
+  then unifyHomomorphicLTermFactored sortOfName
   else unifyLTermFactored sortOfName
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
@@ -143,7 +145,7 @@ unifyLTerm sortOf eqs = flattenUnif <$> unifyLTermFactored sortOf eqs
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLNTerm :: [Equal LNTerm] -> WithMaude [SubstVFresh Name LVar]
 unifyLNTerm = if useCapUnification
-  then unifyHomomorphicLNTermWithMaude
+  then unifyHomomorphicLTermWithMaude sortOfName
   else unifyLTerm sortOfName
 
 -- | 'True' iff the terms are unifiable.

@@ -28,8 +28,7 @@ import Test.HUnit
 import Control.Monad.Reader
 -- import Data.Monoid
 
-import Term.Homomorphism.Norm
-import Term.Homomorphism.LNPETerm
+import Term.Homomorphism.LPETerm
 import Term.Homomorphism.Unification
 
 testEqual :: (Eq a, Show a) => String -> a -> a -> Test
@@ -142,7 +141,7 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
     ++ "First unifier: " ++ (show subst) ++ "\n"
     ++ "After fTFA:    VSubst: " ++ (show subst') ++ "\n"
     ++ "New Terms: " ++ (show t1Subst') ++ ", " ++ (show t2Subst') ++ "\n"
-    ++ "--- unifyHomomorphicLNTermWithMaude ---" ++ "\n"
+    ++ "--- unifyHomomorphicLTermWithMaude ---" ++ "\n"
     ++ "First unifier: " ++ (show substH) ++ "\n"
     ++ "After fTFA     VSubst: " ++ (show substH') ++ "\n"
     ++ "New Terms: " ++ (show t1SubstH') ++ ", " ++ (show t2SubstH') ++ "\n"
@@ -152,19 +151,19 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
   where
     t1N = normHomomorphic t1
     t2N = normHomomorphic t2
-    substs = unifyLNTerm [Equal t1 t2] `runReader` mhnd
+    substs = unifyLTerm sortOfName [Equal t1 t2] `runReader` mhnd
     numUnifiers = length substs
     subst = safeHead substs
     subst' = freshToFreeAvoiding subst [t1,t2]
     t1Subst' = applyVTerm subst' t1
     t2Subst' = applyVTerm subst' t2
-    substH = safeHead $ unifyHomomorphicLNTermWithMaude [Equal t1 t2] `runReader` mhnd
+    substH = safeHead $ unifyHomomorphicLTermWithMaude sortOfName [Equal t1 t2] `runReader` mhnd
     substH' =  freshToFreeAvoiding substH [t1,t2]
     t1SubstH' = applyVTerm substH' t1
     t2SubstH' = applyVTerm substH' t2
     safeHead s = if null s then (SubstVFresh $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)]) else head s
 
--- Returns true if unifyHomomorphicLNTerm was able to unify both given terms
+-- Returns true if unifyHomomorphicLTerm was able to unify both given terms
 -- Uses the same method for testing as propUnifySound
 -- freshToFreeAvoiding converts return of type 
 -- [SubstVFresh Name LVar] to [Subst Name LVar]
@@ -172,7 +171,7 @@ propUnifyHomomorphicSound :: MaudeHandle -> LNTerm -> LNTerm -> Bool
 propUnifyHomomorphicSound mhnd t1 t2 = let
     t1N = normHomomorphic t1
     t2N = normHomomorphic t2
-    substs = unifyHomomorphicLNTermWithMaude [Equal t1 t2] `runReader` mhnd
+    substs = unifyHomomorphicLTermWithMaude sortOfName [Equal t1 t2] `runReader` mhnd
     substs' = map (\s -> freshToFreeAvoiding s [t1,t2]) substs
   in all (\s -> applyVTerm s t1N == applyVTerm s t2N) substs' && not (null substs)
 
@@ -326,7 +325,7 @@ testsUnifyHomomorphicRules = TestLabel "Tests for Unify module EpsilonH Rules" $
     tFFE6 = Equal (fH (pair(henc(x0,x2),x3))) (fH (henc(henc(x4,x5),x6)))
     tFFE7 = Equal (fH (pair(henc(pair(x0,x1),x2),x3))) (fH (henc(x4,x6)))
     s = sortOfName
-    fH = toLNPETerm
+    fH = toLPETerm
     -- shaping:  tFFE1 = Equal P [""] [[x,x.1]] E [x.2,x.3,x.4] with n = 2, m = 2
     --    Return tFFE2 = Equal P [""] [[xH.1, x.3, x.1]] E [x.2,x.3,x.4]
     --           tFFE3 = Equal x.0                       E [xH.1, x.3]

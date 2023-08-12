@@ -18,6 +18,7 @@ module Term.Maude.Signature (
   , enableMSet
   , enableDiff
   , enableXor
+  , enableHomomorphic
   , enableNat
   , stFunSyms
   , stRules
@@ -88,6 +89,7 @@ data MaudeSig = MaudeSig
     , enableMSet         :: Bool
     , enableNat          :: Bool
     , enableXor          :: Bool
+    , enableHomomorphic  :: Bool
     , enableDiff         :: Bool
     , stFunSyms          :: S.Set NoEqSym     -- ^ function signature for subterm theory
     , stRules            :: S.Set CtxtStRule  -- ^ rewriting rules for subterm theory
@@ -119,13 +121,14 @@ maudeSig msig@MaudeSig{enableDH, enableBP, enableMSet, enableNat, enableXor, ena
 
 -- | A monoid instance to combine maude signatures.
 instance Semigroup MaudeSig where
-    MaudeSig dh1 bp1 mset1 nat1 xor1 diff1 stFunSyms1 stRules1 _ _ _ <>
-      MaudeSig dh2 bp2 mset2 nat2 xor2 diff2 stFunSyms2 stRules2 _ _ _ =
+    MaudeSig dh1 bp1 mset1 nat1 xor1 hom1 diff1 stFunSyms1 stRules1 _ _ _ <>
+      MaudeSig dh2 bp2 mset2 nat2 xor2 hom2 diff2 stFunSyms2 stRules2 _ _ _ =
           maudeSig (mempty {enableDH=dh1||dh2
                            ,enableBP=bp1||bp2
                            ,enableMSet=mset1||mset2
                            ,enableNat=nat1||nat2
                            ,enableXor=xor1||xor2
+                           ,enableHomomorphic=hom1||hom2
                            ,enableDiff=diff1||diff2
                            ,stFunSyms=unionExceptPairSym stFunSyms1 stFunSyms2
                            ,stRules=unionExceptPairRules stRules1 stRules2})
@@ -141,7 +144,7 @@ instance Semigroup MaudeSig where
                                          S.union st1 st2
                   
 instance Monoid MaudeSig where
-    mempty = MaudeSig False False False False False False S.empty S.empty S.empty S.empty S.empty
+    mempty = MaudeSig False False False False False False False S.empty S.empty S.empty S.empty S.empty
 
 -- | Non-AC function symbols.
 noEqFunSyms :: MaudeSig -> NoEqFunSig
@@ -232,6 +235,7 @@ prettyMaudeSigExcept sig excl = P.vcat
       , (enableMSet, "multiset")
       , (enableNat,  "natural-numbers")
       , (enableXor,  "xor")
+      , (enableHomomorphic, "homomorphic-encryption")
       ]
 
     ppFunSymb (f,(k,priv,constr)) = P.text $ BC.unpack f ++ "/" ++ show k

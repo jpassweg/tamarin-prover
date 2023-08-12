@@ -1,11 +1,11 @@
-module Term.Homomorphism.LNPETerm (
+module Term.Homomorphism.LPETerm (
   -- * Homomorphic Representation types
-  LNPETerm(..)
+  LPETerm(..)
   , PRepresentation(..)
   , ERepresentation
 
   -- * Homomorphic Representation functions
-  , toLNPETerm
+  , toLPETerm
   , positionsWithTerms
   , pPosition
   , ePosition
@@ -23,13 +23,14 @@ module Term.Homomorphism.LNPETerm (
   , maximalPositions
   , buildPRepresentation
   , buildERepresentation
+  , normHomomorphic
 ) where
 
 import Term.LTerm (
-  LNTerm, Term, Lit(Var, Con), TermView(Lit, FApp), FunSym(NoEq), 
-  viewTerm, fAppNoEq, fAppPair, isPair)
--- Term, TermView(Lit, FApp), viewTerm, fAppNoEq come from Term.Term.Raw
--- Lit(Var, Con) comes from Term.VTerm
+  LTerm, Term, Lit(Var, Con), IsConst, TermView(Lit, FApp), FunSym(NoEq), 
+  viewTerm, termViewToTerm, fAppNoEq, fAppPair, isPair)
+-- Term, TermView(Lit, FApp), viewTerm, termViewToTerm, fAppNoEq come from Term.Term.Raw
+-- Lit(Var, Con), IsConst comes from Term.VTerm
 -- FunSym(NoEq) comes from Term.Term.FunctionSymbols
 -- fAppPair, isPair come from Term.Term
 
@@ -40,26 +41,26 @@ import Term.Builtin.Signature (hencSym)
 ---------------------------------------------------------------
 
 -- | E representation as defined in the cap unification paper
-type ERepresentation = [LNTerm]
+type ERepresentation c = [LTerm c]
 
 -- | P representation as defined in the cap unification paper
 --   Since rules applied in the Unification modulo Homomorphic Encrpytion algorithm
 --   (namely the homomorphic patterns) compare either ERepresentation or ERepresentations
 --   inside a PRepresentation, we directly store the terms inside the PRepresentation as
 --   ERepresentations of the terms.
-data PRepresentation = PRep 
+data PRepresentation c = PRep 
     { eRepsString :: [String]
-    , eRepsTerms :: [ERepresentation] 
+    , eRepsTerms :: [ERepresentation c] 
     }
     deriving (Show, Eq, Ord)
 
 -- | Terms used for proving; i.e., variables fixed to logical variables
 --   and constants to Names.
 --   Additionally contains some position information for Homomorphic encryption rules
-data LNPETerm = LNPETerm
-      { lnTerm :: LNTerm
-      , pRep :: PRepresentation
-      , eRep :: ERepresentation
+data LPETerm c = LPETerm
+      { lTerm :: LTerm c
+      , pRep  :: PRepresentation c
+      , eRep  :: ERepresentation c
       } 
       deriving (Show, Eq, Ord)
 
@@ -78,25 +79,25 @@ isHenc funsym = funsym == (NoEq hencSym)
 ----------------------------------------------------------
 
 -- | Builds P and E Representation for matching with homomorphic patterns 
-toLNPETerm :: LNTerm -> LNPETerm
-toLNPETerm t = LNPETerm t (buildPRepresentation t) (buildERepresentation t)
+toLPETerm :: (IsConst c) => LTerm c -> LPETerm c
+toLPETerm t = LPETerm t (buildPRepresentation t) (buildERepresentation t)
 
 -- | Returns All subterms (including the term itself) given a term with their positions
-positionsWithTerms :: LNTerm -> [(String,LNTerm)]
+positionsWithTerms :: (IsConst c) => LTerm c -> [(String, LTerm c)]
 positionsWithTerms t = positionsWithTerms' t ""
 
 -- | used by positionsWithTerms
-positionsWithTerms' :: LNTerm -> String -> [(String,LNTerm)]
+positionsWithTerms' :: (IsConst c) => LTerm c -> String -> [(String, LTerm c)]
 positionsWithTerms' t p = case viewTerm t of
   (Lit(Con _))  -> [(p,t)]
   (Lit(Var _))  -> [(p,t)]
   (FApp _ args) -> [(p,t)] ++ (concat $ zipWith argFunc args [1..])
   where
-    argFunc :: LNTerm -> Int -> [(String, LNTerm)]
+    argFunc :: (IsConst c) => LTerm c -> Int -> [(String, LTerm c)]
     argFunc arg ind = positionsWithTerms' arg (p ++ (show ind))
 
 -- | Returns the pposition used for Homomorphic Pattern rules
-pPosition :: String -> LNTerm -> String
+pPosition :: (IsConst c) => String -> LTerm c -> String
 pPosition [] _ = ""
 pPosition (i:q) t = case viewTerm t of
   FApp funsym args -> 
@@ -110,7 +111,7 @@ pPosition (i:q) t = case viewTerm t of
   _ -> "NONF"   -- not a function symbol
 
 -- | Returns the eposition used for Homomorphic Pattern rules
-ePosition :: String -> LNTerm -> String
+ePosition :: (IsConst c) => String -> LTerm c -> String
 ePosition [] _ = ""
 ePosition (i:q) t = case viewTerm t of
   FApp funsym args -> 
@@ -124,7 +125,7 @@ ePosition (i:q) t = case viewTerm t of
   _ -> "NONF"
 
 -- | Returns if two positions are incompatible
-positionsIncompatible :: String -> LNTerm -> String -> LNTerm -> Bool
+positionsIncompatible :: (IsConst c) => String -> LTerm c -> String -> LTerm c -> Bool
 positionsIncompatible q1 t1 q2 t2 = 
      properPrefix (pPosition q1 t1) (pPosition q2 t2)
   || properPrefix (pPosition q2 t2) (pPosition q1 t1)
@@ -134,12 +135,12 @@ positionsIncompatible q1 t1 q2 t2 =
       && all ((==) '1') (ePosition q2 t2))
 
 -- | Returns all positions in t for which epos==""
-findPurePPositions :: LNTerm -> [(String, LNTerm)]
+findPurePPositions :: (IsConst c) => LTerm c -> [(String, LTerm c)]
 findPurePPositions t = 
   filter (\(p,_) -> ePosition p t == "") $ positionsWithTerms t
 
 -- | Returns all positions in t for which ppos=="" and are not position under a key
-findPenukEPositions :: LNTerm -> [(String, LNTerm)]
+findPenukEPositions :: (IsConst c) => LTerm c -> [(String, LTerm c)]
 findPenukEPositions t = 
   filter (\(p,_) -> pPosition p t == "" && penukPositions p) $ positionsWithTerms t
   where 
@@ -153,23 +154,23 @@ properPrefix [] _ = True
 properPrefix (s11:s1) (s21:s2) = s11 == s21 && properPrefix s1 s2
 
 -- | Returns all positions that are not prefixes of other positions
-maximalPositions :: [(String, LNTerm)] -> [(String, LNTerm)]
+maximalPositions :: (IsConst c) => [(String, LTerm c)] -> [(String, LTerm c)]
 maximalPositions ps = 
   filter (\p -> not $ any (properPrefix $ fst p) $ map fst ps) ps
 
 -- | returns P representation for Homomorphic Patterns
-buildPRepresentation :: LNTerm -> PRepresentation
+buildPRepresentation :: (IsConst c) => LTerm c -> PRepresentation c
 buildPRepresentation t = 
   (uncurry PRep) $ unzip 
   $ map (\(a,b) -> (a, buildERepresentation b)) 
   $ maximalPositions $ findPurePPositions t
 
 -- | returns E representation for Homomorphic Patterns
-buildERepresentation :: LNTerm -> ERepresentation
+buildERepresentation :: (IsConst c) => LTerm c -> ERepresentation c
 buildERepresentation t = map snd $ maximalPositions $ findPenukEPositions t
 
--- | rebuilds a LNTerm from a P Representation
-fromPRepresentation :: PRepresentation -> LNTerm
+-- | rebuilds a LTerm from a P Representation
+fromPRepresentation :: (IsConst c) => PRepresentation c -> LTerm c
 fromPRepresentation p = 
   if eRepsString p == [""]
   then fromERepresentation $ head $ eRepsTerms p
@@ -186,8 +187,23 @@ fromPRepresentation p =
       | null xs   = ""
       | otherwise = tail xs
 
--- | rebuilds a LNTerm from a E Representation
-fromERepresentation :: ERepresentation -> LNTerm
+-- | rebuilds a LTerm from a E Representation
+fromERepresentation :: (IsConst c) => ERepresentation c -> LTerm c
 fromERepresentation e = if length e == 1
   then head e
   else fAppHenc (fromERepresentation (init e), last e)
+
+-- | @normHomomorphic t@ normalizes the term @t@ if the top function is the homomorphic encryption
+normHomomorphic :: (IsConst c) => LTerm c -> LTerm c
+normHomomorphic t = case viewTerm t of
+  (FApp sym1 [t1, t2]) -> 
+    case viewTerm t1 of
+      (FApp _ [t11,t12]) ->
+        if (isHenc sym1) && (isPair t1) 
+        then fAppPair(fAppHenc (n t11, n t2), fAppHenc (n t12, n t2))
+        else termViewToTerm $ FApp sym1 (map n [t1,t2])
+      (_) -> termViewToTerm $ FApp sym1 (map n [t1,t2])
+  (FApp sym args) -> termViewToTerm $ FApp sym (map n args)
+  (_) -> t
+  where
+    n = normHomomorphic
