@@ -1,4 +1,4 @@
-theory MessageFillDecomposition
+theory MessageFillDecompositionTwo
 begin
 
 builtins: homomorphic-encryption
@@ -12,18 +12,16 @@ rule A:
   [ Fr(~x0)
   , Fr(~x1)
   , !Key(k) ]
-  --[]->
+  --[ Send(~x0, ~x1, k) ]->
   [ Out(henc(<~x0, ~x1>, k)) ]
 
 rule B:
   [ !Key(k)
   , In(henc(x0, k)) ]
-  --[ Received(k) ]->
+  --[ Received(x0, k) ]->
   []
 
-// Intruder_Fills_Message (exists-trace): verified (4 steps)
-// Does not work since intruder can pick x0 := <~x0,~x1>
 lemma Intruder_Fills_Message: exists-trace
-  "Ex k #i. Received(k) @i & not K(k) @i"
+  "Ex x0 x1 k #i #j. Send(x0, x1, k) @i & Received(x0, k) @j & not K(k) @j"
 
 end

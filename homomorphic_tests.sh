@@ -22,8 +22,11 @@ function all_homomorphic () {
 
 make default
 
-while getopts ":ic" flag; do
+while getopts ":ict" flag; do
   case $flag in
+    t)
+      /home/$USER/.local/bin/tamarin-prover test
+      ;;
     i)
       /home/$USER/.local/bin/tamarin-prover interactive $INPUT_FOLDER --derivcheck-timeout=0
       ;;

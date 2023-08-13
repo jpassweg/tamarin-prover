@@ -1,4 +1,4 @@
-theory NonHomomorphicDefinition
+theory HomomorphicDefinitionWithSymmetricEncryption
 begin
 
 builtins: symmetric-encryption

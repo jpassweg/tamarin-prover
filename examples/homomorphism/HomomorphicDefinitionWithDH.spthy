@@ -1,0 +1,34 @@
+theory HomomorphicDefinitionWithDH
+begin
+
+builtins: homomorphic-encryption, diffie-hellman
+
+rule GetVars:
+  [ Fr(~x0), Fr(~x1) ]
+  --[]->
+  [ !Vars(~x0,~x1) ]
+
+rule GetKey:
+  [ Fr(~x2) ]
+  --[]->
+  [ !Key(~x2) ]
+
+rule A:
+  [ !Vars(x0,x1), !Key(x2) ]
+  --[ Send(x0, x1, x2) ]->
+  [ S1Out( henc(<x0, x1>, x2) ) ]
+
+rule B:
+  [ !Vars(x0,x1), !Key(x2)
+  , S1Out( < henc(x0,x2), henc(x1,x2) > ) ]
+  --[ Receive(x0, x1, x2) ]->
+  []
+
+// Send_And_Received (exists-trace): verified (7 steps)
+lemma Send_And_Received: exists-trace
+  "Ex x0 x1 x2 #i #j. Send(x0, x1, x2) @i & Receive(x0, x1, x2) @j"
+
+restriction Only_One_Send_With_Same_Vars: 
+  "All x0 x1 x2 #i #j. Send(x0, x1, x2) @i & Send(x0, x1, x2) @j ==> #i = #j"
+
+end
