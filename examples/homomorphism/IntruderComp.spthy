@@ -14,7 +14,6 @@ rule A:
   --[]->
   [ Out(henc(~x0, k)) ]
 
-// Intruder_Composes_Message (exists-trace): verified (4 steps)
 lemma Intruder_Composes_Message: exists-trace
   "Ex x0 x1 k #i. K(henc(<x0, x1>, k)) @i & not K(k) @i"
 

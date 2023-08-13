@@ -20,7 +20,6 @@ rule Helper:
   --[]->
   [ Out(henc(<x0, x1>, k)) ]
 
-// Intruder_Fills_Message (exists-trace): verified (4 steps)
 // Does not use Helper
 lemma Intruder_Fills_Message: exists-trace
   "Ex x0 x1 k #i. K(henc(<x0, x1>, k)) @i & not K(k) @i"

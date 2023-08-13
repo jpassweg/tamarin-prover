@@ -20,7 +20,6 @@ rule B:
   --[ Received(k) ]->
   []
 
-// Intruder_Fills_Message (exists-trace): verified (5 steps)
 lemma Intruder_Fills_Message: exists-trace
   "Ex k #i. Received(k) @i & not K(k) @i"
 

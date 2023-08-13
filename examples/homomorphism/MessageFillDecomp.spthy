@@ -21,7 +21,6 @@ rule B:
   --[ Received(k) ]->
   []
 
-// Intruder_Fills_Message (exists-trace): verified (4 steps)
 // Does not work since intruder can pick x0 := <~x0,~x1>
 lemma Intruder_Fills_Message: exists-trace
   "Ex k #i. Received(k) @i & not K(k) @i"
