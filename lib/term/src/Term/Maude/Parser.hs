@@ -207,7 +207,14 @@ ppTheory msig = BC.unlines $
        [ theoryOpEq "zero : -> Msg"
        , theoryOpAC "xor : Msg Msg -> Msg [comm assoc]" ]
        else [])
-    ++    
+    ++
+    (if enableHom msig
+      then
+      [ theoryOpEq "henc : Msg Msg -> Msg"
+      , theoryOpEq "hdec : Msg Msg -> Msg"
+      ]
+      else [])
+    ++  
     (if enableNat msig
        then
        [ theoryOpEq "tone : -> TamNat"

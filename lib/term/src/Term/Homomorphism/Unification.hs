@@ -1,10 +1,6 @@
 module Term.Homomorphism.Unification (
   -- * Unification modulo EpsilonH for Homomorphic Encryption
   unifyHomomorphicLTerm
-  
-  -- * Maude wrappers
-  , unifyHomomorphicLTermWithMaude
-  , unifyHomomorphicLTermFactored
 
   -- * For debugging
   , debugHomomorphicRule
@@ -19,32 +15,21 @@ import Term.Homomorphism.LPETerm
 import Term.LTerm (
   LTerm, Lit(Var, Con), IsConst, LVar(..), 
   termVar, isVar, varTerm, occursVTerm, varsVTerm,
-  TermView(FApp, Lit), viewTerm, termViewToTerm, isPair,
+  TermView(FApp, Lit), viewTerm, termViewToTerm, 
+  isPair, isHomEnc,
   LSort(..), sortCompare, sortOfLTerm)
 -- Lit(Var, Con), IsConst, isVar, varTerm, termVar, varsVTerm, occursVTerm come from Term.VTerm
--- isPair come from Term.Term
+-- isPair, isHomEnc come from Term.Term
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
 
 import Term.Rewriting.Definitions (Equal(..))
 import Term.Substitution.SubstVFree (LSubst, Subst(..), emptySubst, applyVTerm)
-import Term.Substitution.SubstVFresh (SubstVFresh(..))
+import Term.Substitution.SubstVFresh (LSubstVFresh, SubstVFresh(..), emptySubstVFresh)
 import Term.Maude.Process (WithMaude)
 import Debug.Trace.Ignore (trace)
 
 -- Unification Algorithm using the Homomorphic Rules
 ----------------------------------------------------
-
--- | Homomorphic encryption wrapper
-unifyHomomorphicLTermFactored :: (IsConst c) => (c -> LSort) -> [Equal (LTerm c)] -> WithMaude (LSubst c, [SubstVFresh c LVar])
-unifyHomomorphicLTermFactored sortOf eqs = (\s -> (emptySubst,s)) <$> unifyHomomorphicLTermWithMaude sortOf eqs
-
--- | Homomorphic encryption wrapper
-unifyHomomorphicLTermWithMaude :: (IsConst c) => (c -> LSort) -> [Equal (LTerm c)] -> WithMaude [SubstVFresh c LVar]
-unifyHomomorphicLTermWithMaude sortOf eqs = 
-  reader $ \_ -> (\res -> 
-    trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ subst
-  where
-    subst = map (\s -> case s of Subst s' -> SubstVFresh s') $ unifyHomomorphicLTerm sortOf eqs
 
 -- | @unifyHomomorphicLNTerm eqs@ returns a set of unifiers for @eqs@ modulo EpsilonH.
 -- returns a substitution for terms so that they unify or an empty list 
@@ -55,18 +40,20 @@ unifyHomomorphicLTermWithMaude sortOf eqs =
 -- Equal LNTerm = Equal { eqLHS :: LNTerm, eqRHS :: LNTerm }
 -- sortOfName :: Name -> LSort
 -- data LSort = LSortPub | LSortFresh | LSortMsg | LSortNode -- Nodes are for dependency graphs
-unifyHomomorphicLTerm :: (IsConst c) => (c -> LSort) -> [Equal (LTerm c)] -> [LSubst c]
+unifyHomomorphicLTerm :: (IsConst c) => (c -> LSort) -> [Equal (LTerm c)] -> Maybe (LSubst c, LSubstVFresh c)
 unifyHomomorphicLTerm sortOf eqs =
   toSubst $ applyHomomorphicRules sortOf allHomomorphicRules (map (fmap toLPETerm) eqsN)
   where 
     eqsN = map (fmap normHomomorphic) eqs
     toSubst [] = 
       if and $ map (\eq -> (eqLHS eq) == (eqRHS eq)) eqsN
-      then [emptySubst]
-      else []
+      then Just (emptySubst, emptySubstVFresh)
+      else Nothing
     toSubst eqsSubst = case toHomomorphicSolvedForm sortOf (map (fmap lTerm) eqsSubst) of
-      Just normEqsSubst -> [Subst $ M.fromList $ map getLeftVar normEqsSubst]
-      Nothing -> []
+      Just normEqsSubst -> Just (
+        Subst $ M.fromList $ map getLeftVar normEqsSubst,
+        SubstVFresh $ M.fromList $ map getLeftVar normEqsSubst)
+      Nothing -> Nothing
     getLeftVar e = case termVar $ eqLHS e of
       Just v ->  (v, eqRHS e)
       Nothing -> (LVar "VARNOTFOUND" LSortFresh 0, eqRHS e)
@@ -313,7 +300,7 @@ clashHomomorphicRule eq _ _ = let
     tR = lTerm $ eqRHS eq
   in case (viewTerm tL, viewTerm tR) of
     (FApp lfsym _, FApp rfsym _) -> 
-      if lfsym == rfsym || (isPair tL && isHenc rfsym) || (isHenc lfsym && isPair tR)
+      if lfsym == rfsym || (isPair tL && isHomEnc tR) || (isHomEnc tL && isPair tR)
       then HNothing
       else HFail
     (_,_) -> HNothing

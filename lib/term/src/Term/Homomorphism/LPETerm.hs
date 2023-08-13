@@ -13,10 +13,6 @@ module Term.Homomorphism.LPETerm (
   , fromPRepresentation
   , fromERepresentation
 
-  -- * Functions to better access the Homomorphic Encrytion Signature
-  , isHenc
-  , fAppHenc
-
   -- * Functions for debuggin Homomorphic Representations
   , findPurePPositions
   , findPenukEPositions
@@ -27,15 +23,12 @@ module Term.Homomorphism.LPETerm (
 ) where
 
 import Term.LTerm (
-  LTerm, Term, Lit(Var, Con), IsConst, TermView(Lit, FApp), FunSym(NoEq), 
-  viewTerm, termViewToTerm, fAppNoEq, fAppPair, isPair)
+  LTerm, Lit(Var, Con), IsConst, TermView(Lit, FApp), 
+  viewTerm, termViewToTerm, fAppPair, fAppHenc, isPair, isHomEnc)
 -- Term, TermView(Lit, FApp), viewTerm, termViewToTerm, fAppNoEq come from Term.Term.Raw
 -- Lit(Var, Con), IsConst comes from Term.VTerm
 -- FunSym(NoEq) comes from Term.Term.FunctionSymbols
--- fAppPair, isPair come from Term.Term
-
--- The signature for homomorphic encryption
-import Term.Builtin.Signature (hencSym)
+-- fAppPair, fAppHenc, isHomEnc, isPair come from Term.Term
 
 -- New Types used for Unification modulo Homomorphic Encrpytion
 ---------------------------------------------------------------
@@ -64,17 +57,6 @@ data LPETerm c = LPETerm
       } 
       deriving (Show, Eq, Ord)
 
--- Cleaner access to Homomorphic Encryption Function Symbols
-------------------------------------------------------------
-
--- | Smart constructor for a homomorphic encryption.
-fAppHenc :: (Term a, Term a) -> Term a
-fAppHenc (x,y) = fAppNoEq hencSym [x, y]
-
--- | Returns 'True' iff the @funsym@ matches the function symbol of homomorphic encryption.
-isHenc :: FunSym -> Bool
-isHenc funsym = funsym == (NoEq hencSym)
-
 -- Homomorphic encryption and LNPETerms specific functions
 ----------------------------------------------------------
 
@@ -100,11 +82,11 @@ positionsWithTerms' t p = case viewTerm t of
 pPosition :: (IsConst c) => String -> LTerm c -> String
 pPosition [] _ = ""
 pPosition (i:q) t = case viewTerm t of
-  FApp funsym args -> 
+  FApp _ args -> 
     if length args > read [i] - 1 
     then if isPair t 
     then [i] ++ (pPosition q $ args !! (read [i] - 1))
-    else if isHenc funsym
+    else if isHomEnc t
     then pPosition q $ args !! (read [i] - 1)
     else "DIFF" -- different function symbol
     else "ARGL" -- argument length issue
@@ -114,9 +96,9 @@ pPosition (i:q) t = case viewTerm t of
 ePosition :: (IsConst c) => String -> LTerm c -> String
 ePosition [] _ = ""
 ePosition (i:q) t = case viewTerm t of
-  FApp funsym args -> 
+  FApp _ args -> 
     if length args > read [i] - 1
-    then if isHenc funsym
+    then if isHomEnc t
     then [i] ++ (ePosition q $ args !! (read [i] - 1))
     else if isPair t
     then ePosition q $ args !! (read [i] - 1)
@@ -199,7 +181,7 @@ normHomomorphic t = case viewTerm t of
   (FApp sym1 [t1, t2]) -> 
     case viewTerm t1 of
       (FApp _ [t11,t12]) ->
-        if (isHenc sym1) && (isPair t1) 
+        if (isHomEnc t) && (isPair t1) 
         then fAppPair(fAppHenc (n t11, n t2), fAppHenc (n t12, n t2))
         else termViewToTerm $ FApp sym1 (map n [t1,t2])
       (_) -> termViewToTerm $ FApp sym1 (map n [t1,t2])

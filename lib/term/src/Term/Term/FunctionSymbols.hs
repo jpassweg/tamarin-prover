@@ -41,6 +41,8 @@ module Term.Term.FunctionSymbols (
     , xorSymString
     , natPlusSymString
     , natOneSymString
+    , homEncSymString
+    , homDecSymString
 
     -- ** concrete symbols
     , diffSym
@@ -56,10 +58,13 @@ module Term.Term.FunctionSymbols (
     , sndDestSym    
     , zeroSym
     , natOneSym
+    , homEncSym
+    , homDecSym
 
     -- ** concrete signatures
     , dhFunSig
     , xorFunSig
+    , homFunSig
     , bpFunSig
     , msetFunSig
     , pairFunSig
@@ -67,6 +72,7 @@ module Term.Term.FunctionSymbols (
     , dhReducibleFunSig
     , bpReducibleFunSig
     , xorReducibleFunSig
+    , homReducibleFunSig
     , implicitFunSig
     , natFunSig
     ) where
@@ -127,7 +133,7 @@ type NoEqFunSig = Set NoEqSym
 -- Fixed function symbols
 ----------------------------------------------------------------------
 
-diffSymString, munSymString, expSymString, invSymString, dhNeutralSymString, oneSymString, xorSymString, multSymString, zeroSymString, fstSymString, sndSymString :: ByteString
+diffSymString, munSymString, expSymString, invSymString, dhNeutralSymString, oneSymString, xorSymString, multSymString, zeroSymString, fstSymString, sndSymString, homEncSymString, homDecSymString :: ByteString
 diffSymString = "diff"
 munSymString = "mun"
 expSymString = "exp"
@@ -139,6 +145,8 @@ dhNeutralSymString = "DH_neutral"
 multSymString = "mult"
 zeroSymString = "zero"
 xorSymString = "xor"
+homEncSymString = "henc"
+homDecSymString = "hdec"
 
 natPlusSymString, natOneSymString :: ByteString
 natPlusSymString = "tplus"
@@ -151,7 +159,7 @@ emapSymString, pmultSymString :: ByteString
 emapSymString  = "em"
 pmultSymString = "pmult"
 
-pairSym, diffSym, expSym, invSym, oneSym, dhNeutralSym, fstSym, sndSym, pmultSym, zeroSym, natOneSym :: NoEqSym
+pairSym, diffSym, expSym, invSym, oneSym, dhNeutralSym, fstSym, sndSym, pmultSym, zeroSym, natOneSym, homEncSym, homDecSym :: NoEqSym
 -- | Pairing.
 pairSym  = ("pair",(2,Public,Constructor))
 -- | Diff.
@@ -174,6 +182,8 @@ pmultSym = (pmultSymString,(2,Public,Constructor))
 zeroSym  = (zeroSymString,(0,Public,Constructor))
 -- | One for natural numbers.
 natOneSym = (natOneSymString, (0,Public,Constructor))
+homEncSym = (homEncSymString, (2,Public,Constructor))
+homDecSym = (homDecSymString, (2,Public,Constructor))
 
 mkDestSym :: NoEqSym -> NoEqSym
 mkDestSym (name,(k,p,_)) = (name,(k,p, Destructor))
@@ -195,6 +205,10 @@ dhFunSig = S.fromList [ AC Mult, NoEq expSym, NoEq oneSym, NoEq invSym, NoEq dhN
 -- | The signature for Xor function symbols.
 xorFunSig :: FunSig
 xorFunSig = S.fromList [ AC Xor, NoEq zeroSym ]
+
+-- | The signature for Homomorphic function symbols
+homFunSig :: FunSig
+homFunSig = S.fromList [NoEq homEncSym, NoEq homDecSym]
 
 -- | The signature for the bilinear pairing function symbols.
 bpFunSig :: FunSig
@@ -219,6 +233,10 @@ dhReducibleFunSig = S.fromList [ NoEq expSym, NoEq invSym ]
 -- | Reducible function symbols for BP.
 bpReducibleFunSig :: FunSig
 bpReducibleFunSig = S.fromList [ NoEq pmultSym, C EMap ]
+
+-- | Reducible function symbols for Homomorphic Encryption
+homReducibleFunSig :: FunSig
+homReducibleFunSig = S.fromList [ NoEq homDecSym ]
 
 -- | Reducible function symbols for XOR.
 xorReducibleFunSig :: FunSig

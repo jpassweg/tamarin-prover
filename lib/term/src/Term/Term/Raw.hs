@@ -147,6 +147,7 @@ unsafefApp fsym as = FAPP fsym as
 data TermView2 a = FExp (Term a) (Term a)   | FInv (Term a) | FMult [Term a] | One | DHNeutral
                  | FPMult (Term a) (Term a) | FEMap (Term a) (Term a)
                  | FXor [Term a] | Zero
+                 | FHenc (Term a) (Term a) | FHdec (Term a) (Term a)
                  | FUnion [Term a]
                  | FNatPlus [Term a] | NatOne
                  | FPair (Term a) (Term a)
@@ -176,6 +177,8 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
     [ t1, t2 ] | o == pmultSym  -> FPMult t1 t2
     [ t1, t2 ] | o == pairSym   -> FPair  t1 t2
     [ t1, t2 ] | o == diffSym   -> FDiff  t1 t2
+    [ t1, t2 ] | o == homEncSym -> FHenc  t1 t2
+    [ t1, t2 ] | o == homDecSym -> FHdec  t1 t2
     [ t1 ]     | o == invSym    -> FInv   t1
     []         | o == oneSym    -> One
     []         | o == natOneSym -> NatOne
@@ -184,7 +187,7 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
     _                           -> FAppNoEq o ts
   where
     -- special symbols
-    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym ]
+    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym, homEncSym, homDecSym ]
 
 ----------------------------------------------------------------------
 -- Instances

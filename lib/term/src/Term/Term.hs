@@ -29,6 +29,8 @@ module Term.Term (
     , fAppFst
     , fAppSnd
     , fAppNatOne
+    , fAppHenc
+    , fAppHdec
 
     -- ** Destructors and classifiers
     , isPair
@@ -36,6 +38,9 @@ module Term.Term (
     , isInverse
     , isProduct
     , isXor
+    , isHomEnc
+    , isHomDec
+    , hasSameHomKey
     , isUnion
     , isEMap
     , isNullaryPublicFunction
@@ -91,11 +96,13 @@ module Term.Term (
     , msetFunSig
     , natFunSig
     , xorFunSig
+    , homFunSig
     , pairFunSig
     , pairFunDestSig    
     , dhReducibleFunSig
     , bpReducibleFunSig
     , xorReducibleFunSig
+    , homReducibleFunSig
     , implicitFunSig
 
     , module Term.Term.Classes
@@ -149,6 +156,11 @@ fAppInv e = fAppNoEq invSym [e]
 fAppFst a = fAppNoEq fstSym [a]
 fAppSnd a = fAppNoEq sndSym [a]
 
+-- | Smart constructor for homomorphic encryption and decryption.
+fAppHenc, fAppHdec :: (Term a, Term a) -> Term a
+fAppHenc (x, y) = fAppNoEq homEncSym [x, y]
+fAppHdec (x, y) = fAppNoEq homDecSym [x, y]
+
 -- | @lits t@ returns all literals that occur in term @t@. List can contain duplicates.
 lits :: Term a -> [a]
 lits = foldMap return
@@ -181,6 +193,24 @@ isProduct _                      = False
 isXor :: Show a => Term a -> Bool
 isXor (viewTerm2 -> FXor _) = True
 isXor _                     = False
+
+-- | 'True' iff the term is a well-form homomorphic encryption.
+isHomEnc :: Show a => Term a -> Bool
+isHomEnc (viewTerm2 -> FHenc _ _) = True
+isHomEnc _                        = False
+
+-- | 'True' iff the term is a well-form homomorphic encryption.
+isHomDec :: Show a => Term a -> Bool
+isHomDec (viewTerm2 -> FHdec _ _) = True
+isHomDec _                        = False
+
+hasSameHomKey :: (Eq a, Show a) => Term a -> Term a -> Bool
+hasSameHomKey t1 t2 = case (viewTerm2 t1, viewTerm2 t2) of
+  (FHenc _ k1, FHenc _ k2) -> k1 == k2
+  (FHenc _ k1, FHdec _ k2) -> k1 == k2
+  (FHdec _ k1, FHenc _ k2) -> k1 == k2
+  (FHdec _ k1, FHdec _ k2) -> k1 == k2
+  (_, _) -> False
 
 -- | 'True' iff the term is a well-formed emap.
 isEMap :: Show a => Term a -> Bool

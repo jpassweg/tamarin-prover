@@ -63,6 +63,7 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             -- irreducible function symbols
             FAppNoEq o ts | (NoEq o) `S.member` irreducible -> all go ts
             FList ts                                        -> all go ts
+            FPair t1 t2 | isHomEnc t1 && isHomEnc t2        -> False
             FPair t1 t2                                     -> go t1 && go t2
             FDiff t1 t2                                     -> go t1 && go t2
             One                                             -> True
@@ -102,6 +103,9 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             FNatPlus   ts    -> all go ts
             FAppNoEq _ ts    -> all go ts
             FAppC _    ts    -> all go ts
+            FHenc      t1 t2 -> go t1 && go t2
+            FHdec t1 _ | isHomEnc t1 && hasSameHomKey t t1 -> False
+            FHdec      t1 t2 -> go t1 && go t2
 
         struleApplicable t (CtxtStRule lhs rhs) =
             case solveMatchLNTerm (t `matchWith` lhs) `runReader` hnd of

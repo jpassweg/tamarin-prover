@@ -129,6 +129,8 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify module EpsilonH" $
     t2Sym = (pair(senc(x0,x2),senc(x1,x2)))
     pair1 = (pair(pair(x0,x0),x0))
     pair2 = (pair(pair(x2,x3),x4))
+    henc = fAppHenc
+    hdec = fAppHdec
 
 testUnifyWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
 testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
@@ -141,13 +143,17 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
     ++ "First unifier: " ++ (show subst) ++ "\n"
     ++ "After fTFA:    VSubst: " ++ (show subst') ++ "\n"
     ++ "New Terms: " ++ (show t1Subst') ++ ", " ++ (show t2Subst') ++ "\n"
-    ++ "--- unifyHomomorphicLTermWithMaude ---" ++ "\n"
+    ++ "--- unifyHomomorphicLTerm ---" ++ "\n"
     ++ "First unifier: " ++ (show substH) ++ "\n"
+    ++ "New Terms: " ++ (show t1SubstH) ++ ", " ++ (show t2SubstH) ++ "\n"
     ++ "After fTFA     VSubst: " ++ (show substH') ++ "\n"
     ++ "New Terms: " ++ (show t1SubstH') ++ ", " ++ (show t2SubstH') ++ "\n"
     ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n"
     ++ "------ END TEST PRINTER ------"
-  ) (caseOutcome == (propUnifyHomomorphicSound mhnd t1 t2))
+  ) (
+    (caseOutcome == (propUnifyHomomorphicSound mhnd t1 t2)) && -- check if equal to expected outcome
+    ((t1SubstH == t2SubstH) == (t1SubstH' == t2SubstH'))       -- check if freshToAvoid changes outcome
+  )
   where
     t1N = normHomomorphic t1
     t2N = normHomomorphic t2
@@ -157,8 +163,13 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
     subst' = freshToFreeAvoiding subst [t1,t2]
     t1Subst' = applyVTerm subst' t1
     t2Subst' = applyVTerm subst' t2
-    substH = safeHead $ unifyHomomorphicLTermWithMaude sortOfName [Equal t1 t2] `runReader` mhnd
-    substH' =  freshToFreeAvoiding substH [t1,t2]
+    substH = case unifyHomomorphicLTerm sortOfName [Equal t1 t2] of
+      Just (s,sf) -> s
+      Nothing -> emptySubst
+    t1SubstH = applyVTerm substH t1
+    t2SubstH = applyVTerm substH t2
+    substHVFresh = (\s -> case s of Subst s' -> SubstVFresh s') substH
+    substH' = freshToFreeAvoiding substHVFresh [t1,t2]
     t1SubstH' = applyVTerm substH' t1
     t2SubstH' = applyVTerm substH' t2
     safeHead s = if null s then (SubstVFresh $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)]) else head s
@@ -168,12 +179,13 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
 -- freshToFreeAvoiding converts return of type 
 -- [SubstVFresh Name LVar] to [Subst Name LVar]
 propUnifyHomomorphicSound :: MaudeHandle -> LNTerm -> LNTerm -> Bool
-propUnifyHomomorphicSound mhnd t1 t2 = let
+propUnifyHomomorphicSound _ t1 t2 = let
     t1N = normHomomorphic t1
     t2N = normHomomorphic t2
-    substs = unifyHomomorphicLTermWithMaude sortOfName [Equal t1 t2] `runReader` mhnd
-    substs' = map (\s -> freshToFreeAvoiding s [t1,t2]) substs
-  in all (\s -> applyVTerm s t1N == applyVTerm s t2N) substs' && not (null substs)
+    substs = case unifyHomomorphicLTerm sortOfName [Equal t1 t2] of
+      Just (s,sf) -> [s]
+      Nothing     -> []
+  in all (\s -> applyVTerm s t1N == applyVTerm s t2N) substs && not (null substs)
 
 -- Multiple tests for the functions directly used by the 
 -- homomorphic encrytion unification algorithm 
@@ -249,6 +261,8 @@ testsUnifyHomomorphicSf =
       [ ("11", (x0) )
       , ("12", (x1) )
       , ("2", (henc(x2,x3)) ) ]
+    henc = fAppHenc
+    hdec = fAppHdec
 
 -- debugHomomorphicRule: 
 --  [ failureOneHomomorphicRule             0
@@ -326,6 +340,8 @@ testsUnifyHomomorphicRules = TestLabel "Tests for Unify module EpsilonH Rules" $
     tFFE7 = Equal (fH (pair(henc(pair(x0,x1),x2),x3))) (fH (henc(x4,x6)))
     s = sortOfName
     fH = toLPETerm
+    henc = fAppHenc
+    hdec = fAppHdec
     -- shaping:  tFFE1 = Equal P [""] [[x,x.1]] E [x.2,x.3,x.4] with n = 2, m = 2
     --    Return tFFE2 = Equal P [""] [[xH.1, x.3, x.1]] E [x.2,x.3,x.4]
     --           tFFE3 = Equal x.0                       E [xH.1, x.3]
@@ -561,7 +577,7 @@ tests maudePath = do
 allMaudeSig :: MaudeSig
 allMaudeSig = mconcat
     [ bpMaudeSig, msetMaudeSig
-    , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, hsymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
+    , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
 
 
 -- testing in ghci

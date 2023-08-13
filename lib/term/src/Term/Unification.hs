@@ -46,11 +46,12 @@ module Term.Unification (
   , enableMSet
   , enableNat
   , enableXor
-  , enableHomomorphic
+  , enableHom
   , enableDiff
   , minimalMaudeSig
   , enableDiffMaudeSig
   , dhMaudeSig
+  , homMaudeSig
   , natMaudeSig
   , bpMaudeSig
   , xorMaudeSig
@@ -58,12 +59,12 @@ module Term.Unification (
   , pairMaudeSig
   , symEncMaudeSig
   , asymEncMaudeSig
-  , hsymEncMaudeSig
+--  , hsymEncMaudeSig
   , signatureMaudeSig
   , pairDestMaudeSig
   , symEncDestMaudeSig
   , asymEncDestMaudeSig
-  , hsymEncDestMaudeSig
+--  , hsymEncDestMaudeSig
   , signatureDestMaudeSig  
   , locationReportMaudeSig
   , revealSignatureMaudeSig
@@ -100,11 +101,8 @@ import qualified Term.Maude.Process as UM
 import           Term.Maude.Process
                    (MaudeHandle, WithMaude, startMaude, getMaudeStats, mhMaudeSig, mhFilePath)
 import           Term.Maude.Signature
-import           Term.Homomorphism.Unification
+import           Term.Homomorphism.Unification (unifyHomomorphicLTerm)
 import           Debug.Trace.Ignore
-
-useCapUnification :: Bool
-useCapUnification = True
 
 -- Unification modulo AC
 ----------------------------------------------------------------------
@@ -112,41 +110,44 @@ useCapUnification = True
 -- | @unifyLTerm sortOf eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLTermFactored :: (IsConst c)
                    => (c -> LSort)
+                   -> String
                    -> [Equal (LTerm c)]
                    -> WithMaude (LSubst c, [SubstVFresh c LVar])
-unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
+unifyLTermFactored sortOf unifOpts eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
     solve h $ execRWST unif sortOf M.empty
   where
     unif = sequence [ unifyRaw t p | Equal t p <- eqs ]
-    --solve h _ | enableHomomorphic mhMaudeSig h = 
-    solve _ Nothing         = (emptySubst, [])
-    solve _ (Just (m, []))  = (substFromMap m, [emptySubstVFresh])
-    solve h (Just (m, leqs)) =
-        (subst, unsafePerformIO (UM.unifyViaMaude h sortOf $
-                                     map (applyVTerm subst <$>) leqs))
-      where subst = substFromMap m
+    solve h subst = if (unifOpts == "default" && not (enableHom $ mhMaudeSig h)) || unifOpts == "AC"
+      then case subst of
+        Nothing        -> (emptySubst, [])
+        Just (m, [])   -> (substFromMap m, [emptySubstVFresh])
+        Just (m, leqs) -> (substFromMap m, unsafePerformIO (UM.unifyViaMaude h sortOf $ map (applyVTerm (substFromMap m) <$>) leqs))
+      else if (unifOpts == "default" && (enableHom $ mhMaudeSig h)) || unifOpts == "homomorphic"
+      then case unifyHomomorphicLTerm sortOf eqs of
+        Nothing        -> (emptySubst, [])
+        Just (_,hSF)   -> (emptySubst, [hSF])
+      else case subst of
+        Nothing        -> (emptySubst, [])
+        Just (m, [])   -> (substFromMap m, [emptySubstVFresh])
+        Just (_, _)    -> (emptySubst, [])
 
 
 -- | @unifyLTerm sortOf eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLNTermFactored :: [Equal LNTerm]
                     -> WithMaude (LNSubst, [SubstVFresh Name LVar])
-unifyLNTermFactored = if useCapUnification
-  then unifyHomomorphicLTermFactored sortOfName
-  else unifyLTermFactored sortOfName
+unifyLNTermFactored = unifyLTermFactored sortOfName "default"
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLTerm :: (IsConst c)
            => (c -> LSort)
            -> [Equal (LTerm c)]
            -> WithMaude [SubstVFresh c LVar]
-unifyLTerm sortOf eqs = flattenUnif <$> unifyLTermFactored sortOf eqs
+unifyLTerm sortOf eqs = flattenUnif <$> unifyLTermFactored sortOf "default" eqs
 
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLNTerm :: [Equal LNTerm] -> WithMaude [SubstVFresh Name LVar]
-unifyLNTerm = if useCapUnification
-  then unifyHomomorphicLTermWithMaude sortOfName
-  else unifyLTerm sortOfName
+unifyLNTerm = unifyLTerm sortOfName
 
 -- | 'True' iff the terms are unifiable.
 unifiableLNTerms :: LNTerm -> LNTerm -> WithMaude Bool
