@@ -32,7 +32,7 @@ import           Term.Maude.Signature
 import           Term.Substitution
 import           Term.SubtermRule
 import           Term.Unification
--- import           Term.Homomorphism.Norm
+import           Term.Homomorphism.LPETerm
 
 ----------------------------------------------------------------------
 -- Normalization using Maude
@@ -42,11 +42,14 @@ import           Term.Unification
 norm :: (IsConst c)
      => (c -> LSort) -> LTerm c -> WithMaude (LTerm c)
 norm _      t@(viewTerm -> Lit _) = return t
-norm sortOf t         = reader $ \hnd -> unsafePerformIO $ normViaMaude hnd sortOf t
+norm sortOf t         = reader $ \hnd -> 
+  if (enableHom $ mhMaudeSig hnd)
+  then normHomomorphic $ unsafePerformIO $ normViaMaude hnd sortOf (normHomomorphic t)
+  else unsafePerformIO $ normViaMaude hnd sortOf t
 
 -- | @norm' t@ normalizes the term @t@ using Maude.
 norm' :: LNTerm -> WithMaude LNTerm
-norm' = norm sortOfName -- . normHomomorphic
+norm' = norm sortOfName
 
 
 ----------------------------------------------------------------------
@@ -63,7 +66,6 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             -- irreducible function symbols
             FAppNoEq o ts | (NoEq o) `S.member` irreducible -> all go ts
             FList ts                                        -> all go ts
-            FPair t1 t2 | isHomEnc t1 && isHomEnc t2        -> False
             FPair t1 t2                                     -> go t1 && go t2
             FDiff t1 t2                                     -> go t1 && go t2
             One                                             -> True
@@ -91,6 +93,12 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             -- bilinear map
             FEMap _                         (viewTerm2 -> FPMult _ _) -> False
             FEMap (viewTerm2 -> FPMult _ _) _                         -> False
+            -- homomorphic encryption
+            FHdec      t1 _  | isHomEnc t1 && hasSameHomKey t t1 -> False
+            FHdec      t1 _  | hasSameHomKeys t t1               -> False
+            FHdec      t1 t2                                     -> go t1 && go t2
+            FHenc      t1 _  | isPair t1                         -> False
+            FHenc      t1 t2                                     -> go t1 && go t2
 
             -- topmost position not reducible, check subterms
             FExp       t1 t2 -> go t1 && go t2
@@ -103,9 +111,6 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             FNatPlus   ts    -> all go ts
             FAppNoEq _ ts    -> all go ts
             FAppC _    ts    -> all go ts
-            FHenc      t1 t2 -> go t1 && go t2
-            FHdec t1 _ | isHomEnc t1 && hasSameHomKey t t1 -> False
-            FHdec      t1 t2 -> go t1 && go t2
 
         struleApplicable t (CtxtStRule lhs rhs) =
             case solveMatchLNTerm (t `matchWith` lhs) `runReader` hnd of
@@ -127,6 +132,10 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             where
                 go' []     _ = False
                 go' (x:xs) y = (length (elemIndices x (xs++y))) > 0 || go' xs (x:y)
+
+        hasSameHomKeys t1 t2 = 
+          all (hasSameHomKey t1) (snd $ buildPRepresentationOnly t2) &&
+          all isHomEnc (snd $ buildPRepresentationOnly t2)
 
         msig        = mhMaudeSig hnd
         strules     = stRules msig

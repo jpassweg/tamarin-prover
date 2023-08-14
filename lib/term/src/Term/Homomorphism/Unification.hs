@@ -8,7 +8,6 @@ module Term.Homomorphism.Unification (
 ) where
 
 import qualified Data.Map as M
-import Control.Monad.RWS (reader)
 
 import Term.Homomorphism.LPETerm
 
@@ -25,8 +24,6 @@ import Term.LTerm (
 import Term.Rewriting.Definitions (Equal(..))
 import Term.Substitution.SubstVFree (LSubst, Subst(..), emptySubst, applyVTerm)
 import Term.Substitution.SubstVFresh (LSubstVFresh, SubstVFresh(..), emptySubstVFresh)
-import Term.Maude.Process (WithMaude)
-import Debug.Trace.Ignore (trace)
 
 -- Unification Algorithm using the Homomorphic Rules
 ----------------------------------------------------

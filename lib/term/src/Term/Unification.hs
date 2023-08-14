@@ -129,7 +129,7 @@ unifyLTermFactored sortOf unifOpts eqs = reader $ \h -> (\res -> trace (unlines 
       else case subst of
         Nothing        -> (emptySubst, [])
         Just (m, [])   -> (substFromMap m, [emptySubstVFresh])
-        Just (_, _)    -> (emptySubst, [])
+        Just (m, leqs) -> (substFromMap m, unsafePerformIO (UM.unifyViaMaude h sortOf $ map (applyVTerm (substFromMap m) <$>) leqs))
 
 
 -- | @unifyLTerm sortOf eqs@ returns a complete set of unifiers for @eqs@ modulo AC.

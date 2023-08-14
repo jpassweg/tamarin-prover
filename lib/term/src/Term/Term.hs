@@ -34,6 +34,8 @@ module Term.Term (
 
     -- ** Destructors and classifiers
     , isPair
+    , isFst
+    , isSnd
     , isDiff
     , isInverse
     , isProduct
@@ -173,6 +175,16 @@ lits = foldMap return
 isPair :: Show a => Term a -> Bool
 isPair (viewTerm2 -> FPair _ _) = True
 isPair _                        = False
+
+-- | 'True' iff the term is a fst function.
+isFst :: Show a => Term a -> Bool
+isFst (viewTerm -> FApp (NoEq sym) [_]) = sym == fstSym
+isFst _                               = False
+
+-- | 'True' iff the term is a snd function.
+isSnd :: Show a => Term a -> Bool
+isSnd (viewTerm -> FApp (NoEq sym) [_]) = sym == sndSym
+isSnd _                               = False
 
 -- | 'True' iff the term is a well-formed diff term.
 isDiff :: Show a => Term a -> Bool
