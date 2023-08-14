@@ -12,7 +12,7 @@ rule A:
   [ Fr(~x0)
   , Fr(~x1)
   , !Key(k) ]
-  --[ Send(~x0, ~x1, k) ]->
+  --[ Send(~x0, k) ]->
   [ Out(henc(<~x0, ~x1>, k)) ]
 
 rule B:
@@ -22,6 +22,6 @@ rule B:
   []
 
 lemma Intruder_Fills_Message: exists-trace
-  "Ex x0 x1 k #i #j. Send(x0, x1, k) @i & Received(x0, k) @j & not K(k) @j"
+  "Ex x0 k #i #j. Send(x0, k) @i & Received(x0, k) @j & not K(k) @j"
 
 end
