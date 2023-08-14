@@ -1,4 +1,4 @@
-theory MessageFillCompositionOnlyWithHelper
+theory IntruderCompositionWithHelper
 begin
 
 builtins: homomorphic-encryption

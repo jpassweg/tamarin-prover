@@ -14,10 +14,11 @@ module Term.Homomorphism.LPETerm (
   , fromERepresentation
 
   -- * Norm functions
-  , nfHomomorphic
+  --, nfHomomorphicHEPlus
+  --, normHomomorphicHEPlus
   , normHomomorphic
-  , buildPRepresentationOnly
-  , fromPRepresentationOnly
+  --, buildPRepresentationOnly
+  --, fromPRepresentationOnly
 
   -- * Functions for debuggin Homomorphic Representations
   , findPurePPositions
@@ -207,14 +208,14 @@ fromERepresentation e = if length e == 1
 ----------------------------------------------------
 
 -- | returns if the term is in normal form modulo HE+
-nfHomomorphic :: (IsConst c) => LTerm c -> Bool
-nfHomomorphic t = case viewTerm t of
+nfHomomorphicHEPlus :: (IsConst c) => LTerm c -> Bool
+nfHomomorphicHEPlus t = case viewTerm t of
     FApp _ [t1   ] | isFst t    && isPair t1           -> False
     FApp _ [t1   ] | isSnd t    && isPair t1           -> False
     FApp _ [t1, _] | isHomDec t && hasSameHomKey t t1  -> False
     FApp _ [t1, _] | isHomEnc t && isPair t1           -> False
     FApp _ [t1, _] | isHomDec t && hasSameHomKeys t t1 -> False
-    FApp _ ts -> all nfHomomorphic ts
+    FApp _ ts -> all nfHomomorphicHEPlus ts
     Lit _ -> True
   where
     hasSameHomKeys :: (IsConst c) => LTerm c -> LTerm c -> Bool
@@ -222,9 +223,28 @@ nfHomomorphic t = case viewTerm t of
           all (hasSameHomKey t1) (snd $ buildPRepresentationOnly t2) &&
           all isHomEnc (snd $ buildPRepresentationOnly t2)
 
--- | @normHomomorphic t@ normalizes the term @t@ if the top function is the homomorphic encryption
+-- | @normHomomorphic t@ normalizes the term @t@ modulo the homomorphic rule henc(<x1,x2>,k) -> <henc(x1,k),henc(x2,k)>
 normHomomorphic :: (IsConst c) => LTerm c -> LTerm c
 normHomomorphic t = case viewTerm t of
+    FApp _ [t1, t2] | isHomEnc t && isPair t1           -> 
+      fAppPair(nH $ fAppHenc (nH $ getFst t1, nH t2), nH $ fAppHenc (nH $ getSnd t1, nH t2))
+    FApp funsym ts                                      -> 
+      termViewToTerm (FApp funsym (map nH ts))
+    Lit _ -> t
+  where
+    nH = normHomomorphic
+    getFst :: (IsConst c) => LTerm c -> LTerm c
+    getFst te = case viewTerm te of
+      FApp _ [t1, _] -> t1
+      _ -> te
+    getSnd :: (IsConst c) => LTerm c -> LTerm c
+    getSnd te = case viewTerm te of
+      FApp _ [_, t2] -> t2
+      _ -> te
+
+-- | @normHomomorphic t@ normalizes the term @t@ modulo HE+
+normHomomorphicHEPlus :: (IsConst c) => LTerm c -> LTerm c
+normHomomorphicHEPlus t = case viewTerm t of
     FApp _ [t1    ] | isFst t    && isPair t1           -> nH $ getFst t1
     FApp _ [t1    ] | isSnd t    && isPair t1           -> nH $ getSnd t1
     FApp _ [t1, _ ] | isHomDec t && hasSameHomKey t t1  -> nH t1
@@ -236,7 +256,7 @@ normHomomorphic t = case viewTerm t of
       termViewToTerm (FApp funsym (map nH ts))
     Lit _ -> t
   where
-    nH = normHomomorphic
+    nH = normHomomorphicHEPlus
     getFst :: (IsConst c) => LTerm c -> LTerm c
     getFst te = case viewTerm te of
       FApp _ [t1, _] -> t1

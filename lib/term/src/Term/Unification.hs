@@ -125,7 +125,7 @@ unifyLTermFactored sortOf unifOpts eqs = reader $ \h -> (\res -> trace (unlines 
       else if (unifOpts == "default" && (enableHom $ mhMaudeSig h)) || unifOpts == "homomorphic"
       then case unifyHomomorphicLTerm sortOf eqs of
         Nothing        -> (emptySubst, [])
-        Just (_,hSF)   -> (emptySubst, [hSF])
+        Just (_, hSF)  -> (emptySubst, [hSF])
       else case subst of
         Nothing        -> (emptySubst, [])
         Just (m, [])   -> (substFromMap m, [emptySubstVFresh])

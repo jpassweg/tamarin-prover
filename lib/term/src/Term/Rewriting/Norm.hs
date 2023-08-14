@@ -32,7 +32,6 @@ import           Term.Maude.Signature
 import           Term.Substitution
 import           Term.SubtermRule
 import           Term.Unification
-import           Term.Homomorphism.LPETerm
 
 ----------------------------------------------------------------------
 -- Normalization using Maude
@@ -42,10 +41,7 @@ import           Term.Homomorphism.LPETerm
 norm :: (IsConst c)
      => (c -> LSort) -> LTerm c -> WithMaude (LTerm c)
 norm _      t@(viewTerm -> Lit _) = return t
-norm sortOf t         = reader $ \hnd -> 
-  if (enableHom $ mhMaudeSig hnd)
-  then normHomomorphic $ unsafePerformIO $ normViaMaude hnd sortOf (normHomomorphic t)
-  else unsafePerformIO $ normViaMaude hnd sortOf t
+norm sortOf t                     = reader $ \hnd -> unsafePerformIO $ normViaMaude hnd sortOf t
 
 -- | @norm' t@ normalizes the term @t@ using Maude.
 norm' :: LNTerm -> WithMaude LNTerm
@@ -95,15 +91,13 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             FEMap (viewTerm2 -> FPMult _ _) _                         -> False
             -- homomorphic encryption
             FHdec      t1 _  | isHomEnc t1 && hasSameHomKey t t1 -> False
-            FHdec      t1 _  | hasSameHomKeys t t1               -> False
             FHdec      t1 t2                                     -> go t1 && go t2
-            FHenc      t1 _  | isPair t1                         -> False
-            FHenc      t1 t2                                     -> go t1 && go t2
 
             -- topmost position not reducible, check subterms
             FExp       t1 t2 -> go t1 && go t2
             FPMult     t1 t2 -> go t1 && go t2
             FEMap      t1 t2 -> go t1 && go t2
+            FHenc      t1 t2 -> go t1 && go t2
             FInv       t1    -> go t1
             FMult      ts    -> all go ts
             FXor       ts    -> all go ts
@@ -132,10 +126,6 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             where
                 go' []     _ = False
                 go' (x:xs) y = (length (elemIndices x (xs++y))) > 0 || go' xs (x:y)
-
-        hasSameHomKeys t1 t2 = 
-          all (hasSameHomKey t1) (snd $ buildPRepresentationOnly t2) &&
-          all isHomEnc (snd $ buildPRepresentationOnly t2)
 
         msig        = mhMaudeSig hnd
         strules     = stRules msig
