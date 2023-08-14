@@ -1,4 +1,4 @@
-theory IntruderDecomposition
+theory IntruderDecompositionThree
 begin
 
 builtins: homomorphic-encryption
@@ -12,11 +12,10 @@ rule A:
   [ Fr(~x0)
   , Fr(~x1)
   , !Key(k) ]
-  --[]->
+  --[ Send(~x0, k) ]->
   [ Out(henc(<~x0, ~x1>, k)) ]
 
-// Intruder can just set x0 := <~x0, ~x1>
 lemma Intruder_Decomposes_Message: exists-trace
-  "Ex x0 k #i. K(henc(x0,k)) @i & not K(k) @i"
+  "Ex x0 k #i #j. Send(x0,k) @j & K(henc(x0,k)) @i & not K(k) @i"
 
 end
