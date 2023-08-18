@@ -1,4 +1,4 @@
-theory MessageFillCompositionWithHelperTwo
+theory MessageFillCompose
 begin
 
 builtins: homomorphic-encryption
@@ -13,11 +13,6 @@ rule A:
   , !Key(k) ]
   --[]->
   [ Out(henc(~x0, k)) ]
-
-rule Helper:
-  [ In(<henc(x0, k), henc(x1, k)>) ]
-  --[]->
-  [ Out(henc(<x0, x1>, k)) ]
 
 rule B:
   [ !Key(k)

@@ -1,7 +1,7 @@
-theory HomomorphicDefinitionWithDH
+theory ComposeInOut
 begin
 
-builtins: homomorphic-encryption, diffie-hellman
+builtins: homomorphic-encryption
 
 rule GetVars:
   [ Fr(~x0), Fr(~x1) ]
@@ -16,11 +16,11 @@ rule GetKey:
 rule A:
   [ !Vars(x0,x1), !Key(x2) ]
   --[ Send(x0, x1, x2) ]->
-  [ S1Out( henc(<x0, x1>, x2) ) ]
+  [ Out( < henc(x0,x2), henc(x1,x2) > ) ]
 
 rule B:
   [ !Vars(x0,x1), !Key(x2)
-  , S1Out( < henc(x0,x2), henc(x1,x2) > ) ]
+  , In( henc(<x0, x1>, x2) ) ]
   --[ Receive(x0, x1, x2) ]->
   []
 

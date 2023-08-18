@@ -1,4 +1,4 @@
-theory MessageFillComposition
+theory MessageFillComposeWithHelper
 begin
 
 builtins: homomorphic-encryption
@@ -13,6 +13,20 @@ rule A:
   , !Key(k) ]
   --[]->
   [ Out(henc(~x0, k)) ]
+
+/* FORBIDDEN HELPER - tamarin runs into infinite loop
+rule Helper_1:
+  [ In(henc(x0, k))
+  , In(henc(x1, k)) ]
+  --[]->
+  [ Out(henc(<x0, x1>, k)) ]
+*/
+
+// This helper is ignored by Tamarin
+rule Helper_2:
+  [ In(<henc(x0, k), henc(x1, k)>) ]
+  --[]->
+  [ Out(henc(<x0, x1>, k)) ]
 
 rule B:
   [ !Key(k)

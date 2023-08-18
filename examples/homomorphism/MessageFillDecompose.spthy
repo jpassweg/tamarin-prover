@@ -1,4 +1,4 @@
-theory MessageFillDecompositionTwo
+theory MessageFillDecompose
 begin
 
 builtins: homomorphic-encryption
@@ -21,6 +21,7 @@ rule B:
   --[ Received(x0, k) ]->
   []
 
+  // Need Send(~x0, k) fact or intruder could just set x0 := <~x0, ~x1>
 lemma Intruder_Fills_Message: exists-trace
   "Ex x0 k #i #j. Send(x0, k) @i & Received(x0, k) @j & not K(k) @j"
 

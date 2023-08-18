@@ -1,4 +1,4 @@
-theory IntruderComposition
+theory IntruderComposeWithHelper
 begin
 
 builtins: homomorphic-encryption
@@ -14,7 +14,14 @@ rule A:
   --[]->
   [ Out(henc(~x0, k)) ]
 
-lemma Intruder_Composes_Message: exists-trace
+rule Helper:
+  [ In(henc(x0, k))
+  , In(henc(x1, k)) ]
+  --[]->
+  [ Out(henc(<x0, x1>, k)) ]
+
+// Does not use Helper
+lemma Intruder_Fills_Message: exists-trace
   "Ex x0 x1 k #i. K(henc(<x0, x1>, k)) @i & not K(k) @i"
 
 end

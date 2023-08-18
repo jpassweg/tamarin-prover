@@ -1,4 +1,4 @@
-theory IntruderCompositionTwo
+theory IntruderComposeNotEqual
 begin
 
 builtins: homomorphic-encryption
