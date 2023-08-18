@@ -280,16 +280,22 @@ stdDecompositionHomomorphicRule eq _ _ =
     (_,_) -> HNothing
 
 variableSubstitutionHomomorphicRule :: (IsConst c) => HomomorphicRule c
-variableSubstitutionHomomorphicRule eq _ eqs =
+variableSubstitutionHomomorphicRule eq sortOf eqs =
   case (viewTerm $ lTerm $ eqLHS eq, viewTerm $ lTerm $ eqRHS eq) of
     (Lit (Var _), Lit (Var _)) -> HNothing
     (Lit (Var vl), _) -> 
-      if (not $ occursVTerm vl (lTerm $ eqRHS eq)) && (occursEqs vl eqs) 
+      if (not $ occursVTerm vl (lTerm $ eqRHS eq)) 
+        && (occursEqs vl eqs) && sortCorrect vl (lTerm $ eqRHS eq)
       then HSubstEqs (Subst $ M.fromList [(vl, lTerm $ eqRHS eq)]) [eq]
       else HNothing
     _ -> HNothing
   where
     occursEqs v es = any (\(Equal a b) -> (occursVTerm v $ lTerm a) || (occursVTerm v $ lTerm b)) es
+    sortCorrect v t = case (lvarSort v, sortOfLTerm sortOf t) of
+      (s1, s2) | s1 == s2 -> True
+      (LSortNode, _)      -> False
+      (_, LSortNode)      -> False
+      (s1, s2)            -> sortCompare s1 s2 `elem` [Just EQ, Just GT]
 
 clashHomomorphicRule :: (IsConst c) => HomomorphicRule c
 clashHomomorphicRule eq _ _ = let
