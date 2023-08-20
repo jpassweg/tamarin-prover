@@ -1,6 +1,11 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+
 module Term.Homomorphism.Unification (
   -- * Unification modulo EpsilonH for Homomorphic Encryption
-  unifyHomomorphicLTerm
+    unifyHomomorphicLTerm
+
+  -- * Matching modulo EpsilonH for Homomorphic Encryption
+  , matchHomomorphicLTerm
 
   -- * For debugging
   , debugHomomorphicRule
@@ -12,7 +17,7 @@ import qualified Data.Map as M
 import Term.Homomorphism.LPETerm
 
 import Term.LTerm (
-  LTerm, Lit(Var, Con), IsConst, LVar(..), 
+  LTerm, Lit(Var, Con), IsConst(..), LVar(..), 
   termVar, isVar, varTerm, occursVTerm, varsVTerm,
   TermView(FApp, Lit), viewTerm, termViewToTerm, 
   isPair, isHomEnc,
@@ -22,8 +27,36 @@ import Term.LTerm (
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
 
 import Term.Rewriting.Definitions (Equal(..))
-import Term.Substitution.SubstVFree (LSubst, Subst(..), emptySubst, applyVTerm)
-import Term.Substitution.SubstVFresh (LSubstVFresh, SubstVFresh(..), emptySubstVFresh)
+import Term.Substitution.SubstVFree (LSubst, Subst(..), substFromList, emptySubst, applyVTerm)
+import Term.Substitution.SubstVFresh (LSubstVFresh, substFromListVFresh, emptySubstVFresh)
+
+import Extension.Prelude (sortednub)
+
+-- | matchHomomorphicLTerm
+matchHomomorphicLTerm :: (IsConst c) => (c -> LSort) -> [(LTerm c, LTerm c)] -> [Subst c LVar]
+matchHomomorphicLTerm sortOf ms = let
+    (ts, ps) = unzip ms
+    varToConstList = getVarToConstMapping (foldVars ts)
+    constToVarList = map (\(a,b) -> (b,a)) varToConstList
+    tsWConst = map (applyOwnSubst varToConstList) ts
+    msEqsN = map (fmap normHomomorphic) $ map (\(t,p) -> Equal t p) $ zip tsWConst ps
+    unifyEqs = applyHomomorphicRules sortOf allHomomorphicRules (map (fmap toLPETerm) msEqsN)
+  in case toHomomorphicSolvedForm sortOf (map (fmap lTerm) unifyEqs) of
+    Just normEqsSubst -> [substFromList $ map (getLeftVarWithSubst constToVarList) normEqsSubst]
+    Nothing -> []
+  where
+    foldVars :: (IsConst c) => [LTerm c] -> [LVar]
+    foldVars ts' = sortednub $ concat $ map varsVTerm ts'
+    getVarToConstMapping :: (IsConst c) => [LVar] -> [(Lit c LVar, Lit c LVar)]
+    getVarToConstMapping ls = map (\(LVar name vsort idx) -> (Var $ LVar name vsort idx, 
+      Con $ fromString $ ((show vsort) ++ "_" ++ (show idx) ++ "_" ++ name))) ls
+    applyOwnSubst :: (IsConst c) => [(Lit c LVar, Lit c LVar)] -> LTerm c -> LTerm c
+    applyOwnSubst subst t = case viewTerm t of
+      FApp funsym args -> termViewToTerm $ FApp funsym $ map (applyOwnSubst subst) args
+      Lit l            -> termViewToTerm $ Lit $ foldl (\a (b,c) -> if a == b then c else a) l subst
+    getLeftVarWithSubst subst e = case termVar $ eqLHS e of
+      Just v ->  (v, applyOwnSubst subst $ eqRHS e)
+      Nothing -> (LVar "VARNOTFOUND" LSortFresh 0, applyOwnSubst subst $ eqRHS e)
 
 -- Unification Algorithm using the Homomorphic Rules
 ----------------------------------------------------
@@ -47,9 +80,7 @@ unifyHomomorphicLTerm sortOf eqs =
       then Just (emptySubst, emptySubstVFresh)
       else Nothing
     toSubst eqsSubst = case toHomomorphicSolvedForm sortOf (map (fmap lTerm) eqsSubst) of
-      Just normEqsSubst -> Just (
-        Subst $ M.fromList $ map getLeftVar normEqsSubst,
-        SubstVFresh $ M.fromList $ map getLeftVar normEqsSubst)
+      Just normEqsSubst -> let s = map getLeftVar normEqsSubst in Just (substFromList s, substFromListVFresh s)
       Nothing -> Nothing
     getLeftVar e = case termVar $ eqLHS e of
       Just v ->  (v, eqRHS e)
@@ -160,6 +191,8 @@ toHomomorphicSolvedForm sortOf eqs = let
         (FApp _ args) -> all (varNotPartOfTerm l) args
         (Lit (Var _)) -> l /= r
         (Lit (Con _)) -> True
+    -- remove duplicates:
+    -- foldVars ts = map head $ group $ sort $ concat $ map varsVTerm ts
     foldVars :: (IsConst c) => [LTerm c] -> [LVar]
     foldVars ts = concat $ map varsVTerm ts
     getFreeAvoidingEqsOfTerms :: (IsConst c) => [LVar] -> [LTerm c] -> [Equal (LTerm c)] -> ([LVar], [Equal (LTerm c)])
@@ -175,6 +208,7 @@ toHomomorphicSolvedForm sortOf eqs = let
           then (allVs, newEs)
           else let newV = getNewVar allVs x in (newV:allVs, (Equal t $ varTerm newV):newEs)
         (FApp _ args) -> getFreeAvoidingEqsOfTerms allVs args newEs
+    -- could maybe use renameAvoiding from LTerm
     getNewVar :: [LVar] -> LVar -> LVar
     getNewVar allVs x = LVar (lvarName x) (lvarSort x) 
       $ (+) 1
@@ -332,6 +366,7 @@ shapingHomomorphicRule eq _ eqs = let
     Just qualifyingIndex -> let 
       qualifyingELhs = eRepsLHS !! qualifyingIndex
       m = n + 2 - (length qualifyingELhs)
+      -- TODO: maybe use a more apporpriate name like same name than already used but higher ID
       xnew = varTerm $ LVar "fxShapingHomomorphic" LSortFresh $ gC ([eq] ++ eqs)
       x = toLPETerm $ head qualifyingELhs
       lhs1NewETerm = ([xnew] ++ (take (m-1) (tail eRepRHS)) ++ (tail qualifyingELhs))

@@ -101,7 +101,7 @@ import qualified Term.Maude.Process as UM
 import           Term.Maude.Process
                    (MaudeHandle, WithMaude, startMaude, getMaudeStats, mhMaudeSig, mhFilePath)
 import           Term.Maude.Signature
-import           Term.Homomorphism.Unification (unifyHomomorphicLTerm)
+import           Term.Homomorphism.Unification (unifyHomomorphicLTerm, matchHomomorphicLTerm)
 import           Debug.Trace.Ignore
 
 -- Unification modulo AC
@@ -117,12 +117,7 @@ unifyLTermFactored sortOf unifOpts eqs = reader $ \h -> (\res -> trace (unlines 
     solve h $ execRWST unif sortOf M.empty
   where
     unif = sequence [ unifyRaw t p | Equal t p <- eqs ]
-    solve h subst = if (unifOpts == "default" && not (enableHom $ mhMaudeSig h)) || unifOpts == "AC"
-      then case subst of
-        Nothing        -> (emptySubst, [])
-        Just (m, [])   -> (substFromMap m, [emptySubstVFresh])
-        Just (m, leqs) -> (substFromMap m, unsafePerformIO (UM.unifyViaMaude h sortOf $ map (applyVTerm (substFromMap m) <$>) leqs))
-      else if (unifOpts == "default" && (enableHom $ mhMaudeSig h)) || unifOpts == "homomorphic"
+    solve h subst = if (unifOpts == "default" && (enableHom $ mhMaudeSig h)) || unifOpts == "homomorphic"
       then case unifyHomomorphicLTerm sortOf eqs of
         Nothing        -> (emptySubst, [])
         Just (_, hSF)  -> (emptySubst, [hSF])
@@ -212,14 +207,18 @@ solveMatchLTerm :: (IsConst c)
 solveMatchLTerm sortOf matchProblem =
     case flattenMatch matchProblem of
       Nothing -> pure []
-      Just ms -> reader $ matchTerms ms
+      Just ms -> reader $ matchTermChoose ms
   where
     trace' res = trace
       (unlines $ ["matchLTerm: "++ show matchProblem, "result = "++  show res])
       res
 
+    matchTermChoose ms hnd = trace' $ if (enableHom $ mhMaudeSig hnd)
+      then matchHomomorphicLTerm sortOf ms
+      else matchTerms ms hnd
+
     matchTerms ms hnd =
-        trace' $ case runState (runExceptT match) M.empty of
+      case runState (runExceptT match) M.empty of
           (Left NoMatcher, _)  -> []
           (Left ACProblem, _)  ->
               unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
