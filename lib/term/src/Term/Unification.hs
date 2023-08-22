@@ -110,14 +110,13 @@ import           Debug.Trace.Ignore
 -- | @unifyLTerm sortOf eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLTermFactored :: (IsConst c)
                    => (c -> LSort)
-                   -> String
                    -> [Equal (LTerm c)]
                    -> WithMaude (LSubst c, [SubstVFresh c LVar])
-unifyLTermFactored sortOf unifOpts eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
+unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
     solve h $ execRWST unif sortOf M.empty
   where
     unif = sequence [ unifyRaw t p | Equal t p <- eqs ]
-    solve h subst = if (unifOpts == "default" && (enableHom $ mhMaudeSig h)) || unifOpts == "homomorphic"
+    solve h subst = if enableHom $ mhMaudeSig h
       then case unifyHomomorphicLTerm sortOf eqs of
         Nothing        -> (emptySubst, [])
         Just (_, hSF)  -> (emptySubst, [hSF])
@@ -130,14 +129,14 @@ unifyLTermFactored sortOf unifOpts eqs = reader $ \h -> (\res -> trace (unlines 
 -- | @unifyLTerm sortOf eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLNTermFactored :: [Equal LNTerm]
                     -> WithMaude (LNSubst, [SubstVFresh Name LVar])
-unifyLNTermFactored = unifyLTermFactored sortOfName "default"
+unifyLNTermFactored = unifyLTermFactored sortOfName
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLTerm :: (IsConst c)
            => (c -> LSort)
            -> [Equal (LTerm c)]
            -> WithMaude [SubstVFresh c LVar]
-unifyLTerm sortOf eqs = flattenUnif <$> unifyLTermFactored sortOf "default" eqs
+unifyLTerm sortOf eqs = flattenUnif <$> unifyLTermFactored sortOf eqs
 
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
