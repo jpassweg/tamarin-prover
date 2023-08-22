@@ -14,6 +14,10 @@ module Term.Homomorphism.Unification (
 
 import qualified Data.Map as M
 
+-- For data MConst
+import Data.Typeable
+import Data.Data
+
 import Term.Homomorphism.LPETerm
 
 import Term.LTerm (
@@ -27,14 +31,27 @@ import Term.LTerm (
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
 
 import Term.Rewriting.Definitions (Equal(..))
-import Term.Substitution.SubstVFree (LSubst, Subst(..), substFromList, emptySubst, applyVTerm)
+import Term.Substitution.SubstVFree (LSubst, Subst(..), substFromList, substToList, emptySubst, applyVTerm)
 import Term.Substitution.SubstVFresh (LSubstVFresh, substFromListVFresh, emptySubstVFresh)
 
 import Extension.Prelude (sortednub)
 
--- | matchHomomorphicLTerm
+-- Matching Algorithm using the Unification Algorithm
+-----------------------------------------------------
+
 matchHomomorphicLTerm :: (IsConst c) => (c -> LSort) -> [(LTerm c, LTerm c)] -> [Subst c LVar]
-matchHomomorphicLTerm sortOf ms = let
+matchHomomorphicLTerm = matchHomomorphicLTermV2
+
+-- | matchHomomorphicLTerm
+matchHomomorphicLTermV1 :: (IsConst c) => (c -> LSort) -> [(LTerm c, LTerm c)] -> [Subst c LVar]
+matchHomomorphicLTermV1 sortOf ms = let
+    eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
+  in case unifyHomomorphicLTerm (sortOfMConst sortOf) eqs of
+    Just (s,_) -> [substFromList $ map (\(v,t) -> (v, fromMConst t)) $ substToList s]
+    Nothing    -> []
+
+matchHomomorphicLTermV2 :: (IsConst c) => (c -> LSort) -> [(LTerm c, LTerm c)] -> [Subst c LVar]
+matchHomomorphicLTermV2 sortOf ms = let
     (ts, ps) = unzip ms
     varToConstList = getVarToConstMapping (foldVars ts)
     constToVarList = map (\(a,b) -> (b,a)) varToConstList
@@ -49,7 +66,7 @@ matchHomomorphicLTerm sortOf ms = let
     foldVars ts' = sortednub $ concat $ map varsVTerm ts'
     getVarToConstMapping :: (IsConst c) => [LVar] -> [(Lit c LVar, Lit c LVar)]
     getVarToConstMapping ls = map (\(LVar name vsort idx) -> (Var $ LVar name vsort idx, 
-      Con $ fromString $ ((show vsort) ++ "_" ++ (show idx) ++ "_" ++ name))) ls
+      Con $ buildConstFromString $ ((show vsort) ++ "_" ++ (show idx) ++ "_" ++ name))) ls
     applyOwnSubst :: (IsConst c) => [(Lit c LVar, Lit c LVar)] -> LTerm c -> LTerm c
     applyOwnSubst subst t = case viewTerm t of
       FApp funsym args -> termViewToTerm $ FApp funsym $ map (applyOwnSubst subst) args
@@ -57,6 +74,36 @@ matchHomomorphicLTerm sortOf ms = let
     getLeftVarWithSubst subst e = case termVar $ eqLHS e of
       Just v ->  (v, applyOwnSubst subst $ eqRHS e)
       Nothing -> (LVar "VARNOTFOUND" LSortFresh 0, applyOwnSubst subst $ eqRHS e)
+
+-- Const type used by matching algorithm
+data MConst c = MCon c | MVar LVar 
+  deriving (Eq, Ord, Show, Data, Typeable)
+
+instance (Ord c, Eq c, Show c, Data c, IsConst c) => IsConst (MConst c) where
+  buildConstFromString s = MCon (buildConstFromString s)
+
+toMConstA :: (IsConst c) => LTerm c -> LTerm (MConst c)
+toMConstA t = case viewTerm t of
+  (FApp funsym args) -> termViewToTerm (FApp funsym $ map toMConstA args)
+  (Lit (Var v))      -> termViewToTerm (Lit (Con (MVar v)))
+  (Lit (Con c))      -> termViewToTerm (Lit (Con (MCon c)))
+
+toMConstC :: (IsConst c) => LTerm c -> LTerm (MConst c)
+toMConstC t = case viewTerm t of
+  (FApp funsym args) -> termViewToTerm (FApp funsym $ map toMConstC args)
+  (Lit (Var v))      -> termViewToTerm (Lit (Var v))
+  (Lit (Con c))      -> termViewToTerm (Lit (Con (MCon c)))
+
+fromMConst :: (IsConst c) => LTerm (MConst c) -> LTerm c
+fromMConst t = case viewTerm t of
+  (FApp funsym args)   -> termViewToTerm (FApp funsym $ map fromMConst args)
+  (Lit (Var v))        -> termViewToTerm (Lit (Var v))
+  (Lit (Con (MCon c))) -> termViewToTerm (Lit (Con c))
+  (Lit (Con (MVar v))) -> termViewToTerm (Lit (Var v))
+
+sortOfMConst :: (IsConst c) => (c -> LSort) -> MConst c -> LSort
+sortOfMConst sortOf (MCon c) = LSortFresh -- sortOf c
+sortOfMConst sortOf (MVar v) = lvarSort v
 
 -- Unification Algorithm using the Homomorphic Rules
 ----------------------------------------------------

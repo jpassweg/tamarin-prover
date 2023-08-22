@@ -227,7 +227,7 @@ type NTerm v = VTerm Name v
 ------------
 
 instance IsConst Name where
-  fromString s = Name FreshName (NameId s)
+  buildConstFromString s = Name FreshName (NameId s)
 
 instance Show Name where
   show (Name FreshName  n) = "~'" ++ show n ++ "'"

@@ -65,7 +65,7 @@ class (Ord v, Eq v, Show v) => IsVar v where
 
 -- | collect class constraints for constants
 class (Ord c, Eq c, Show c, Data c) => IsConst c where
-    fromString :: String -> c
+    buildConstFromString :: String -> c
 
 -- | Functor instance in the variable.
 instance Functor (Lit c) where
