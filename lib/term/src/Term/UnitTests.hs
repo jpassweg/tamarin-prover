@@ -166,41 +166,43 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
     ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n"
     ++ "------ END TEST PRINTER ------"
   ) (
-    (caseOutcome == (propUnifyHomomorphicSound mhnd t1 t2)) && -- check if equal to expected outcome
-    ((t1SubstH == t2SubstH) == (t1SubstH' == t2SubstH'))       -- check if freshToAvoid changes outcome
+    (caseOutcome == substHUnifies) &&                    -- check if equal to expected outcome
+    ((t1SubstH == t2SubstH) == (t1SubstH' == t2SubstH')) -- check if freshToAvoid changes outcome
   )
   where
     t1N = normHomomorphic t1
     t2N = normHomomorphic t2
+    
     substs = unifyLTerm sortOfName [Equal t1 t2] `runReader` mhnd
     numUnifiers = length substs
     subst = safeHead substs
     subst' = freshToFreeAvoiding subst [t1,t2]
+
+    substHUnifier = unifyHomomorphicLTerm sortOfName [Equal t1 t2]
+    substH = case substHUnifier of
+      Just (s,_) -> s
+      Nothing    -> emptySubst
+    substHVFresh = case substHUnifier of
+      Just (_,s) -> s
+      Nothing    -> emptySubst
+    substH' = case substHUnifier of
+      Just (_,s) -> freshToFreeAvoiding s [t1,t2]
+      Nothing    -> emptySubst
+    substHUnifies = case substHUnifier of
+      Just (_,_) -> True
+      Nothing    -> False
+    substHUnifiesEqual = case substHUnifier of
+      Just (s,_) -> (applyVTerm s t1N == applyVTerm s t2N)
+      Nothing    -> False
+    
     t1Subst' = applyVTerm subst' t1
     t2Subst' = applyVTerm subst' t2
-    substH = case unifyHomomorphicLTerm sortOfName [Equal t1 t2] of
-      Just (s,sf) -> s
-      Nothing -> emptySubst
     t1SubstH = applyVTerm substH t1
     t2SubstH = applyVTerm substH t2
-    substHVFresh = (\s -> case s of Subst s' -> SubstVFresh s') substH
-    substH' = freshToFreeAvoiding substHVFresh [t1,t2]
     t1SubstH' = applyVTerm substH' t1
     t2SubstH' = applyVTerm substH' t2
+    
     safeHead s = if null s then (SubstVFresh $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)]) else head s
-
--- Returns true if unifyHomomorphicLTerm was able to unify both given terms
--- Uses the same method for testing as propUnifySound
--- freshToFreeAvoiding converts return of type 
--- [SubstVFresh Name LVar] to [Subst Name LVar]
-propUnifyHomomorphicSound :: MaudeHandle -> LNTerm -> LNTerm -> Bool
-propUnifyHomomorphicSound _ t1 t2 = let
-    t1N = normHomomorphic t1
-    t2N = normHomomorphic t2
-    substs = case unifyHomomorphicLTerm sortOfName [Equal t1 t2] of
-      Just (s,sf) -> [s]
-      Nothing     -> []
-  in all (\s -> applyVTerm s t1N == applyVTerm s t2N) substs && not (null substs)
 
 -- *****************************************************************************
 -- Tests for Subfunctions of the Unification Algorithm modulo EpsilonH
