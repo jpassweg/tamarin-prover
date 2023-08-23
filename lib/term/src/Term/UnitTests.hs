@@ -87,22 +87,37 @@ propUnifySound hnd t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
     substs = unifyLNTerm [Equal t1 t2] `runReader` hnd
 
 -- *****************************************************************************
--- Tests for Unification modulo EpsilonH (For Homomorphic encryption)
+-- Tests aggregate for homomorphic encryption
 -- *****************************************************************************
 
 testAllHomomorphic :: MaudeHandle -> Test
 testAllHomomorphic mhnd = TestLabel "All Homomorphic tests" $
   TestList 
     [ testsUnifyHomomorphic mhnd
-    , testsUnifyHomomorphicSf
-    , testsUnifyHomomorphicRules
-    , testPrinterHomomorphic
+    , testsUnifyHomomorphicSf mhnd
+    , testsUnifyHomomorphicRules mhnd
+    , testPrinterHomomorphic mhnd
+    , testsMatchingHomomorphic mhnd
     ]
+
+-- *****************************************************************************
+-- Tests for Matching modulo EpsilonH (For Homomorphic encryption)
+-- *****************************************************************************
+
+testsMatchingHomomorphic :: MaudeHandle -> Test
+testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH"
+  TestList
+    [  
+    ]
+
+-- *****************************************************************************
+-- Tests for Unification modulo EpsilonH (For Homomorphic encryption)
+-- *****************************************************************************
 
 -- Multiple tests for unification modulo EpisolonH algorithm 
 -- implemented in unifyHomomorphicLNTerm
 testsUnifyHomomorphic :: MaudeHandle -> Test
-testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify module EpsilonH" $
+testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
   TestList
     [ testUnifyWithPrint mhnd "trivial case" True x0 x0
     , testUnifyWithPrint mhnd "trivial case 2" True x0 x1
@@ -187,10 +202,14 @@ propUnifyHomomorphicSound _ t1 t2 = let
       Nothing     -> []
   in all (\s -> applyVTerm s t1N == applyVTerm s t2N) substs && not (null substs)
 
+-- *****************************************************************************
+-- Tests for Subfunctions of the Unification Algorithm modulo EpsilonH
+-- *****************************************************************************
+
 -- Multiple tests for the functions directly used by the 
 -- homomorphic encrytion unification algorithm 
-testsUnifyHomomorphicSf :: Test
-testsUnifyHomomorphicSf = 
+testsUnifyHomomorphicSf :: MaudeHandle -> Test
+testsUnifyHomomorphicSf _ = 
   TestLabel "Tests for Unify module EpsilonH subfunctions" $
   TestList
     [ testTrue "position var" (positionsWithTerms x0 == [("",x0)])
@@ -264,6 +283,10 @@ testsUnifyHomomorphicSf =
     henc = fAppHenc
     hdec = fAppHdec
 
+-- *****************************************************************************
+-- Tests for specific rules of the Homomorphic Unification Algorithm
+-- *****************************************************************************
+
 -- debugHomomorphicRule: 
 --  [ failureOneHomomorphicRule             0
 --  , failureTwoHomomorphicRule             1
@@ -274,8 +297,8 @@ testsUnifyHomomorphicSf =
 --  , variableSubstitutionHomomorphicRule   6
 --  , trivialHomomorphicRule                7
 --  , stdDecompositionHomomorphicRule]      8
-testsUnifyHomomorphicRules :: Test
-testsUnifyHomomorphicRules = TestLabel "Tests for Unify module EpsilonH Rules" $
+testsUnifyHomomorphicRules :: MaudeHandle -> Test
+testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules" $
   TestList
     [ testTrue "trivial 1" (debugHomomorphicRule 7 tE1 s [] == HEqs [])
     , testTrue "trivial 2" (debugHomomorphicRule 7 tFE1 s [] == HEqs [])
@@ -348,29 +371,17 @@ testsUnifyHomomorphicRules = TestLabel "Tests for Unify module EpsilonH Rules" $
     -- failure2: tFFE5 = Equal P ["1","2"] [[pair(x,x.1),x.2],[x.3]] 
     --                         E [x.4,x.5,x.6] with n = 2, m = 1
 
--- Function to test if strings used in a P-Representation are valid
--- Note: not used
-validBitString :: [String] -> Bool
-validBitString [""] = True
-validBitString s = contains12Pattern s 
-  && (validBitString $ getOnes s) 
-  && (validBitString $ getTwos s) 
-  where
-    contains12Pattern strings = (null 
-      $ dropWhile (\x -> (head x)=='2')
-      $ dropWhile (\x -> (head x)=='1') strings)
-      && any (\x -> (head x)=='1') strings
-      && any (\x -> (head x)=='2') strings
-    getOnes strings = map tail $ takeWhile (\x -> (head x)=='1') strings
-    getTwos strings = map tail $ dropWhile (\x -> (head x)=='1') strings
+-- *****************************************************************************
+-- Specific printer
+-- *****************************************************************************
 
 -- Test used to actually print what some functions return for debugging
 -- Set to false to print out values
-testPrinterHomomorphic :: Test
-testPrinterHomomorphic =
+testPrinterHomomorphic :: MaudeHandle -> Test
+testPrinterHomomorphic _ =
   TestLabel "prints out debugging information" $
   TestList
-    [ testTrue (show "") True]
+    [ testTrue (show "***text being printed***") True]
   where
     s = sortOfName 
 

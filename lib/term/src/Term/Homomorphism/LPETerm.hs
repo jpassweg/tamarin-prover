@@ -144,6 +144,22 @@ properPrefix _ [] = False
 properPrefix [] _ = True
 properPrefix (s11:s1) (s21:s2) = s11 == s21 && properPrefix s1 s2
 
+-- | Function to test if strings used in a P-Representation are valid
+-- Note: not used
+validBitString :: [String] -> Bool
+validBitString [""] = True
+validBitString s = contains12Pattern s 
+  && (validBitString $ getOnes s) 
+  && (validBitString $ getTwos s) 
+  where
+    contains12Pattern strings = (null 
+      $ dropWhile (\x -> (head x)=='2')
+      $ dropWhile (\x -> (head x)=='1') strings)
+      && any (\x -> (head x)=='1') strings
+      && any (\x -> (head x)=='2') strings
+    getOnes strings = map tail $ takeWhile (\x -> (head x)=='1') strings
+    getTwos strings = map tail $ dropWhile (\x -> (head x)=='1') strings
+
 -- | Returns all positions that are not prefixes of other positions
 maximalPositions :: (IsConst c) => [(String, LTerm c)] -> [(String, LTerm c)]
 maximalPositions ps = 
