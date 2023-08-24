@@ -88,6 +88,7 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import qualified Data.Map as M
 import           Data.Map (Map)
+import           Data.Maybe (maybeToList)
 
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -211,9 +212,7 @@ solveMatchLTerm sortOf matchProblem =
       res
 
     matchTermChoose ms hnd = trace' $ if enableHom $ mhMaudeSig hnd
-      then case matchHomomorphicLTerm sortOf ms of
-        Just s  -> [s]
-        Nothing -> []
+      then maybeToList (matchHomomorphicLTerm sortOf ms)
       else matchTerms ms hnd
 
     matchTerms ms hnd =

@@ -1,6 +1,8 @@
+{-# LANGUAGE ViewPatterns       #-}
+
 module Term.Homomorphism.LPETerm (
   -- * Homomorphic Representation types
-  LPETerm(..)
+    LPETerm(..)
   , PRepresentation(..)
   , ERepresentation
 
@@ -14,11 +16,7 @@ module Term.Homomorphism.LPETerm (
   , fromERepresentation
 
   -- * Norm functions
-  --, nfHomomorphicHEPlus
-  --, normHomomorphicHEPlus
   , normHomomorphic
-  --, buildPRepresentationOnly
-  --, fromPRepresentationOnly
 
   -- * Functions for debuggin Homomorphic Representations
   , findPurePPositions
@@ -31,13 +29,15 @@ module Term.Homomorphism.LPETerm (
 import Data.Bifunctor (first, second)
 
 import Term.LTerm (
-  LTerm, Lit(Var, Con), IsConst, TermView(Lit, FApp),
-  viewTerm, termViewToTerm, fAppPair,
-  fAppHenc, isPair, isHomEnc)
--- Term, TermView(Lit, FApp), viewTerm, termViewToTerm, fAppNoEq come from Term.Term.Raw
--- Lit(Var, Con), IsConst comes from Term.VTerm
--- FunSym(NoEq), fstSym, sndSym, homEncSym, homDecSym comes from Term.Term.FunctionSymbols
--- fAppPair, fAppHenc, isHomEnc, hasSameHomKey, isPair come from Term.Term
+  LTerm, IsConst,                                       
+  TermView(Lit, FApp), TermView2(FHenc, FPair), 
+  viewTerm, viewTerm2, termViewToTerm,            
+  fAppPair, fAppHenc, isHomEnc
+  ) 
+-- IsConst from Term.VTerm
+-- TermView(Lit, FApp), TermView2(FHenc, FPair), 
+-- viewTerm, viewTerm2, termViewToTerm from Term.Term.Raw
+-- fAppPair, fAppHenc, isHomEnc from Term.Term
 
 -- New Types used for Unification modulo Homomorphic Encrpytion
 ---------------------------------------------------------------
@@ -75,66 +75,52 @@ toLPETerm t = LPETerm t (buildPRepresentation t) (buildERepresentation t)
 
 -- | Returns All subterms (including the term itself) given a term with their positions
 positionsWithTerms :: (IsConst c) => LTerm c -> [(String, LTerm c)]
-positionsWithTerms t = positionsWithTerms' t ""
+positionsWithTerms = positionsWithTerms' ""
 
 -- | used by positionsWithTerms
-positionsWithTerms' :: (IsConst c) => LTerm c -> String -> [(String, LTerm c)]
-positionsWithTerms' t p = case viewTerm t of
-  (Lit(Con _))  -> [(p,t)]
-  (Lit(Var _))  -> [(p,t)]
-  (FApp _ args) -> (p,t) : concat (zipWith argFunc args [1..])
+positionsWithTerms' :: (IsConst c) => String -> LTerm c -> [(String, LTerm c)]
+positionsWithTerms' pos t = case viewTerm t of
+  (Lit _)       -> [(pos,t)]
+  (FApp _ args) -> (pos,t) : concat (zipWith argFunc [1..] args)
   where
-    argFunc :: (IsConst c) => LTerm c -> Int -> [(String, LTerm c)]
-    argFunc arg ind = positionsWithTerms' arg (p ++ show ind)
+    argFunc :: (IsConst c) => Int -> LTerm c -> [(String, LTerm c)]
+    argFunc ind = positionsWithTerms' (pos ++ show ind)
 
 -- | Returns the pposition used for Homomorphic Pattern rules
--- TODO: can be done more elegantly with viewTerm2
 pPosition :: (IsConst c) => String -> LTerm c -> String
 pPosition [] _ = ""
-pPosition (i:q) t = case viewTerm t of
-  FApp _ args ->
-    if length args > read [i] - 1
-    then if isPair t
-    then i : pPosition q (args !! (read [i] - 1))
-    else if isHomEnc t
-    then pPosition q $ args !! (read [i] - 1)
-    else "DIFF" -- different function symbol
-    else "ARGL" -- argument length issue
-  _ -> "NONF"   -- not a function symbol
+pPosition (i:q) t = let ind = read [i] - 1 in case viewTerm2 t of
+  _ | ind >= 2 -> "N"
+  FPair t1 t2  -> i : pPosition q ([t1,t2] !! ind)
+  FHenc t1 t2  ->     pPosition q ([t1,t2] !! ind)
+  _            -> "N"
 
 -- | Returns the eposition used for Homomorphic Pattern rules
--- TODO: can be done more elegantly with viewTerm2
 ePosition :: (IsConst c) => String -> LTerm c -> String
 ePosition [] _ = ""
-ePosition (i:q) t = case viewTerm t of
-  FApp _ args ->
-    if length args > read [i] - 1
-    then if isHomEnc t
-    then i : ePosition q (args !! (read [i] - 1))
-    else if isPair t
-    then ePosition q $ args !! (read [i] - 1)
-    else "DIFF"
-    else "ARGL"
-  _ -> "NONF"
+ePosition (i:q) t = let ind = read [i] - 1 in case viewTerm2 t of
+  _ | ind >= 2 -> "N"
+  FHenc t1 t2  -> i : ePosition q ([t1,t2] !! ind)
+  FPair t1 t2  ->     ePosition q ([t1,t2] !! ind)
+  _            -> "N"
 
 -- | Returns if two positions are incompatible
 positionsIncompatible :: (IsConst c) => String -> LTerm c -> String -> LTerm c -> Bool
 positionsIncompatible q1 t1 q2 t2 =
      properPrefix (pPosition q1 t1) (pPosition q2 t2)
   || properPrefix (pPosition q2 t2) (pPosition q1 t1)
-  || (pPosition q1 t1 == pPosition q2 t2
-      && ePosition q1 t1 /= ePosition q2 t2
-      && all ('1' ==) (ePosition q1 t1)
-      && all ('1' ==) (ePosition q2 t2))
+  ||  ( pPosition q1 t1 == pPosition q2 t2
+     && ePosition q1 t1 /= ePosition q2 t2
+     && all ('1' ==) (ePosition q1 t1)
+     && all ('1' ==) (ePosition q2 t2) )
 
 -- | Returns all positions in t for which epos==""
 findPurePPositions :: (IsConst c) => LTerm c -> [(String, LTerm c)]
-findPurePPositions t =
-  filter (\(p,_) -> ePosition p t == "") $ positionsWithTerms t
+findPurePPositions t = filter (\(p,_) -> ePosition p t == "") $ positionsWithTerms t
 
 -- | Returns all positions in t for which ppos=="" and are not position under a key
 findPenukEPositions :: (IsConst c) => LTerm c -> [(String, LTerm c)]
-findPenukEPositions t =
+findPenukEPositions t = 
   filter (\(p,_) -> pPosition p t == "" && penukPositions p) $ positionsWithTerms t
   where
     penukPositions [] = True
@@ -165,15 +151,12 @@ validBitString s = contains12Pattern s
 
 -- | Returns all positions that are not prefixes of other positions
 maximalPositions :: (IsConst c) => [(String, LTerm c)] -> [(String, LTerm c)]
-maximalPositions ps =
-  filter (\p -> not $ any (properPrefix (fst p) . fst) ps) ps
+maximalPositions ps = filter (\p -> not $ any (properPrefix (fst p) . fst) ps) ps
 
 -- | returns P representation for Homomorphic Patterns
 buildPRepresentation :: (IsConst c) => LTerm c -> PRepresentation c
-buildPRepresentation t =
-  uncurry PRep $ unzip
-  $ map (second buildERepresentation)
-  $ maximalPositions $ findPurePPositions t
+buildPRepresentation t = uncurry PRep $ unzip
+  $ map (second buildERepresentation) $ maximalPositions $ findPurePPositions t
 
 {-
 -- | returns P representation without building E representation of subterms
@@ -190,18 +173,11 @@ fromPRepresentation :: (IsConst c) => PRepresentation c -> LTerm c
 fromPRepresentation p =
   if eRepsString p == [""]
   then fromERepresentation $ head $ eRepsTerms p
-  else fAppPair (
-      fromPRepresentation $ sRep takeWhile
-    , fromPRepresentation $ sRep dropWhile )
+  else fAppPair (fRep takeWhile, fRep dropWhile )
   where
-    sRep fWhile =
-      uncurry PRep $ unzip
-      $ map (first safeTail)
-      $ fWhile (\(a,_) -> head a == '1')
-      $ zip (eRepsString p) (eRepsTerms p)
-    safeTail xs
-      | null xs   = ""
-      | otherwise = tail xs
+    fRep fWhile = fromPRepresentation $ uncurry PRep $ unzip 
+      $ map (first (\s -> if s == "" then "" else tail s)) 
+      $ fWhile (\(a,_) -> head a == '1') $ zip (eRepsString p) (eRepsTerms p)
 
 {-
 -- | rebuilds a LTerm from the P Representation generated by buildPRepresentationOnly
@@ -222,13 +198,30 @@ fromPRepresentationOnly (s,p) =
 -}
 
 -- | rebuilds a LTerm from a E Representation
+-- Assumes Term can not be empty (ERepresentation would then be empty list)
 fromERepresentation :: (IsConst c) => ERepresentation c -> LTerm c
-fromERepresentation e = if length e == 1
-  then head e
+fromERepresentation e = if length e == 1 then head e
   else fAppHenc (fromERepresentation (init e), last e)
 
 -- Norm related functions for Homomorphic encryption
 ----------------------------------------------------
+
+-- | @normHomomorphic t@ normalizes the term @t@ modulo the homomorphic rule 
+-- henc(<x1,x2>,k) -> <henc(x1,k),henc(x2,k)>
+-- example:
+-- henc( henc( pair(x0,x1), k0), k1) 
+-- -> henc( pair( henc(x0,k0), henc(x1,k0) ), k1)
+-- -> pair( henc(henc(x0,k0),k1) , henc(henc(x1,k0),k1) )
+normHomomorphic :: (IsConst c) => LTerm c -> LTerm c
+normHomomorphic t = let tN = normHomomorphic' t in if t == tN then t else normHomomorphic tN
+
+normHomomorphic' :: (IsConst c) => LTerm c -> LTerm c
+normHomomorphic' t = case viewTerm t of
+    FApp _ [viewTerm2 -> FPair t11 t12, t2] | isHomEnc t ->
+      fAppPair (fAppHenc (t11, t2), fAppHenc (t12, t2))
+    FApp funsym ts ->
+      termViewToTerm (FApp funsym (map normHomomorphic' ts))
+    Lit _ -> t
 
 {-
 -- | returns if the term is in normal form modulo HE+
@@ -246,28 +239,7 @@ nfHomomorphicHEPlus t = case viewTerm t of
     hasSameHomKeys t1 t2 =
           all (hasSameHomKey t1) (snd $ buildPRepresentationOnly t2) &&
           all isHomEnc (snd $ buildPRepresentationOnly t2)
--}
 
--- | @normHomomorphic t@ normalizes the term @t@ modulo the homomorphic rule henc(<x1,x2>,k) -> <henc(x1,k),henc(x2,k)>
-normHomomorphic :: (IsConst c) => LTerm c -> LTerm c
-normHomomorphic t = case viewTerm t of
-    FApp _ [t1, t2] | isHomEnc t && isPair t1           ->
-      fAppPair (nH $ fAppHenc (nH $ getFst t1, nH t2), nH $ fAppHenc (nH $ getSnd t1, nH t2))
-    FApp funsym ts                                      ->
-      termViewToTerm (FApp funsym (map nH ts))
-    Lit _ -> t
-  where
-    nH = normHomomorphic
-    getFst :: (IsConst c) => LTerm c -> LTerm c
-    getFst te = case viewTerm te of
-      FApp _ [t1, _] -> t1
-      _ -> te
-    getSnd :: (IsConst c) => LTerm c -> LTerm c
-    getSnd te = case viewTerm te of
-      FApp _ [_, t2] -> t2
-      _ -> te
-
-{-
 -- | @normHomomorphic t@ normalizes the term @t@ modulo HE+
 normHomomorphicHEPlus :: (IsConst c) => LTerm c -> LTerm c
 normHomomorphicHEPlus t = case viewTerm t of

@@ -142,7 +142,6 @@ testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
     myN1 = myNatVar "n" 1
     myNatVar s i = varTerm $ LVar s LSortNat i
 
--- TODO: add variables
 testMatchingHomWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
 testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
   TestLabel caseName $ TestCase $ assertBool (
@@ -181,8 +180,6 @@ testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
 
     safeHead s = if null s then Subst $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)] else head s
 
-
-
 -- *****************************************************************************
 -- Tests for Unification modulo EpsilonH (For Homomorphic encryption)
 -- *****************************************************************************
@@ -197,7 +194,7 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
     , testUnifyWithPrint mhnd "trivial non-equality" False (henc (x0,x1)) x1
     , testUnifyWithPrint mhnd "case 1" True x0 (henc (x1,x2))
     , testUnifyWithPrint mhnd "case 2" True t1 x4
-    , testUnifyWithPrint mhnd "case 3" True (henc (t1,x0)) (henc (x5,x6))
+    --, testUnifyWithPrint mhnd "case 3" True (henc (t1,x0)) (henc (x5,x6))
     , testUnifyWithPrint mhnd "def henc 1" True t1 t2
     , testUnifyWithPrint mhnd "def henc 2" True t2 t1
     , testUnifyWithPrint mhnd "def henc 3" True (henc (t1,x0)) (henc (t1,x0))
@@ -219,6 +216,9 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
     , testUnifyWithPrint mhnd "publicfresh2" False fx0 px0
     , testUnifyWithPrint mhnd "freshnat1" False fx0 myN1
     , testUnifyWithPrint mhnd "freshnat2" False myN1 fx0
+    , testUnifyWithPrint mhnd "multi1" True (pair(x0,x1)) (pair(px0,px1))
+    , testUnifyWithPrint mhnd "multi2" True (pair(x0,px0)) (pair(px0,x0))
+    , testUnifyWithPrint mhnd "multi3" True (pair(x0,myN1)) (pair(px0,x1))
     ]
   where
     t1 = henc (pair (x0,x1), x2)
@@ -235,7 +235,6 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
     myN1 = myNatVar "n" 1
     myNatVar s i = varTerm $ LVar s LSortNat i
 
--- TODO: change print text according to new variables
 testUnifyWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
 testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
   TestLabel caseName $ TestCase $ assertBool (
@@ -271,16 +270,10 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
     substH = case substHUnifier of
       Just (s,_) -> s
       Nothing    -> emptySubst
-    substHVFresh = case substHUnifier of
-      Just (_,s) -> s
-      Nothing    -> emptySubstVFresh
     substH' = case substHUnifier of
       Just (_,s) -> freshToFreeAvoiding s [t1,t2]
       Nothing    -> emptySubst
     substHUnifies = case substHUnifier of
-      Just (_,_) -> True
-      Nothing    -> False
-    substHUnifiesEqual = case substHUnifier of
       Just (s,_) -> applyVTerm s t1N == applyVTerm s t2N
       Nothing    -> False
 

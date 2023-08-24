@@ -15,8 +15,8 @@ module Term.Homomorphism.Unification (
 import qualified Data.Map as M
 
 -- For data MConst
-import Data.Typeable
-import Data.Data
+import Data.Typeable ( Typeable )
+import Data.Data ( Data )
 
 import Data.Bifunctor (second)
 
