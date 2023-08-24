@@ -34,12 +34,10 @@ module Term.Maude.Signature (
   , pairMaudeSig
   , asymEncMaudeSig
   , symEncMaudeSig
---  , hsymEncMaudeSig
   , signatureMaudeSig
   , pairDestMaudeSig
   , asymEncDestMaudeSig
   , symEncDestMaudeSig
---  , hsymEncDestMaudeSig
   , signatureDestMaudeSig  
   , revealSignatureMaudeSig
   , locationReportMaudeSig
@@ -193,14 +191,12 @@ pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatur
 pairMaudeSig            = maudeSig $ mempty {stFunSyms=pairFunSig,stRules=pairRules}
 symEncMaudeSig          = maudeSig $ mempty {stFunSyms=symEncFunSig,stRules=symEncRules}
 asymEncMaudeSig         = maudeSig $ mempty {stFunSyms=asymEncFunSig,stRules=asymEncRules}
---hsymEncMaudeSig         = maudeSig $ mempty {stFunSyms=hsymEncFunSig,stRules=hsymEncRules}
 signatureMaudeSig       = maudeSig $ mempty {stFunSyms=signatureFunSig,stRules=signatureRules}
 revealSignatureMaudeSig = maudeSig $ mempty {stFunSyms=revealSignatureFunSig,stRules=revealSignatureRules}
 hashMaudeSig            = maudeSig $ mempty {stFunSyms=hashFunSig}
 locationReportMaudeSig            = maudeSig $ mempty {stFunSyms=locationReportFunSig, stRules=locationReportRules}
 symEncDestMaudeSig          = maudeSig $ mempty {stFunSyms=symEncFunDestSig,stRules=symEncDestRules}
 asymEncDestMaudeSig         = maudeSig $ mempty {stFunSyms=asymEncFunDestSig,stRules=asymEncDestRules}
---hsymEncDestMaudeSig         = maudeSig $ mempty {stFunSyms=hsymEncFunDestSig,stRules=hsymEncDestRules}
 signatureDestMaudeSig       = maudeSig $ mempty {stFunSyms=signatureFunDestSig,stRules=signatureDestRules}
 pairDestMaudeSig            = maudeSig $ mempty {stFunSyms=pairFunDestSig,stRules=pairDestRules}
 

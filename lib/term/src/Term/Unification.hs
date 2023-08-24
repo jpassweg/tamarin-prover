@@ -59,12 +59,10 @@ module Term.Unification (
   , pairMaudeSig
   , symEncMaudeSig
   , asymEncMaudeSig
---  , hsymEncMaudeSig
   , signatureMaudeSig
   , pairDestMaudeSig
   , symEncDestMaudeSig
   , asymEncDestMaudeSig
---  , hsymEncDestMaudeSig
   , signatureDestMaudeSig
   , locationReportMaudeSig
   , revealSignatureMaudeSig

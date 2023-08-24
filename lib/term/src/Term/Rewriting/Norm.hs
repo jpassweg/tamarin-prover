@@ -41,7 +41,7 @@ import           Term.Unification
 norm :: (IsConst c)
      => (c -> LSort) -> LTerm c -> WithMaude (LTerm c)
 norm _      t@(viewTerm -> Lit _) = return t
-norm sortOf t                     = reader $ \hnd -> unsafePerformIO $ normViaMaude hnd sortOf t
+norm sortOf t         = reader $ \hnd -> unsafePerformIO $ normViaMaude hnd sortOf t
 
 -- | @norm' t@ normalizes the term @t@ using Maude.
 norm' :: LNTerm -> WithMaude LNTerm

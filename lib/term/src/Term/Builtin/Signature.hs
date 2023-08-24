@@ -21,8 +21,6 @@ sdecSym = ("sdec",(2, Public, Constructor))
 sencSym = ("senc",(2, Public, Constructor))
 adecSym = ("adec",(2, Public, Constructor))
 aencSym = ("aenc",(2, Public, Constructor))
---hdecSym = ("hdec",(2, Public, Constructor))
---hencSym = ("henc",(2, Public, Constructor))
 signSym = ("sign",(2, Public, Constructor))
 revealSignSym = ("revealSign",(2, Public, Constructor))
 repSym = ("rep",(2,Private, Constructor))
@@ -54,7 +52,6 @@ mkDestSym (name,(k,p,_)) = (name,(k,p, Destructor))
 sdecDestSym, adecDestSym, verifyDestSym :: NoEqSym
 sdecDestSym = mkDestSym sdecSym
 adecDestSym = mkDestSym adecSym
---hdecDestSym = mkDestSym hdecSym
 verifyDestSym = mkDestSym verifySym
 ----------------------------------------------------------------------
 -- Builtin signatures
@@ -67,12 +64,6 @@ symEncFunSig = S.fromList $ [ sdecSym, sencSym ]
 -- | The signature for asymmetric encryption.
 asymEncFunSig :: NoEqFunSig
 asymEncFunSig = S.fromList $ [ adecSym, aencSym, pkSym ]
-
-{-
--- | The signature for homomorphic encryption
-hsymEncFunSig :: NoEqFunSig
-hsymEncFunSig = S.fromList $ [ hdecSym, hencSym ]
--}
 
 -- | The signature for cryptographic signatures.
 signatureFunSig :: NoEqFunSig
@@ -101,12 +92,6 @@ symEncFunDestSig = S.fromList $ [ sdecDestSym, sencSym ]
 -- | The signature for asymmetric encryption.
 asymEncFunDestSig :: NoEqFunSig
 asymEncFunDestSig = S.fromList $ [ adecDestSym, aencSym, pkSym ]
-
-{-
--- | The signature for homomorphic encryption
-hsymEncFunDestSig :: NoEqFunSig
-hsymEncFunDestSig = S.fromList $ [ hdecDestSym, hencSym ]
--}
 
 -- | The signature for cryptographic signatures.
 signatureFunDestSig :: NoEqFunSig

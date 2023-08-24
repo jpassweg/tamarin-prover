@@ -719,7 +719,7 @@ type BSkTerm   = VTerm SkConst BLVar
 -- | An term with skolem constants and bound variables
 type BSkAtom   = Atom BSkTerm
 
-instance IsConst SkConst where
+instance IsConst SkConst
 
 
 -- Skolemization of terms without bound variables.
