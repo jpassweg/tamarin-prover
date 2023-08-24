@@ -10,8 +10,6 @@ module Term.Homomorphism.Unification (
   -- * For debugging
   , debugHomomorphicRule
   , HomomorphicRuleReturn(..)
-  , matchHomomorphicLTermV1
-  , matchHomomorphicLTermV2
 ) where
 
 import qualified Data.Map as M
@@ -25,7 +23,7 @@ import Data.Bifunctor (second)
 import Term.Homomorphism.LPETerm
 
 import Term.LTerm (
-  LTerm, Lit(Var, Con), IsConst(..), LVar(..),
+  LTerm, Lit(Var, Con), IsConst, LVar(..),
   termVar, isVar, varTerm, occursVTerm, varsVTerm,
   TermView(FApp, Lit), viewTerm, termViewToTerm,
   isPair, isHomEnc,
@@ -45,47 +43,18 @@ import Extension.Prelude (sortednub)
 
 -- | matchHomomorphicLTerm
 matchHomomorphicLTerm :: (IsConst c) => (c -> LSort) -> [(LTerm c, LTerm c)] -> Maybe (Subst c LVar)
-matchHomomorphicLTerm = matchHomomorphicLTermV2
-
-matchHomomorphicLTermV1 :: (IsConst c) => (c -> LSort) -> [(LTerm c, LTerm c)] -> Maybe (Subst c LVar)
-matchHomomorphicLTermV1 sortOf ms = let
+matchHomomorphicLTerm sortOf ms = let
     eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
   in case unifyHomomorphicLTerm (sortOfMConst sortOf) eqs of
     -- TODO: remove v -> t substitutions if v == var t
     Just (s,_) -> Just $ substFromList $ map (second fromMConst) $ substToList s
     Nothing    -> Nothing
 
-matchHomomorphicLTermV2 :: (IsConst c) => (c -> LSort) -> [(LTerm c, LTerm c)] -> Maybe (Subst c LVar)
-matchHomomorphicLTermV2 sortOf ms = let
-    (ts, ps) = unzip ms
-    varToConstList = getVarToConstMapping (foldVars ts)
-    constToVarList = map (\(a,b) -> (b,a)) varToConstList
-    tsWConst = map (applyOwnSubst varToConstList) ts
-    msEqsN = zipWith (curry (fmap normHomomorphic . uncurry Equal)) tsWConst ps
-    unifyEqs = applyHomomorphicRules sortOf allHomomorphicRules (map (fmap toLPETerm) msEqsN)
-  in case toHomomorphicSolvedForm sortOf (map (fmap lTerm) unifyEqs) of
-    Just normEqsSubst -> Just $ substFromList $ map (getLeftVarWithSubst constToVarList) normEqsSubst
-    Nothing -> Nothing
-  where
-    foldVars :: (IsConst c) => [LTerm c] -> [LVar]
-    foldVars ts' = sortednub $ concatMap varsVTerm ts'
-    getVarToConstMapping :: (IsConst c) => [LVar] -> [(Lit c LVar, Lit c LVar)]
-    getVarToConstMapping = map (\(LVar name vsort idx) -> (Var $ LVar name vsort idx,
-      Con $ buildConstFromString (show vsort ++ "_" ++ show idx ++ "_" ++ name)))
-    applyOwnSubst :: (IsConst c) => [(Lit c LVar, Lit c LVar)] -> LTerm c -> LTerm c
-    applyOwnSubst subst t = case viewTerm t of
-      FApp funsym args -> termViewToTerm $ FApp funsym $ map (applyOwnSubst subst) args
-      Lit l            -> termViewToTerm $ Lit $ foldl (\a (b,c) -> if a == b then c else a) l subst
-    getLeftVarWithSubst subst e = case termVar $ eqLHS e of
-      Just v ->  (v, applyOwnSubst subst $ eqRHS e)
-      Nothing -> (LVar "VARNOTFOUND" LSortFresh 0, applyOwnSubst subst $ eqRHS e)
-
 -- Const type used by matching algorithm
 data MConst c = MCon c | MVar LVar
   deriving (Eq, Ord, Show, Data, Typeable)
 
 instance (Ord c, Eq c, Show c, Data c, IsConst c) => IsConst (MConst c) where
-  buildConstFromString s = MCon (buildConstFromString s)
 
 toMConstA :: (IsConst c) => LTerm c -> LTerm (MConst c)
 toMConstA t = case viewTerm t of

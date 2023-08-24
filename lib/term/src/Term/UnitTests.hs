@@ -107,7 +107,6 @@ testAllHomomorphic mhnd = TestLabel "All Homomorphic Tests" $
 testsMatchingHomomorphic :: MaudeHandle -> Test
 testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
   TestList
-  -- TODO: Add more test cases
     [ testMatchingHomWithPrint mhnd "a" True x0 x0
     , testMatchingHomWithPrint mhnd "b" True x1 x0
     , testMatchingHomWithPrint mhnd "c" True (pair (x1,x2)) x0
@@ -118,6 +117,19 @@ testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
     , testMatchingHomWithPrint mhnd "homdef1diffVars2" False t2 t1v0
     , testMatchingHomWithPrint mhnd "pair1" True pair1 pair2
     , testMatchingHomWithPrint mhnd "pair2" False pair2 pair1
+    -- cases with different sorts
+    , testMatchingHomWithPrint mhnd "public1" False x0 px0
+    , testMatchingHomWithPrint mhnd "public2" True px0 x0
+    , testMatchingHomWithPrint mhnd "fresh1" False x0 fx0
+    , testMatchingHomWithPrint mhnd "fresh2" True fx0 x0
+    , testMatchingHomWithPrint mhnd "nat1" False x0 myN1
+    , testMatchingHomWithPrint mhnd "nat2" True myN1 x0
+    , testMatchingHomWithPrint mhnd "publicnat1" False px0 myN1
+    , testMatchingHomWithPrint mhnd "publicnat2" False myN1 px0
+    , testMatchingHomWithPrint mhnd "publicfresh1" False px0 fx0
+    , testMatchingHomWithPrint mhnd "publicfresh2" False fx0 px0
+    , testMatchingHomWithPrint mhnd "freshnat1" False fx0 myN1
+    , testMatchingHomWithPrint mhnd "freshnat2" False myN1 fx0
     ]
   where
     t1 = henc (pair (x0,x1), x2)
@@ -127,6 +139,8 @@ testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
     pair2 = pair (pair (x2,x3), x4)
     henc = fAppHenc
     hdec = fAppHdec
+    myN1 = myNatVar "n" 1
+    myNatVar s i = varTerm $ LVar s LSortNat i
 
 -- TODO: add variables
 testMatchingHomWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
@@ -142,14 +156,10 @@ testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
     ++ "--- matchHomLNTermV1 ---" ++ "\n"
     ++ "Matcher: " ++ show substH1 ++ "\n"
     ++ "New Terms: " ++ show t2SubstH1 ++ "\n"
-    ++ "--- matchHomLNTermV2 ---" ++ "\n"
-    ++ "Matcher: " ++ show substH2 ++ "\n"
-    ++ "New Terms: " ++ show t2SubstH2 ++ "\n"
     ++ "------ END TEST PRINTER ------"
     ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n"
   ) (
-    (caseOutcome == substHMatches) &&          -- equal to expected outcome
-    ((t1N == t2SubstH1) == (t1N == t2SubstH2)) -- matching algorithm equal
+    caseOutcome == substHMatches -- equal to expected outcome
   )
   where
     t1N = normHomomorphic t1
@@ -159,18 +169,15 @@ testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
     numMatchers = length substs
     subst = safeHead substs
 
-    substH1 = matchHomomorphicLTermV1 sortOfName [(t1N, t2N)]
-    substH2 = matchHomomorphicLTermV2 sortOfName [(t1N, t2N)]
+    substH1 = matchHomomorphicLTerm sortOfName [(t1N, t2N)]
     substH1' = fromMaybe emptySubst substH1
-    substH2' = fromMaybe emptySubst substH2
 
     t2Subst = applyVTerm subst t2
     t2SubstH1 = applyVTerm substH1' t2N
-    t2SubstH2 = applyVTerm substH2' t2N
 
-    substHMatches = case (substH1, substH2) of
-      (Just _, Just _) -> True
-      (_, _)           -> False
+    substHMatches = case substH1 of
+      Just _ -> True
+      _      -> False
 
     safeHead s = if null s then Subst $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)] else head s
 
@@ -199,7 +206,19 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
     , testUnifyWithPrint mhnd "case norm 3" True t1v0 t2v1
     , testUnifyWithPrint mhnd "case norm 4" True t1v0 t2v2
     , testUnifyWithPrint mhnd "not sym homomorphic" False t1Sym t2Sym
-    -- TODO: Add more tests with different sorts etc.
+    -- cases with different sorts
+    , testUnifyWithPrint mhnd "public1" True x0 px0
+    , testUnifyWithPrint mhnd "public2" True px0 x0
+    , testUnifyWithPrint mhnd "fresh1" True x0 fx0
+    , testUnifyWithPrint mhnd "fresh2" True fx0 x0
+    , testUnifyWithPrint mhnd "nat1" True x0 myN1
+    , testUnifyWithPrint mhnd "nat2" True myN1 x0
+    , testUnifyWithPrint mhnd "publicnat1" False px0 myN1
+    , testUnifyWithPrint mhnd "publicnat2" False myN1 px0
+    , testUnifyWithPrint mhnd "publicfresh1" False px0 fx0
+    , testUnifyWithPrint mhnd "publicfresh2" False fx0 px0
+    , testUnifyWithPrint mhnd "freshnat1" False fx0 myN1
+    , testUnifyWithPrint mhnd "freshnat2" False myN1 fx0
     ]
   where
     t1 = henc (pair (x0,x1), x2)
@@ -213,6 +232,8 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
     pair2 = pair (pair (x2,x3), x4)
     henc = fAppHenc
     hdec = fAppHdec
+    myN1 = myNatVar "n" 1
+    myNatVar s i = varTerm $ LVar s LSortNat i
 
 -- TODO: change print text according to new variables
 testUnifyWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test

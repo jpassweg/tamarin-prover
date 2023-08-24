@@ -720,7 +720,6 @@ type BSkTerm   = VTerm SkConst BLVar
 type BSkAtom   = Atom BSkTerm
 
 instance IsConst SkConst where
-  buildConstFromString s = SkName (Name FreshName (NameId s))
 
 
 -- Skolemization of terms without bound variables.
