@@ -45,14 +45,14 @@ testsMatching :: MaudeHandle -> Test
 testsMatching hnd = TestLabel "Tests for Matching" $
     TestList
       [ testTrue "a" (propMatchSound hnd f1 f2)
-      , testTrue "b" (propMatchSound hnd (pair(f1,inv(f2))) (pair(f1,inv(f2))))
+      , testTrue "b" (propMatchSound hnd (pair (f1,inv (f2))) (pair (f1,inv (f2))))
       , testTrue "c" (propMatchSound hnd t1 t2)
       , testTrue "d" (propMatchSound hnd (x1 # f1) f1)
-      , testTrue "e" $ null (solveMatchLNTerm (pair(x1,x2) `matchWith` pair(x1,x1)) `runReader` hnd)
+      , testTrue "e" $ null (solveMatchLNTerm (pair (x1,x2) `matchWith` pair (x1,x1)) `runReader` hnd)
       ]
   where
-    t1 = expo (inv(pair(f1,f2)), f2 # (inv f2) # f3 # f4 # f2)
-    t2 = expo (inv(pair(f1,f2)), f3 # (inv f2) # f2 # x1 # f5 # f2)
+    t1 = expo (inv (pair (f1,f2)), f2 # (inv f2) # f3 # f4 # f2)
+    t2 = expo (inv (pair (f1,f2)), f3 # (inv f2) # f2 # x1 # f5 # f2)
 
 propMatchSound :: MaudeHandle -> LNTerm -> LNTerm -> Bool
 propMatchSound mhnd t1 p = all (\s -> applyVTerm s t1 == applyVTerm s p) substs
@@ -67,15 +67,15 @@ propMatchSound mhnd t1 p = all (\s -> applyVTerm s t1 == applyVTerm s p) substs
 testsUnify :: MaudeHandle -> Test
 testsUnify mhnd = TestLabel "Tests for Unify" $
     TestList
-      [ testTrue "a" (propUnifySound mhnd (pair(f1,inv(f2))) (pair(f1,inv(f2))))
+      [ testTrue "a" (propUnifySound mhnd (pair (f1,inv (f2))) (pair (f1,inv (f2))))
       , testTrue "b" (propUnifySound mhnd t1 t2)
       , testTrue "c" (propUnifySound mhnd u1 u2)
-      , testTrue "d" (propUnifySound mhnd (sdec(x1,y1)) (sdec(senc(x2,x3), x4)))
+      , testTrue "d" (propUnifySound mhnd (sdec (x1,y1)) (sdec (senc (x2,x3), x4)))
       , testTrue "e" (propUnifySound mhnd (fAppEMap (p2,x1)) (fAppEMap (p1,x2)))
     ]
   where
-    t1 = expo (inv(pair(f1,f2)), f2 *: (inv f2) *: f3 *: f4 *: x2)
-    t2 = expo (inv(pair(f1,f2)), f3 *: (inv f2) *: f2 *: f4 *: f5 *: f2)
+    t1 = expo (inv (pair (f1,f2)), f2 *: (inv f2) *: f3 *: f4 *: x2)
+    t2 = expo (inv (pair (f1,f2)), f3 *: (inv f2) *: f2 *: f4 *: f5 *: f2)
     u1 = (f2 *: (inv f2) *: f3 *: f4 *: x2)
     u2 = (f3 *: (inv f2) *: f2 *: f4 *: f5 *: f2)
 
@@ -91,13 +91,13 @@ propUnifySound hnd t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
 -- *****************************************************************************
 
 testAllHomomorphic :: MaudeHandle -> Test
-testAllHomomorphic mhnd = TestLabel "All Homomorphic tests" $
-  TestList 
-    [ testsUnifyHomomorphic mhnd
+testAllHomomorphic mhnd = TestLabel "All Homomorphic Tests" $
+  TestList
+    [ testsMatchingHomomorphic mhnd
+    , testsUnifyHomomorphic mhnd
     , testsUnifyHomomorphicSf mhnd
     , testsUnifyHomomorphicRules mhnd
     , testPrinterHomomorphic mhnd
-    , testsMatchingHomomorphic mhnd
     ]
 
 -- *****************************************************************************
@@ -105,10 +105,76 @@ testAllHomomorphic mhnd = TestLabel "All Homomorphic tests" $
 -- *****************************************************************************
 
 testsMatchingHomomorphic :: MaudeHandle -> Test
-testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH"
+testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
   TestList
-    [  
+  -- TODO: Add more test cases
+    [ testMatchingHomWithPrint mhnd "a" True x0 x0
+    , testMatchingHomWithPrint mhnd "b" True x1 x0
+    , testMatchingHomWithPrint mhnd "c" True (pair (x1,x2)) x0
+    , testMatchingHomWithPrint mhnd "d" True (pair (x0,x2)) x0
+    , testMatchingHomWithPrint mhnd "homdef1" True t1 t2
+    , testMatchingHomWithPrint mhnd "homdef2" True t2 t1
+    , testMatchingHomWithPrint mhnd "homdef1diffVars1" True t1v0 t2
+    , testMatchingHomWithPrint mhnd "homdef1diffVars2" False t2 t1v0
+    , testMatchingHomWithPrint mhnd "pair1" True pair1 pair2
+    , testMatchingHomWithPrint mhnd "pair2" False pair2 pair1
     ]
+  where
+    t1 = henc (pair (x0,x1), x2)
+    t1v0 = henc (pair (x0,x0), x0)
+    t2 = pair (henc (x0,x2), henc (x1,x2))
+    pair1 = pair (pair (x0,x0), x0)
+    pair2 = pair (pair (x2,x3), x4)
+    henc = fAppHenc
+    hdec = fAppHdec
+
+-- TODO: add variables
+testMatchingHomWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
+testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
+  TestLabel caseName $ TestCase $ assertBool (
+    "------ TEST PRINTER ------" ++ "\n"
+    ++ "Case: " ++ caseName ++ "\n"
+    ++ "Terms: " ++ show t1 ++ ", " ++ show t2 ++ "\n"
+    ++ "--- matchLNTerm ---" ++ "\n"
+    ++ "NumMatchers: " ++ show numMatchers ++ "\n"
+    ++ "First matcher: " ++ show subst ++ "\n"
+    ++ "New Terms: " ++ show t2Subst ++ "\n"
+    ++ "--- matchHomLNTermV1 ---" ++ "\n"
+    ++ "Matcher: " ++ show substH1 ++ "\n"
+    ++ "New Terms: " ++ show t2SubstH1 ++ "\n"
+    ++ "--- matchHomLNTermV2 ---" ++ "\n"
+    ++ "Matcher: " ++ show substH2 ++ "\n"
+    ++ "New Terms: " ++ show t2SubstH2 ++ "\n"
+    ++ "------ END TEST PRINTER ------"
+    ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n"
+  ) (
+    (caseOutcome == substHMatches) &&          -- equal to expected outcome
+    ((t1N == t2SubstH1) == (t1N == t2SubstH2)) -- matching algorithm equal
+  )
+  where
+    t1N = normHomomorphic t1
+    t2N = normHomomorphic t2
+
+    substs = solveMatchLNTerm (t1 `matchWith` t2) `runReader` mhnd
+    numMatchers = length substs
+    subst = safeHead substs
+
+    substH1 = matchHomomorphicLTermV1 sortOfName [(t1N, t2N)]
+    substH2 = matchHomomorphicLTermV2 sortOfName [(t1N, t2N)]
+    substH1' = fromMaybe emptySubst substH1
+    substH2' = fromMaybe emptySubst substH2
+
+    t2Subst = applyVTerm subst t2
+    t2SubstH1 = applyVTerm substH1' t2N
+    t2SubstH2 = applyVTerm substH2' t2N
+
+    substHMatches = case (substH1, substH2) of
+      (Just _, Just _) -> True
+      (_, _)           -> False
+
+    safeHead s = if null s then Subst $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)] else head s
+
+
 
 -- *****************************************************************************
 -- Tests for Unification modulo EpsilonH (For Homomorphic encryption)
@@ -121,48 +187,50 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
   TestList
     [ testUnifyWithPrint mhnd "trivial case" True x0 x0
     , testUnifyWithPrint mhnd "trivial case 2" True x0 x1
-    , testUnifyWithPrint mhnd "trivial non-equality" False (henc(x0,x1)) x1
-    , testUnifyWithPrint mhnd "case 1" True x0 (henc(x1,x2))
+    , testUnifyWithPrint mhnd "trivial non-equality" False (henc (x0,x1)) x1
+    , testUnifyWithPrint mhnd "case 1" True x0 (henc (x1,x2))
     , testUnifyWithPrint mhnd "case 2" True t1 x4
-    , testUnifyWithPrint mhnd "case 3" True (henc(t1,x0)) (henc(x5,x6))
+    , testUnifyWithPrint mhnd "case 3" True (henc (t1,x0)) (henc (x5,x6))
     , testUnifyWithPrint mhnd "def henc 1" True t1 t2
     , testUnifyWithPrint mhnd "def henc 2" True t2 t1
-    , testUnifyWithPrint mhnd "def henc 3" True (henc(t1,x0)) (henc(t1,x0))
+    , testUnifyWithPrint mhnd "def henc 3" True (henc (t1,x0)) (henc (t1,x0))
     , testUnifyWithPrint mhnd "case norm 1" True pair1 pair2
     , testUnifyWithPrint mhnd "case norm 2" True pair2 pair1
     , testUnifyWithPrint mhnd "case norm 3" True t1v0 t2v1
     , testUnifyWithPrint mhnd "case norm 4" True t1v0 t2v2
     , testUnifyWithPrint mhnd "not sym homomorphic" False t1Sym t2Sym
+    -- TODO: Add more tests with different sorts etc.
     ]
   where
-    t1 = (henc(pair(x0,x1),x2))
-    t1v0 = (henc(pair(x0,x0),x0))
-    t2 = (pair(henc(x0,x2),henc(x1,x2)))
-    t2v1 = (pair(henc(x1,x2),henc(x3,x4)))
-    t2v2 = (pair(henc(x1,x2),henc(x2,x4)))
-    t1Sym = (senc(pair(x0,x1),x2))
-    t2Sym = (pair(senc(x0,x2),senc(x1,x2)))
-    pair1 = (pair(pair(x0,x0),x0))
-    pair2 = (pair(pair(x2,x3),x4))
+    t1 = henc (pair (x0,x1), x2)
+    t1v0 = henc (pair (x0,x0), x0)
+    t2 = pair (henc (x0,x2), henc (x1,x2))
+    t2v1 = pair (henc (x1,x2), henc (x3,x4))
+    t2v2 = pair (henc (x1,x2), henc (x2,x4))
+    t1Sym = senc (pair (x0,x1), x2)
+    t2Sym = pair (senc (x0,x2), senc (x1,x2))
+    pair1 = pair (pair (x0,x0), x0)
+    pair2 = pair (pair (x2,x3), x4)
     henc = fAppHenc
     hdec = fAppHdec
 
+-- TODO: change print text according to new variables
 testUnifyWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
 testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
   TestLabel caseName $ TestCase $ assertBool (
     "------ TEST PRINTER ------" ++ "\n"
     ++ "Case: " ++ caseName ++ "\n"
-    ++ "Terms: " ++ (show t1) ++ ", " ++ (show t2) ++ "\n"
+    ++ "Terms: " ++ show t1 ++ ", " ++ show t2 ++ "\n"
     ++ "--- unifyLNTerm ---" ++ "\n"
-    ++ "NumUnifiers: " ++ (show numUnifiers) ++ "\n"
-    ++ "First unifier: " ++ (show subst) ++ "\n"
-    ++ "After fTFA:    VSubst: " ++ (show subst') ++ "\n"
-    ++ "New Terms: " ++ (show t1Subst') ++ ", " ++ (show t2Subst') ++ "\n"
+    ++ "NumUnifiers: " ++ show numUnifiers ++ "\n"
+    ++ "First unifier: " ++ show subst ++ "\n"
+    ++ "After fTFA:    VSubst: " ++ show subst' ++ "\n"
+    ++ "New Terms: " ++ show t1Subst' ++ ", " ++ show t2Subst' ++ "\n"
     ++ "--- unifyHomomorphicLTerm ---" ++ "\n"
-    ++ "First unifier: " ++ (show substH) ++ "\n"
-    ++ "New Terms: " ++ (show t1SubstH) ++ ", " ++ (show t2SubstH) ++ "\n"
-    ++ "After fTFA     VSubst: " ++ (show substH') ++ "\n"
-    ++ "New Terms: " ++ (show t1SubstH') ++ ", " ++ (show t2SubstH') ++ "\n"
+    ++ "First unifier: " ++ show substH ++ "\n"
+    ++ "New Terms: " ++ show t1SubstH ++ ", " ++ show t2SubstH ++ "\n"
+    ++ "After fTFA     VSubst: " ++ show substH' ++ "\n"
+    ++ "New Terms: " ++ show t1SubstH' ++ ", " ++ show t2SubstH' ++ "\n"
     ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n"
     ++ "------ END TEST PRINTER ------"
   ) (
@@ -172,7 +240,7 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
   where
     t1N = normHomomorphic t1
     t2N = normHomomorphic t2
-    
+
     substs = unifyLTerm sortOfName [Equal t1 t2] `runReader` mhnd
     numUnifiers = length substs
     subst = safeHead substs
@@ -184,7 +252,7 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
       Nothing    -> emptySubst
     substHVFresh = case substHUnifier of
       Just (_,s) -> s
-      Nothing    -> emptySubst
+      Nothing    -> emptySubstVFresh
     substH' = case substHUnifier of
       Just (_,s) -> freshToFreeAvoiding s [t1,t2]
       Nothing    -> emptySubst
@@ -192,17 +260,17 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
       Just (_,_) -> True
       Nothing    -> False
     substHUnifiesEqual = case substHUnifier of
-      Just (s,_) -> (applyVTerm s t1N == applyVTerm s t2N)
+      Just (s,_) -> applyVTerm s t1N == applyVTerm s t2N
       Nothing    -> False
-    
+
     t1Subst' = applyVTerm subst' t1
     t2Subst' = applyVTerm subst' t2
     t1SubstH = applyVTerm substH t1
     t2SubstH = applyVTerm substH t2
     t1SubstH' = applyVTerm substH' t1
     t2SubstH' = applyVTerm substH' t2
-    
-    safeHead s = if null s then (SubstVFresh $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)]) else head s
+
+    safeHead s = if null s then SubstVFresh $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)] else head s
 
 -- *****************************************************************************
 -- Tests for Subfunctions of the Unification Algorithm modulo EpsilonH
@@ -211,7 +279,7 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
 -- Multiple tests for the functions directly used by the 
 -- homomorphic encrytion unification algorithm 
 testsUnifyHomomorphicSf :: MaudeHandle -> Test
-testsUnifyHomomorphicSf _ = 
+testsUnifyHomomorphicSf _ =
   TestLabel "Tests for Unify module EpsilonH subfunctions" $
   TestList
     [ testTrue "position var" (positionsWithTerms x0 == [("",x0)])
@@ -235,53 +303,53 @@ testsUnifyHomomorphicSf _ =
     , testTrue "fromtoPRep paper3" (fromPRepresentation (buildPRepresentation tpaper3) == tpaper3)
     ]
   where
-    t1 = (henc(pair(x0,x1),x2))
-    posT1 = 
-      [ ("", (henc(pair(x0,x1),x2)) )
-      , ("1", (pair(x0,x1)) )
-      , ("11", (x0) )
-      , ("12", (x1) )
-      , ("2", (x2) ) ]
-    t2 = (pair(henc(x0,x2),henc(x1,x2)))
-    posT2 = 
-      [ ("", (pair(henc(x0,x2),henc(x1,x2))) )
-      , ("1", (henc(x0,x2)) )
-      , ("11", (x0) )
-      , ("12", (x2) )
-      , ("2", (henc(x1,x2)) )
-      , ("21", (x1) )
-      , ("22", (x2) ) ]
-    tpaper1 = (pair(henc(pair(x0,x2),x4),x3))
-    tpaper2 = (pair(pair(x0,x1),henc(pair(x2,x3),x4)))
-    pPurePosTPaper2 = 
-      [ ("", tpaper2 ) 
-      , ("1", pair(x0,x1) )
-      , ("11", (x0) )
-      , ("12", (x1) )
-      , ("2", (henc(pair(x2,x3),x4)) ) ]
-    maxPPurePosTPaper2 = 
-      [ ("11", (x0) )
-      , ("12", (x1) )
-      , ("2", (henc(pair(x2,x3),x4)) ) ]
-    tpaper3 = (henc(henc(x0,x1),henc(x2,x3)))
+    t1 = henc (pair (x0,x1),x2)
+    posT1 =
+      [ ("", henc (pair (x0,x1),x2) )
+      , ("1", pair (x0,x1) )
+      , ("11", x0 )
+      , ("12", x1 )
+      , ("2", x2 ) ]
+    t2 = pair (henc (x0,x2),henc (x1,x2))
+    posT2 =
+      [ ("", pair (henc (x0,x2),henc (x1,x2)) )
+      , ("1", henc (x0,x2) )
+      , ("11", x0 )
+      , ("12", x2 )
+      , ("2", henc (x1,x2) )
+      , ("21", x1 )
+      , ("22", x2 ) ]
+    tpaper1 = pair (henc (pair (x0,x2),x4),x3)
+    tpaper2 = pair (pair (x0,x1),henc (pair (x2,x3),x4))
+    pPurePosTPaper2 =
+      [ ("", tpaper2 )
+      , ("1", pair (x0,x1) )
+      , ("11", x0 )
+      , ("12", x1 )
+      , ("2", henc (pair (x2,x3),x4) ) ]
+    maxPPurePosTPaper2 =
+      [ ("11", x0 )
+      , ("12", x1 )
+      , ("2", henc (pair (x2,x3),x4) ) ]
+    tpaper3 = henc (henc (x0,x1),henc (x2,x3))
     ePurePosTPaper3 =
       [ ("", tpaper3 )
-      , ("1", (henc(x0,x1)) )
-      , ("11", (x0) )
-      , ("12", (x1) )
-      , ("2", (henc(x2,x3)) )
-      , ("21", (x2) )
-      , ("22", (x3) ) ]
-    ePenukPosTPaper3 = 
+      , ("1", henc (x0,x1) )
+      , ("11", x0 )
+      , ("12", x1 )
+      , ("2", henc (x2,x3) )
+      , ("21", x2 )
+      , ("22", x3 ) ]
+    ePenukPosTPaper3 =
       [ ("", tpaper3 )
-      , ("1", (henc(x0,x1)) )
-      , ("11", (x0) )
-      , ("12", (x1) )
-      , ("2", (henc(x2,x3)) ) ]
+      , ("1", henc (x0,x1) )
+      , ("11", x0 )
+      , ("12", x1 )
+      , ("2", henc (x2,x3) ) ]
     maxEPenukPosTPaper3 =
-      [ ("11", (x0) )
-      , ("12", (x1) )
-      , ("2", (henc(x2,x3)) ) ]
+      [ ("11", x0 )
+      , ("12", x1 )
+      , ("2", henc (x2,x3) ) ]
     henc = fAppHenc
     hdec = fAppHdec
 
@@ -343,26 +411,26 @@ testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules"
     tE2 = Equal (fH x0) (fH x2)
     tE3 = Equal (fH x1) (fH x3)
     tE4 = Equal (fH x1) (fH x1)
-    tFE1 = Equal (fH (henc(x0,x1))) (fH (henc(x0,x1)))
-    tFE2 = Equal (fH (henc(x0,x1))) (fH (henc(x2,x3)))
-    tFE3 = Equal (fH (pair(x0,x1))) (fH (henc(x2,x3)))
-    tFE4 = Equal (fH (sdec(x0,x1))) (fH (henc(x2,x3)))
-    tFE5 = Equal (fH (pair(x0,x1))) (fH (henc(x0,x3))) -- out of phase on t5
-    tFE6 = Equal (fH (henc(x0,x1))) (fH (henc(x0,x2)))
-    tHE1 = Equal (fH x0) (fH (henc(x2,x3)))
-    tHE1S = (Subst $ M.fromList [((LVar "x" LSortMsg 0), (henc(x2,x3)))])
-    tHE2 = Equal (fH x0) (fH (henc(x2,x0)))
+    tFE1 = Equal (fH (henc (x0,x1))) (fH (henc (x0,x1)))
+    tFE2 = Equal (fH (henc (x0,x1))) (fH (henc (x2,x3)))
+    tFE3 = Equal (fH (pair (x0,x1))) (fH (henc (x2,x3)))
+    tFE4 = Equal (fH (sdec (x0,x1))) (fH (henc (x2,x3)))
+    tFE5 = Equal (fH (pair (x0,x1))) (fH (henc (x0,x3))) -- out of phase on t5
+    tFE6 = Equal (fH (henc (x0,x1))) (fH (henc (x0,x2)))
+    tHE1 = Equal (fH x0) (fH (henc (x2,x3)))
+    tHE1S = Subst $ M.fromList [(LVar "x" LSortMsg 0, henc (x2,x3))]
+    tHE2 = Equal (fH x0) (fH (henc (x2,x0)))
     xH1 = varTerm $ LVar "fxShapingHomomorphic" LSortFresh 1
     xH2 = varTerm $ LVar "fxShapingHomomorphic" LSortFresh 2
-    tFFE1 = Equal (fH (henc(x0,x1))) (fH (henc(henc(x2,x3),x4)))
-    tFFE2 = Equal (fH (henc(henc(xH1,x3),x1))) (fH (henc(henc(x2,x3),x4)))
-    tFFE2' = Equal (fH (henc(henc(xH2,x3),x1))) (fH (henc(henc(x2,x3),x4)))
-    tFFE3 = Equal (fH x0) (fH (henc(xH1,x3)))
-    tFFE3' = Equal (fH x0) (fH (henc(xH2,x3)))
-    tFFE4 = Equal (fH (x0)) (fH (henc(henc(x2,x3),x4)))
-    tFFE5 = Equal (fH (pair(henc(pair(x0,x1),x2),x3))) (fH (henc(henc(x4,x5),x6)))
-    tFFE6 = Equal (fH (pair(henc(x0,x2),x3))) (fH (henc(henc(x4,x5),x6)))
-    tFFE7 = Equal (fH (pair(henc(pair(x0,x1),x2),x3))) (fH (henc(x4,x6)))
+    tFFE1 = Equal (fH (henc (x0,x1))) (fH (henc (henc (x2,x3),x4)))
+    tFFE2 = Equal (fH (henc (henc (xH1,x3),x1))) (fH (henc (henc (x2,x3),x4)))
+    tFFE2' = Equal (fH (henc (henc (xH2,x3),x1))) (fH (henc (henc (x2,x3),x4)))
+    tFFE3 = Equal (fH x0) (fH (henc (xH1,x3)))
+    tFFE3' = Equal (fH x0) (fH (henc (xH2,x3)))
+    tFFE4 = Equal (fH x0) (fH (henc (henc (x2,x3),x4)))
+    tFFE5 = Equal (fH (pair (henc (pair (x0,x1),x2),x3))) (fH (henc (henc (x4,x5),x6)))
+    tFFE6 = Equal (fH (pair (henc (x0,x2),x3))) (fH (henc (henc (x4,x5),x6)))
+    tFFE7 = Equal (fH (pair (henc (pair (x0,x1),x2),x3))) (fH (henc (x4,x6)))
     s = sortOfName
     fH = toLPETerm
     henc = fAppHenc
@@ -377,15 +445,15 @@ testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules"
 -- Specific printer
 -- *****************************************************************************
 
--- Test used to actually print what some functions return for debugging
--- Set to false to print out values
+-- Test used to print return values and variables for debugging
+-- Set Test return value to false to print out text
 testPrinterHomomorphic :: MaudeHandle -> Test
 testPrinterHomomorphic _ =
   TestLabel "prints out debugging information" $
   TestList
     [ testTrue (show "***text being printed***") True]
   where
-    s = sortOfName 
+    s = sortOfName
 
 -- *****************************************************************************
 -- Tests for Substitutions
@@ -424,14 +492,14 @@ testsSubst = TestLabel "Tests for Substitution" $
       ]
   where
     s1b       = substFromListVFresh [(lx1, p1), (lx2, x6), (lx3, x6), (lx4, f1)]
-    s3f       = substFromList [(lx8, x6), (lx2, pair(x2,x1))]
+    s3f       = substFromList [(lx8, x6), (lx2, pair (x2,x1))]
     s1b_o_s3f = substFromListVFresh -- x2 not identified with x8
-                  [(lx1, p1), (lx2, pair(x9, p1)), (lx3, x9), (lx4, f1), (lx6, x10), (lx8, x10)]
-    s4f       = substFromList [(lx1, x6), (lx2, pair(x3,x1))]
+                  [(lx1, p1), (lx2, pair (x9, p1)), (lx3, x9), (lx4, f1), (lx6, x10), (lx8, x10)]
+    s4f       = substFromList [(lx1, x6), (lx2, pair (x3,x1))]
     s1b_o_s4f = substFromListVFresh
-                  [(lx1, x8), (lx2, pair(x7, p1)), (lx3, x7), (lx4, f1), (lx6, x8)]
+                  [(lx1, x8), (lx2, pair (x7, p1)), (lx3, x7), (lx4, f1), (lx6, x8)]
 
-    s4f_o_s3f = substFromList [(lx1, x6), (lx2, pair(pair(x3,x1),x6)), (lx8, x6)]
+    s4f_o_s3f = substFromList [(lx1, x6), (lx2, pair (pair (x3,x1),x6)), (lx8, x6)]
     x15 = varTerm $ LVar "x" LSortMsg 15
     x13 = varTerm $ LVar "x" LSortMsg 13
     x20 = varTerm $ LVar "x" LSortMsg 20
@@ -447,16 +515,16 @@ testsSubs mhnd = TestLabel "Tests for Subsumption" $ TestList
     , tct (Just EQ) x1   x2
     , tct (Just LT) x1   (x1 *: x1)
     , tct (Just GT) (x1 *: x1) x1
-    , tct (Just GT) (pair(f1 *: f2,f1)) (pair(f2 *: f1,x2))
-    , testEqual "a" [substFromList [(lx2, pair(x6,x7)), (lx3, p1)]]
+    , tct (Just GT) (pair (f1 *: f2,f1)) (pair (f2 *: f1,x2))
+    , testEqual "a" [substFromList [(lx2, pair (x6,x7)), (lx3, p1)]]
                     (factorSubstVia [lx1]
-                                    (substFromList [(lx1,pair(pair(x6,x7),p1))])
-                                    (substFromList [(lx1,pair(x2,x3))]) `runReader` mhnd)
+                                    (substFromList [(lx1,pair (pair (x6,x7),p1))])
+                                    (substFromList [(lx1,pair (x2,x3))]) `runReader` mhnd)
 
-    , testEqual "b" [substFromList [(lx2, pair(x6,x7)), (lx3, p1), (lx5, f1), (lx6,f2)]]
+    , testEqual "b" [substFromList [(lx2, pair (x6,x7)), (lx3, p1), (lx5, f1), (lx6,f2)]]
                     (factorSubstVia [lx1, lx5, lx6]
-                       (substFromList [(lx1,pair(pair(x6,x7),p1)), (lx5,f1), (lx6,f2)])
-                       (substFromList [(lx1,pair(x2,x3))]) `runReader` mhnd)
+                       (substFromList [(lx1,pair (pair (x6,x7),p1)), (lx5,f1), (lx6,f2)])
+                       (substFromList [(lx1,pair (x2,x3))]) `runReader` mhnd)
 
     , testTrue "c" (eqTermSubs p1 p1 `runReader` mhnd)
     ]
@@ -477,13 +545,13 @@ ppLSubst = render . prettyLNSubst
 testsNorm :: MaudeHandle -> Test
 testsNorm hnd = TestLabel "Tests for normalization" $ TestList
     [ tcn normBigTerm  bigTerm
-    , tcn (expo(f3,f1  *:  f4))
-          (expo(expo(f3,f4),f1 *: f1 *: f2 *: inv (inv (inv f1)) *: one *: expo(inv f2,one)))
+    , tcn (expo (f3,f1  *:  f4))
+          (expo (expo (f3,f4),f1 *: f1 *: f2 *: inv (inv (inv f1)) *: one *: expo (inv f2,one)))
     , tcn (mult [f1, f1, f2]) (f1  *:  (f1  *:  f2))
     , tcn (inv (f1  *:  f2)) (inv f2  *:  inv f1)
     , tcn (f1  *:  inv f2) (f1  *:  inv f2)
     , tcn (one::LNTerm) one
-    , tcn x6 (expo(expo(x6,inv x3),x3))
+    , tcn x6 (expo (expo (x6,inv x3),x3))
 
 --    , testEqual "a" (normAC (p3 *: (p1 *: p2))) (mult [p1, p2, p3])
 --    , testEqual "b" (normAC (p3 *: (p1 *: inv p3))) (mult [p1, p3, inv p3])
@@ -509,13 +577,13 @@ propSubtermReplace :: Ord a => Term a -> Position -> (Term a, Term a)
 propSubtermReplace t p = (t,(t `replacePos` (t `atPos` p,p)))
 
 bigTerm :: LNTerm
-bigTerm = pair(pk(x1),
-               expo(expo (inv x3,
+bigTerm = pair (pk (x1),
+               expo (expo (inv x3,
                           x2 *: x4 *: f1 *: one *: inv (f3 *: f4) *: f3 *: f4 *: inv one),
-                    inv(expo(x2,one)) *: f2))
+                    inv (expo (x2,one)) *: f2))
 
 normBigTerm :: LNTerm
-normBigTerm = pair(pk(x1),expo(inv x3,mult [f1, f2, x4]))
+normBigTerm = pair (pk (x1),expo (inv x3,mult [f1, f2, x4]))
 
 tcompare :: MaudeHandle -> Test
 tcompare hnd =
@@ -534,7 +602,7 @@ tcompare hnd =
   where
     run :: WithMaude a -> a
     run m = runReader m hnd
-    t  = pair(inv(x1) *: x2, inv(x3) *: x2)
+    t  = pair (inv (x1) *: x2, inv (x3) *: x2)
     su1 = substFromList [(lx1, x2)]
     su2 = substFromList [(lx2, p1)]
     su3 = substFromList [(lx3, x2)]
@@ -545,21 +613,21 @@ tcompare hnd =
 testsVariant :: MaudeHandle -> Test
 testsVariant hnd =
     TestLabel "Tests for variant computation" $ TestList
-      [ testEqual "a" (computeVariantsCheck (sdec(x1, p1)) `runReader` hnd)
+      [ testEqual "a" (computeVariantsCheck (sdec (x1, p1)) `runReader` hnd)
                       (toSubsts [ []
-                                , [(lx1, senc(x2, p1))] ])
+                                , [(lx1, senc (x2, p1))] ])
 
       , testEqual "b" (computeVariantsCheck (x1  *:  p1) `runReader` hnd)
                       (toSubsts [ []
-                                , [(lx1, x2 *: inv(p1))]
-                                , [(lx1, inv(p1))]
+                                , [(lx1, x2 *: inv (p1))]
+                                , [(lx1, inv (p1))]
                                 , [(lx1, one)]
-                                , [(lx1, x2 *:  inv(p1 *: x3))]
-                                , [(lx1, inv(p1 *: x2))]
+                                , [(lx1, x2 *:  inv (p1 *: x3))]
+                                , [(lx1, inv (p1 *: x2))]
                                 ])
 
-      , testTrue "e" $ not (checkComplete (sdec(x1, p1)) (toSubsts [[]]) `runReader` hnd)
-      , testTrue "f" $ (checkComplete (sdec(x1, p1)) (toSubsts [[], [(lx1, senc(x1,p1))]])
+      , testTrue "e" $ not (checkComplete (sdec (x1, p1)) (toSubsts [[]]) `runReader` hnd)
+      , testTrue "f" $ (checkComplete (sdec (x1, p1)) (toSubsts [[], [(lx1, senc (x1,p1))]])
                         `runReader` hnd)
       ]
   where
@@ -589,7 +657,7 @@ tests maudePath = do
 -- | Maude signatures with all builtin symbols.
 allMaudeSig :: MaudeSig
 allMaudeSig = mconcat
-    [ bpMaudeSig, msetMaudeSig
+    [ bpMaudeSig, msetMaudeSig -- do not add homMaudeSig
     , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
 
 
@@ -597,7 +665,7 @@ allMaudeSig = mconcat
 ----------------------------------------------------------------------------------
 
 te :: LNTerm
-te  = pair(inv(x1) *: x2, inv(x3) *: x2)
+te  = pair (inv (x1) *: x2, inv (x3) *: x2)
 
 sub4, sub6 :: LNSubstVFresh
 sub4 = substFromListVFresh [(lx1, x4), (lx2, x4)]

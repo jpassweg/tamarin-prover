@@ -236,7 +236,7 @@ bpReducibleFunSig = S.fromList [ NoEq pmultSym, C EMap ]
 
 -- | Reducible function symbols for Homomorphic Encryption
 homReducibleFunSig :: FunSig
-homReducibleFunSig = S.fromList [ NoEq homDecSym ]
+homReducibleFunSig = S.fromList [ NoEq homDecSym, NoEq homEncSym ]
 
 -- | Reducible function symbols for XOR.
 xorReducibleFunSig :: FunSig

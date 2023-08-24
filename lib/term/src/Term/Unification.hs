@@ -65,7 +65,7 @@ module Term.Unification (
   , symEncDestMaudeSig
   , asymEncDestMaudeSig
 --  , hsymEncDestMaudeSig
-  , signatureDestMaudeSig  
+  , signatureDestMaudeSig
   , locationReportMaudeSig
   , revealSignatureMaudeSig
   , hashMaudeSig
@@ -212,8 +212,10 @@ solveMatchLTerm sortOf matchProblem =
       (unlines $ ["matchLTerm: "++ show matchProblem, "result = "++  show res])
       res
 
-    matchTermChoose ms hnd = trace' $ if (enableHom $ mhMaudeSig hnd)
-      then matchHomomorphicLTerm sortOf ms
+    matchTermChoose ms hnd = trace' $ if enableHom $ mhMaudeSig hnd
+      then case matchHomomorphicLTerm sortOf ms of
+        Just s  -> [s]
+        Nothing -> []
       else matchTerms ms hnd
 
     matchTerms ms hnd =
