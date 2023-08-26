@@ -208,7 +208,9 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
     , testUnifyWithPrint mhnd "case norm 3" True t1v0 t2v1
     , testUnifyWithPrint mhnd "case norm 4" True t1v0 t2v2
     , testUnifyWithPrint mhnd "not sym homomorphic" False t1Sym t2Sym
-    , testUnifyWithPrint mhnd "norming 1" True (henc(pair(x0,x1),x2)) (henc(x3,x4))
+    , testUnifyWithPrint mhnd "norm 1" True (henc(pair(x0,x1),x2)) (henc(x3,x4))
+    , testUnifyWithPrint mhnd "norm 2" True norm1 norm2
+    , testUnifyWithPrint mhnd "norm 3" True norm3 norm4
     -- cases with different sorts
     , testUnifyWithPrint mhnd "public 1" True x0 px0
     , testUnifyWithPrint mhnd "public 2" True px0 x0
@@ -240,6 +242,10 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
     hdec = fAppHdec
     myN1 = myNatVar "n" 1
     myNatVar s i = varTerm $ LVar s LSortNat i
+    norm1 = henc(henc(pair(x0,x1),x2),x3)
+    norm2 = pair(henc(henc(x0,x2),x3), henc(henc(x1,x2),x3))
+    norm3 = henc( pair(henc(pair(x0,x1),x2), pair(henc(x3,x4),x5)), x6)
+    norm4 = normHomomorphic norm3
 
 testUnifyWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
 testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
