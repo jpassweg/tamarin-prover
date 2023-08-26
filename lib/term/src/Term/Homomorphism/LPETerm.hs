@@ -208,10 +208,6 @@ fromERepresentation e = if length e == 1 then head e
 
 -- | @normHomomorphic t@ normalizes the term @t@ modulo the homomorphic rule 
 -- henc(<x1,x2>,k) -> <henc(x1,k),henc(x2,k)>
--- example:
--- henc( henc( pair(x0,x1), k0), k1) 
--- -> henc( pair( henc(x0,k0), henc(x1,k0) ), k1)
--- -> pair( henc(henc(x0,k0),k1) , henc(henc(x1,k0),k1) )
 normHomomorphic :: (IsConst c) => LTerm c -> LTerm c
 normHomomorphic t = let tN = normHomomorphic' t in if t == tN then t else normHomomorphic tN
 

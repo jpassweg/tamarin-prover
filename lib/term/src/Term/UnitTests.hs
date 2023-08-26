@@ -111,25 +111,25 @@ testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
     , testMatchingHomWithPrint mhnd "b" True x1 x0
     , testMatchingHomWithPrint mhnd "c" True (pair (x1,x2)) x0
     , testMatchingHomWithPrint mhnd "d" True (pair (x0,x2)) x0
-    , testMatchingHomWithPrint mhnd "homdef1" True t1 t2
-    , testMatchingHomWithPrint mhnd "homdef2" True t2 t1
-    , testMatchingHomWithPrint mhnd "homdef1diffVars1" True t1v0 t2
-    , testMatchingHomWithPrint mhnd "homdef1diffVars2" False t2 t1v0
-    , testMatchingHomWithPrint mhnd "pair1" True pair1 pair2
-    , testMatchingHomWithPrint mhnd "pair2" False pair2 pair1
+    , testMatchingHomWithPrint mhnd "homdef 1" True t1 t2
+    , testMatchingHomWithPrint mhnd "homdef 2" True t2 t1
+    , testMatchingHomWithPrint mhnd "homdef1diffVars 1" True t1v0 t2
+    , testMatchingHomWithPrint mhnd "homdef1diffVars 2" False t2 t1v0
+    , testMatchingHomWithPrint mhnd "pair 1" True pair1 pair2
+    , testMatchingHomWithPrint mhnd "pair 2" False pair2 pair1
     -- cases with different sorts
-    , testMatchingHomWithPrint mhnd "public1" False x0 px0
-    , testMatchingHomWithPrint mhnd "public2" True px0 x0
-    , testMatchingHomWithPrint mhnd "fresh1" False x0 fx0
-    , testMatchingHomWithPrint mhnd "fresh2" True fx0 x0
-    , testMatchingHomWithPrint mhnd "nat1" False x0 myN1
-    , testMatchingHomWithPrint mhnd "nat2" True myN1 x0
-    , testMatchingHomWithPrint mhnd "publicnat1" False px0 myN1
-    , testMatchingHomWithPrint mhnd "publicnat2" False myN1 px0
-    , testMatchingHomWithPrint mhnd "publicfresh1" False px0 fx0
-    , testMatchingHomWithPrint mhnd "publicfresh2" False fx0 px0
-    , testMatchingHomWithPrint mhnd "freshnat1" False fx0 myN1
-    , testMatchingHomWithPrint mhnd "freshnat2" False myN1 fx0
+    , testMatchingHomWithPrint mhnd "public 1" False x0 px0
+    , testMatchingHomWithPrint mhnd "public 2" True px0 x0
+    , testMatchingHomWithPrint mhnd "fresh 1" False x0 fx0
+    , testMatchingHomWithPrint mhnd "fresh 2" True fx0 x0
+    , testMatchingHomWithPrint mhnd "nat 1" False x0 myN1
+    , testMatchingHomWithPrint mhnd "nat 2" True myN1 x0
+    , testMatchingHomWithPrint mhnd "publicnat 1" False px0 myN1
+    , testMatchingHomWithPrint mhnd "publicnat 2" False myN1 px0
+    , testMatchingHomWithPrint mhnd "publicfresh 1" False px0 fx0
+    , testMatchingHomWithPrint mhnd "publicfresh 2" False fx0 px0
+    , testMatchingHomWithPrint mhnd "freshnat 1" False fx0 myN1
+    , testMatchingHomWithPrint mhnd "freshnat 2" False myN1 fx0
     ]
   where
     t1 = henc (pair (x0,x1), x2)
@@ -146,19 +146,23 @@ testMatchingHomWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm ->
 testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
   TestLabel caseName $ TestCase $ assertBool (
     "------ TEST PRINTER ------" ++ "\n"
-    ++ "Case: " ++ caseName ++ "\n"
-    ++ "Terms: " ++ show t1 ++ ", " ++ show t2 ++ "\n"
+    ++ "Case:        " ++ caseName ++ "\n"
+    ++ "Terms:       " ++ show t1 ++ ", " ++ show t2 ++ "\n"
     ++ "--- matchLNTerm ---" ++ "\n"
     ++ "NumMatchers: " ++ show numMatchers ++ "\n"
-    ++ "First matcher: " ++ show subst ++ "\n"
-    ++ "New Terms: " ++ show t2Subst ++ "\n"
+    ++ "Fst Matcher: " ++ show subst ++ "\n"
+    ++ "New Terms:   " ++ show t2Subst ++ "\n"
     ++ "--- matchHomLNTermV1 ---" ++ "\n"
-    ++ "Matcher: " ++ show substH1 ++ "\n"
-    ++ "New Terms: " ++ show t2SubstH1 ++ "\n"
+    ++ "Matcher:     " ++ show substH' ++ "\n"
+    ++ "New Terms:   " ++ show t2SubstH ++ "\n"
+    ++ "--- with normed terms ---" ++ "\n"
+    ++ "Terms:       " ++ show t1N ++ ", " ++ show t2N ++ "\n"
+    ++ "New Terms:   " ++ show t2NSubstH ++ "\n"
     ++ "------ END TEST PRINTER ------"
     ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n"
   ) (
-    caseOutcome == substHMatches -- equal to expected outcome
+    (caseOutcome == substHMatches) &&   -- equal to expected outcome
+    (caseOutcome == (t1N == t2NSubstH)) -- terms equal after norming
   )
   where
     t1N = normHomomorphic t1
@@ -168,13 +172,14 @@ testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
     numMatchers = length substs
     subst = safeHead substs
 
-    substH1 = matchHomomorphicLTerm sortOfName [(t1N, t2N)]
-    substH1' = fromMaybe emptySubst substH1
+    substH = matchHomomorphicLTerm sortOfName [(t1N, t2N)]
+    substH' = fromMaybe emptySubst substH
 
     t2Subst = applyVTerm subst t2
-    t2SubstH1 = applyVTerm substH1' t2N
+    t2SubstH = applyVTerm substH' t2
+    t2NSubstH = applyVTerm substH' t2N
 
-    substHMatches = case substH1 of
+    substHMatches = case substH of
       Just _ -> True
       _      -> False
 
@@ -189,12 +194,12 @@ testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
 testsUnifyHomomorphic :: MaudeHandle -> Test
 testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
   TestList
-    [ testUnifyWithPrint mhnd "trivial case" True x0 x0
-    , testUnifyWithPrint mhnd "trivial case 2" True x0 x1
-    , testUnifyWithPrint mhnd "trivial non-equality" False (henc (x0,x1)) x1
-    , testUnifyWithPrint mhnd "case 1" True x0 (henc (x1,x2))
-    , testUnifyWithPrint mhnd "case 2" True t1 x4
-    --, testUnifyWithPrint mhnd "case 3" True (henc (t1,x0)) (henc (x5,x6))
+    [ testUnifyWithPrint mhnd "trivial 1" True x0 x0
+    , testUnifyWithPrint mhnd "trivial 2" True x0 x1
+    , testUnifyWithPrint mhnd "trivial 3" False (henc (x0,x1)) x1
+    , testUnifyWithPrint mhnd "trivial 4" True x0 (henc (x1,x2))
+    , testUnifyWithPrint mhnd "trivial 5" True t1 x4
+    , testUnifyWithPrint mhnd "case 1" True (henc (t1,x0)) (henc (x5,x6))
     , testUnifyWithPrint mhnd "def henc 1" True t1 t2
     , testUnifyWithPrint mhnd "def henc 2" True t2 t1
     , testUnifyWithPrint mhnd "def henc 3" True (henc (t1,x0)) (henc (t1,x0))
@@ -203,22 +208,23 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
     , testUnifyWithPrint mhnd "case norm 3" True t1v0 t2v1
     , testUnifyWithPrint mhnd "case norm 4" True t1v0 t2v2
     , testUnifyWithPrint mhnd "not sym homomorphic" False t1Sym t2Sym
+    , testUnifyWithPrint mhnd "norming 1" True (henc(pair(x0,x1),x2)) (henc(x3,x4))
     -- cases with different sorts
-    , testUnifyWithPrint mhnd "public1" True x0 px0
-    , testUnifyWithPrint mhnd "public2" True px0 x0
-    , testUnifyWithPrint mhnd "fresh1" True x0 fx0
-    , testUnifyWithPrint mhnd "fresh2" True fx0 x0
-    , testUnifyWithPrint mhnd "nat1" True x0 myN1
-    , testUnifyWithPrint mhnd "nat2" True myN1 x0
-    , testUnifyWithPrint mhnd "publicnat1" False px0 myN1
-    , testUnifyWithPrint mhnd "publicnat2" False myN1 px0
-    , testUnifyWithPrint mhnd "publicfresh1" False px0 fx0
-    , testUnifyWithPrint mhnd "publicfresh2" False fx0 px0
-    , testUnifyWithPrint mhnd "freshnat1" False fx0 myN1
-    , testUnifyWithPrint mhnd "freshnat2" False myN1 fx0
-    , testUnifyWithPrint mhnd "multi1" True (pair(x0,x1)) (pair(px0,px1))
-    , testUnifyWithPrint mhnd "multi2" True (pair(x0,px0)) (pair(px0,x0))
-    , testUnifyWithPrint mhnd "multi3" True (pair(x0,myN1)) (pair(px0,x1))
+    , testUnifyWithPrint mhnd "public 1" True x0 px0
+    , testUnifyWithPrint mhnd "public 2" True px0 x0
+    , testUnifyWithPrint mhnd "fresh 1" True x0 fx0
+    , testUnifyWithPrint mhnd "fresh 2" True fx0 x0
+    , testUnifyWithPrint mhnd "nat 1" True x0 myN1
+    , testUnifyWithPrint mhnd "nat 2" True myN1 x0
+    , testUnifyWithPrint mhnd "publicnat 1" False px0 myN1
+    , testUnifyWithPrint mhnd "publicnat 2" False myN1 px0
+    , testUnifyWithPrint mhnd "publicfresh 1" False px0 fx0
+    , testUnifyWithPrint mhnd "publicfresh 2" False fx0 px0
+    , testUnifyWithPrint mhnd "freshnat 1" False fx0 myN1
+    , testUnifyWithPrint mhnd "freshnat 2" False myN1 fx0
+    , testUnifyWithPrint mhnd "multi 1" True (pair(x0,x1)) (pair(px0,px1))
+    , testUnifyWithPrint mhnd "multi 2" True (pair(x0,px0)) (pair(px0,x0))
+    , testUnifyWithPrint mhnd "multi 3" True (pair(x0,myN1)) (pair(px0,x1))
     ]
   where
     t1 = henc (pair (x0,x1), x2)
@@ -239,23 +245,30 @@ testUnifyWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
 testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
   TestLabel caseName $ TestCase $ assertBool (
     "------ TEST PRINTER ------" ++ "\n"
-    ++ "Case: " ++ caseName ++ "\n"
-    ++ "Terms: " ++ show t1 ++ ", " ++ show t2 ++ "\n"
+    ++ "Case:          " ++ caseName ++ "\n"
+    ++ "Terms:         " ++ show t1 ++ ", " ++ show t2 ++ "\n"
     ++ "--- unifyLNTerm ---" ++ "\n"
-    ++ "NumUnifiers: " ++ show numUnifiers ++ "\n"
+    ++ "NumUnifiers:   " ++ show numUnifiers ++ "\n"
     ++ "First unifier: " ++ show subst ++ "\n"
     ++ "After fTFA:    VSubst: " ++ show subst' ++ "\n"
-    ++ "New Terms: " ++ show t1Subst' ++ ", " ++ show t2Subst' ++ "\n"
-    ++ "--- unifyHomomorphicLTerm ---" ++ "\n"
+    ++ "New Terms:     " ++ show t1Subst' ++ ", " ++ show t2Subst' ++ "\n"
+    ++ "--- unifyHomomorphicLTerm ---" ++ "\n" 
     ++ "First unifier: " ++ show substH ++ "\n"
-    ++ "New Terms: " ++ show t1SubstH ++ ", " ++ show t2SubstH ++ "\n"
-    ++ "After fTFA     VSubst: " ++ show substH' ++ "\n"
-    ++ "New Terms: " ++ show t1SubstH' ++ ", " ++ show t2SubstH' ++ "\n"
-    ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n"
+    ++ "New Terms:     " ++ show t1SubstH ++ ", " ++ show t2SubstH ++ "\n"
+    ++ "After fTFA:    VSubst: " ++ show substH' ++ "\n"
+    ++ "New Terms:     " ++ show t1SubstH' ++ ", " ++ show t2SubstH' ++ "\n"
+    ++ "--- with normed terms ---" ++ "\n"
+    ++ "Normed Terms:  " ++ show t1N ++ ", " ++ show t2N ++ "\n"
+    ++ "First unifier: " ++ show substH ++ "\n"
+    ++ "New Terms:     " ++ show t1NSubstH ++ ", " ++ show t2NSubstH ++ "\n"
+    ++ "After fTFA:    VSubst: " ++ show substH' ++ "\n"
+    ++ "New Terms:     " ++ show t1NSubstH' ++ ", " ++ show t2NSubstH' ++ "\n"
+    ++ "Note:          x.2 <~ x means x is being replaced by x.2" ++ "\n"
     ++ "------ END TEST PRINTER ------"
   ) (
-    (caseOutcome == substHUnifies) &&                    -- check if equal to expected outcome
-    ((t1SubstH == t2SubstH) == (t1SubstH' == t2SubstH')) -- check if freshToAvoid changes outcome
+    (caseOutcome == substHUnifies) &&            -- unification found
+    (caseOutcome == (t1NSubstH == t2NSubstH)) && -- normed terms equal after unification
+    (caseOutcome == (t1NSubstH' == t2NSubstH'))  -- freshToAvoid does not change the outcome
   )
   where
     t1N = normHomomorphic t1
@@ -274,15 +287,21 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
       Just (_,s) -> freshToFreeAvoiding s [t1,t2]
       Nothing    -> emptySubst
     substHUnifies = case substHUnifier of
-      Just (s,_) -> applyVTerm s t1N == applyVTerm s t2N
+      Just (_,_) -> True
       Nothing    -> False
 
     t1Subst' = applyVTerm subst' t1
     t2Subst' = applyVTerm subst' t2
+
     t1SubstH = applyVTerm substH t1
     t2SubstH = applyVTerm substH t2
     t1SubstH' = applyVTerm substH' t1
     t2SubstH' = applyVTerm substH' t2
+
+    t1NSubstH = normHomomorphic $ applyVTerm substH t1N
+    t2NSubstH = normHomomorphic $ applyVTerm substH t2N
+    t1NSubstH' = normHomomorphic $ applyVTerm substH' t1N
+    t2NSubstH' = normHomomorphic $ applyVTerm substH' t2N
 
     safeHead s = if null s then SubstVFresh $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)] else head s
 
@@ -315,6 +334,17 @@ testsUnifyHomomorphicSf _ =
     , testTrue "fromtoPRep paper1" (fromPRepresentation (buildPRepresentation tpaper1) == tpaper1)
     , testTrue "fromtoPRep paper2" (fromPRepresentation (buildPRepresentation tpaper2) == tpaper2)
     , testTrue "fromtoPRep paper3" (fromPRepresentation (buildPRepresentation tpaper3) == tpaper3)
+    , testTrue "norm1" (normHomomorphic x0 == x0)
+    , testTrue "norm2" (normHomomorphic (pair(x0,x1)) == (pair(x0,x1)))
+    , testTrue "norm3" (normHomomorphic (henc(pair(x0,x1),x2)) == (pair(henc(x0,x2),henc(x1,x2))))
+    -- example:
+    -- henc( henc( pair(x0,x1), k0), k1) 
+    -- -> henc( pair( henc(x0,k0), henc(x1,k0) ), k1)
+    -- -> pair( henc(henc(x0,k0),k1) , henc(henc(x1,k0),k1) )
+    , testTrue "norm4" (normHomomorphic norm1 == norm2)
+    , testTrue "norm5" (normHomomorphic tpaper1 == tpaper1N)
+    , testTrue "norm6" (normHomomorphic tpaper2 == tpaper2N)
+    , testTrue "norm7" (normHomomorphic tpaper3 == tpaper3)
     ]
   where
     t1 = henc (pair (x0,x1),x2)
@@ -333,8 +363,10 @@ testsUnifyHomomorphicSf _ =
       , ("2", henc (x1,x2) )
       , ("21", x1 )
       , ("22", x2 ) ]
-    tpaper1 = pair (henc (pair (x0,x2),x4),x3)
-    tpaper2 = pair (pair (x0,x1),henc (pair (x2,x3),x4))
+    tpaper1 = pair( henc( pair(x0,x2), x4), x3 )
+    tpaper1N = pair( pair(henc(x0,x4),henc(x2,x4)), x3 )
+    tpaper2 = pair( pair(x0,x1), henc(pair (x2,x3), x4))
+    tpaper2N = pair( pair(x0,x1), pair(henc(x2,x4),henc(x3,x4)) )
     pPurePosTPaper2 =
       [ ("", tpaper2 )
       , ("1", pair (x0,x1) )
@@ -364,6 +396,8 @@ testsUnifyHomomorphicSf _ =
       [ ("11", x0 )
       , ("12", x1 )
       , ("2", henc (x2,x3) ) ]
+    norm1 = henc(henc(pair(x0,x1),x2),x3)
+    norm2 = pair(henc(henc(x0,x2),x3), henc(henc(x1,x2),x3))
     henc = fAppHenc
     hdec = fAppHdec
 
