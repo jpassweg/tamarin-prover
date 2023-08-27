@@ -78,8 +78,9 @@ fromMConst t = case viewTerm t of
   (Lit (Con (MVar v))) -> termViewToTerm (Lit (Var v))
 
 sortOfMConst :: IsConst c => (c -> LSort) -> MConst c -> LSort
-sortOfMConst sortOf (MCon c) = sortOf c -- LSortFresh works better 0.0
-sortOfMConst _ (MVar v) = lvarSort v
+sortOfMConst _ _ = LSortMsg
+-- sortOfMConst sortOf (MCon c) = sortOf c -- LSortFresh works better 0.0
+-- sortOfMConst _ (MVar v) = LSortFresh
 
 -- Unification Algorithm using the Homomorphic Rules
 ----------------------------------------------------
