@@ -255,6 +255,17 @@ toHomomorphicSolvedForm sortOf eqs = let
         (_, LSortNode)      -> False
         (sl, sr)            -> sortCompare sl sr `elem` [Just EQ, Just GT]
 
+-- | Helper functions
+---------------------
+
+-- | @sortGreaterEq v t@ returns @True@ if the sort ensures that the sort of @v@ is greater or equal to
+--   the sort of @t@.
+sortCorrectForSubst :: IsConst c => (c -> LSort) -> LVar -> LTerm c -> Bool
+sortCorrectForSubst st v t = sortCompare (lvarSort v) (sortOfLTerm st t) `elem` [Just EQ, Just GT]
+
+occursVTermEq :: IsConst c => LVar -> Equal (LPETerm c) -> Bool
+occursVTermEq v (Equal eL eR) = occursVTerm v (lTerm eL) || occursVTerm v (lTerm eR)
+
 -- Homomorphic Rules Managers
 -----------------------------
 
@@ -311,17 +322,6 @@ switchedWrapperHomomorphicRule rule eq = rule (Equal (eqRHS eq) (eqLHS eq))
 -- | used to export homomorphic rules for debugging
 debugHomomorphicRule :: IsConst c => Int -> HomomorphicRule c
 debugHomomorphicRule i = allHomomorphicRules !! i
-
--- | Helper functions
----------------------
-
--- | @sortGreaterEq v t@ returns @True@ if the sort ensures that the sort of @v@ is greater or equal to
---   the sort of @t@.
-sortCorrectForSubst :: IsConst c => (c -> LSort) -> LVar -> LTerm c -> Bool
-sortCorrectForSubst st v t = sortCompare (lvarSort v) (sortOfLTerm st t) `elem` [Just EQ, Just GT]
-
-occursVTermEq :: IsConst c => LVar -> Equal (LPETerm c) -> Bool
-occursVTermEq v (Equal eL eR) = occursVTerm v (lTerm eL) || occursVTerm v (lTerm eR)
 
 -- | Standard syntatictic inference rules
 -----------------------------------------
