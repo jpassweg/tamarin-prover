@@ -161,8 +161,8 @@ testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
     ++ "------ END TEST PRINTER ------"
     ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n"
   ) (
-    (caseOutcome == substHMatches) &&   -- equal to expected outcome
-    (caseOutcome == (t1N == t2NSubstH)) -- terms equal after norming
+    caseOutcome == substHMatches &&   -- equal to expected outcome
+    caseOutcome == (t1N == t2NSubstH) -- terms equal after norming
   )
   where
     t1N = normHomomorphic t1
@@ -272,9 +272,9 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
     ++ "Note:          x.2 <~ x means x is being replaced by x.2" ++ "\n"
     ++ "------ END TEST PRINTER ------"
   ) (
-    (caseOutcome == substHUnifies) &&            -- unification found
-    (caseOutcome == (t1NSubstH == t2NSubstH)) && -- normed terms equal after unification
-    (caseOutcome == (t1NSubstH' == t2NSubstH'))  -- freshToAvoid does not change the outcome
+    caseOutcome == substHUnifies &&            -- unification found
+    caseOutcome == (t1NSubstH == t2NSubstH) && -- normed terms equal after unification
+    caseOutcome == (t1NSubstH' == t2NSubstH')  -- freshToAvoid does not change the outcome
   )
   where
     t1N = normHomomorphic t1

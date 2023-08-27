@@ -6,6 +6,9 @@ module Term.Homomorphism.LPETerm (
   , PRepresentation(..)
   , ERepresentation
 
+  -- * Helper functions
+  , viewTermPE
+
   -- * Homomorphic Representation functions
   , toLPETerm
   , positionsWithTerms
@@ -29,7 +32,7 @@ module Term.Homomorphism.LPETerm (
 import Data.Bifunctor (first, second)
 
 import Term.LTerm (
-  LTerm, IsConst,                                       
+  LTerm, IsConst, Lit(..), LVar,                                     
   TermView(Lit, FApp), TermView2(FHenc, FPair), 
   viewTerm, viewTerm2, termViewToTerm,            
   fAppPair, fAppHenc, isHomEnc
@@ -65,6 +68,12 @@ data LPETerm c = LPETerm
       , eRep  :: ERepresentation c
       }
       deriving (Show, Eq, Ord)
+
+-- LNPETerms functions for more simplicity
+------------------------------------------
+
+viewTermPE :: IsConst c => LPETerm c -> TermView (Lit c LVar)
+viewTermPE = viewTerm . lTerm
 
 -- Homomorphic encryption and LNPETerms specific functions
 ----------------------------------------------------------

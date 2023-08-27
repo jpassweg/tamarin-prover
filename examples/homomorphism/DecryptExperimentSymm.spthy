@@ -1,0 +1,9 @@
+theory DecryptExperimentSimplified
+begin
+
+builtins: symmetric-encryption
+
+lemma Intruder_Builds_Dec: exists-trace
+  "Ex x0 k #i . K(sdec(x0, k)) @i"
+
+end

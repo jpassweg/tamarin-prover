@@ -11,6 +11,7 @@ function all_homomorphic () {
   rm -r $OUTPUT_FOLDER/*
 
   if [ $1 ]; then
+    /home/$USER/.local/bin/tamarin-prover $1 --derivcheck-timeout=0
     /home/$USER/.local/bin/tamarin-prover $1 --prove --derivcheck-timeout=0 --Output=$OUTPUT_FOLDER
   fi
 

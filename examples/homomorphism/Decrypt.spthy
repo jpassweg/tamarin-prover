@@ -1,0 +1,25 @@
+theory Decrypt
+begin
+
+builtins: homomorphic-encryption
+
+rule GetKey:
+  [ Fr(~k) ]
+  --[]->
+  [ !Key(~k) ]
+
+rule A:
+  [ Fr(~x0), !Key(k) ]
+  --[ Send(~x0) ]->
+  [ Out( henc(~x0, k) ) ]
+
+rule B:
+  [ !Key(k)
+  , In( henc(x0, k) ) ]
+  --[ Receive(x0) ]->
+  []
+
+lemma Send_And_Received: exists-trace
+  "Ex x0 #i #j. Send(x0) @i & Receive(x0) @j"
+
+end
