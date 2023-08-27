@@ -26,6 +26,7 @@ rule B:
 
 // Did not find trace in HomomorphicExamples2 (HomomorphicDefinitionInvInOut)
 // Did not find trace in HomomorphicExamples3
+// Found trace setting sortOfMConst to LSortMsg for (MVar v)
 lemma Send_And_Received: exists-trace
   "Ex x0 x1 x2 #i #j. Send(x0, x1, x2) @i & Receive(x0, x1, x2) @j"
 

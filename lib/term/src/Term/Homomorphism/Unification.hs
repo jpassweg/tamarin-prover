@@ -79,7 +79,7 @@ fromMConst t = case viewTerm t of
 
 sortOfMConst :: IsConst c => (c -> LSort) -> MConst c -> LSort
 sortOfMConst _ _ = LSortMsg
--- sortOfMConst sortOf (MCon c) = sortOf c -- LSortFresh works better 0.0
+-- sortOfMConst sortOf (MCon c) = sortOf c
 -- sortOfMConst _ (MVar v) = LSortFresh
 
 -- Unification Algorithm using the Homomorphic Rules
