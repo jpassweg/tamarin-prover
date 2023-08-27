@@ -3,6 +3,7 @@ begin
 
 builtins: symmetric-encryption
 
+// Why not well-formed?
 lemma Intruder_Builds_Dec: exists-trace
   "Ex x0 k #i . K(sdec(x0, k)) @i"
 
