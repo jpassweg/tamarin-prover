@@ -10,9 +10,13 @@ function all_homomorphic () {
 
   rm -r $OUTPUT_FOLDER/*
 
+  if [ $1 ]; then
+    /home/$USER/.local/bin/tamarin-prover $1 --prove --derivcheck-timeout=0 --Output=$OUTPUT_FOLDER
+  fi
+
   for f in $INPUT_FOLDER/*
   do
-    if [ ! -d $f ]; then
+    if [ ! -d $f ] && [ ! $1 ]; then
       echo -e "\n\n\n\n\n\n\n"
       echo "--- Processing $f ---"
       /home/$USER/.local/bin/tamarin-prover $f --prove --derivcheck-timeout=0 --Output=$OUTPUT_FOLDER
@@ -31,7 +35,7 @@ while getopts ":ict" flag; do
       /home/$USER/.local/bin/tamarin-prover interactive $INPUT_FOLDER --derivcheck-timeout=0
       ;;
     c)
-      all_homomorphic
+      all_homomorphic $2
       ;;
   esac
 done
