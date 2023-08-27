@@ -21,6 +21,8 @@ rule Helper:
   [ Out(henc(<x0, x1>, k)) ]
 
 // Does not use Helper
+// Found trace in HomomorphicExamples2
+// Found trace in HomomorphicExamples3
 lemma Intruder_Fills_Message: exists-trace
   "Ex x0 x1 k #i. K(henc(<x0, x1>, k)) @i & not K(k) @i"
 

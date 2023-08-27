@@ -21,7 +21,9 @@ rule B:
   --[ Received(x0, k) ]->
   []
 
-  // Need Send(~x0, k) fact or intruder could just set x0 := <~x0, ~x1>
+// Need Send(~x0, k) fact or intruder could just set x0 := <~x0, ~x1>
+// Found trace in HomomorphicExamples2 (MessageFillDecomp2)
+// Found trace in HomomorphicExamples3
 lemma Intruder_Fills_Message: exists-trace
   "Ex x0 k #i #j. Send(x0, k) @i & Received(x0, k) @j & not K(k) @j"
 

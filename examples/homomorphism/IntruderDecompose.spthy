@@ -16,6 +16,8 @@ rule A:
   [ Out(henc(<~x0, ~x1>, k)) ]
 
 // Need Send(~x0, k) fact or intruder could just set x0 := <~x0, ~x1>
+// Found trace in HomomorphicExamples2 (IntruderDecomp3)
+// Found trace in HomomorphicExamples3
 lemma Intruder_Decomposes_Message: exists-trace
   "Ex x0 k #i #j. Send(x0,k) @j & K(henc(x0,k)) @i & not K(k) @i"
 
