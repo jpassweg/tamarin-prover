@@ -130,6 +130,12 @@ testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
     , testMatchingHomWithPrint mhnd "publicfresh 2" False fx0 px0
     , testMatchingHomWithPrint mhnd "freshnat 1" False fx0 myN1
     , testMatchingHomWithPrint mhnd "freshnat 2" False myN1 fx0
+    , testMatchingHomWithPrint mhnd "same fresh" True fx0 fx0
+    , testMatchingHomWithPrint mhnd "same nat" True myN1 myN1
+    , testMatchingHomWithPrint mhnd "same pub" True px0 px0
+    , testMatchingHomWithPrint mhnd "same fresh 2" True fx0 fx1
+    , testMatchingHomWithPrint mhnd "same nat 2" True myN1 myN2
+    , testMatchingHomWithPrint mhnd "same pub 2" True px0 px1
     ]
   where
     t1 = henc (pair (x0,x1), x2)
@@ -140,6 +146,7 @@ testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
     henc = fAppHenc
     hdec = fAppHdec
     myN1 = myNatVar "n" 1
+    myN2 = myNatVar "n" 2
     myNatVar s i = varTerm $ LVar s LSortNat i
 
 testMatchingHomWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
@@ -151,13 +158,14 @@ testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
     ++ "--- matchLNTerm ---" ++ "\n"
     ++ "NumMatchers: " ++ show numMatchers ++ "\n"
     ++ "Fst Matcher: " ++ show subst ++ "\n"
-    ++ "New Terms:   " ++ show t2Subst ++ "\n"
-    ++ "--- matchHomLNTermV1 ---" ++ "\n"
+    ++ "New Terms:   " ++ show t1 ++ ", " ++ show t2Subst ++ "\n"
+    ++ "--- matchHomLNTerm ---" ++ "\n"
+    ++ "Did-Match    " ++ show substHMatches ++ "\n"
     ++ "Matcher:     " ++ show substH' ++ "\n"
-    ++ "New Terms:   " ++ show t2SubstH ++ "\n"
+    ++ "New Terms:   " ++ show t1 ++ ", " ++ show t2SubstH ++ "\n"
     ++ "--- with normed terms ---" ++ "\n"
     ++ "Terms:       " ++ show t1N ++ ", " ++ show t2N ++ "\n"
-    ++ "New Terms:   " ++ show t2NSubstH ++ "\n"
+    ++ "New Terms:   " ++ show t1N ++ ", " ++ show t2NSubstH ++ "\n"
     ++ "------ END TEST PRINTER ------"
     ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n"
   ) (
@@ -177,7 +185,7 @@ testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
 
     t2Subst = applyVTerm subst t2
     t2SubstH = applyVTerm substH' t2
-    t2NSubstH = applyVTerm substH' t2N
+    t2NSubstH = normHomomorphic $ applyVTerm substH' t2N
 
     substHMatches = case substH of
       Just _ -> True

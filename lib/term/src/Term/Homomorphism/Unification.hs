@@ -47,7 +47,7 @@ matchHomomorphicLTerm sortOf ms = let
     eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
   in case unifyHomomorphicLTerm (sortOfMConst sortOf) eqs of
     Just (s,_) -> Just $ substFromList $ removeSubstsToSelf $ map (second fromMConst) $ substToList s
-    Nothing    -> Nothing
+    Nothing    -> if all (\(t,p) -> t == p) ms then Just emptySubst else Nothing
 
 removeSubstsToSelf :: IsConst c => [(LVar, LTerm c)] -> [(LVar, LTerm c)]
 removeSubstsToSelf = filter (\(v,t) -> case viewTerm t of (Lit (Var vt)) | v == vt -> False; _ -> True)
@@ -80,7 +80,7 @@ fromMConst t = case viewTerm t of
 sortOfMConst :: IsConst c => (c -> LSort) -> MConst c -> LSort
 sortOfMConst _ _ = LSortMsg
 -- sortOfMConst sortOf (MCon c) = sortOf c
--- sortOfMConst _ (MVar v) = LSortFresh
+-- sortOfMConst _ (MVar v) = lvarSort v
 
 -- Unification Algorithm using the Homomorphic Rules
 ----------------------------------------------------
