@@ -1,4 +1,4 @@
-theory DecomposeInOut
+theory ComposeInOutNoIntruder
 begin
 
 builtins: homomorphic-encryption
@@ -16,19 +16,19 @@ rule GetKey:
 rule A:
   [ !Vars(x0,x1), !Key(x2) ]
   --[ Send(x0, x1, x2) ]->
-  [ Out( henc(<x0, x1>, x2) ) ]
+  [ Out( < henc(x0,x2), henc(x1,x2) > ) ]
 
 rule B:
   [ !Vars(x0,x1), !Key(x2)
-  , In( < henc(x0,x2), henc(x1,x2) > ) ]
+  , In( henc(<x0, x1>, x2) ) ]
   --[ Receive(x0, x1, x2) ]->
   []
 
-// Did not find trace in HomomorphicExamples2 (HomomorphicDefinitionInOut)
+// Did not find trace in HomomorphicExamples2 (HomomorphicDefinitionInvInOut)
 // Did not find trace in HomomorphicExamples3
-// Found trace setting sortOfMConst to LSortMsg for (MCon c)
+// Found trace setting sortOfMConst to LSortMsg for (MVar v)
 lemma Send_And_Received: exists-trace
-  "Ex x0 x1 x2 #i #j. Send(x0, x1, x2) @i & Receive(x0, x1, x2) @j"
+  "Ex x0 x1 x2 #i #j. Send(x0, x1, x2) @i & Receive(x0, x1, x2) @j & not K(henc(x0,x2)) @j & not K(henc(x1,x2)) @j"
 
 restriction Only_One_Send_With_Same_Vars: 
   "All x0 x1 x2 #i #j. Send(x0, x1, x2) @i & Send(x0, x1, x2) @j ==> #i = #j"

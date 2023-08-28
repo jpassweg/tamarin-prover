@@ -79,8 +79,8 @@ fromMConst t = case viewTerm t of
 
  -- con of nodes are messages somehow
 sortOfMConst :: IsConst c => (c -> LSort) -> MConst c -> LSort
-sortOfMConst sortOf (MCon c) = let sort = sortOf c   in if sort == LSortNode then LSortMsg else sort
-sortOfMConst _      (MVar v) = let sort = lvarSort v in if sort == LSortNode then LSortMsg else sort
+sortOfMConst sortOf (MCon c) = let sort = sortOf c   in if sort == LSortNode then LSortNoth else sort
+sortOfMConst _      (MVar v) = let sort = lvarSort v in if sort == LSortNode then LSortNoth else sort
 
 -- Unification Algorithm using the Homomorphic Rules
 ----------------------------------------------------
