@@ -136,6 +136,9 @@ testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
     , testMatchingHomWithPrint mhnd "same fresh 2" True fx0 fx1
     , testMatchingHomWithPrint mhnd "same nat 2" True myN1 myN2
     , testMatchingHomWithPrint mhnd "same pub 2" True px0 px1
+    , testMatchingHomWithPrint mhnd "node 1" True myNode1 myNode1
+    , testMatchingHomWithPrint mhnd "node 2" True myNode1 myNode2
+    , testMatchingHomWithPrint mhnd "node 3" False myNode1 x0
     ]
   where
     t1 = henc (pair (x0,x1), x2)
@@ -147,7 +150,10 @@ testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
     hdec = fAppHdec
     myN1 = myNatVar "n" 1
     myN2 = myNatVar "n" 2
+    myNode1 = myNodeVar "n" 1
+    myNode2 = myNodeVar "n" 2
     myNatVar s i = varTerm $ LVar s LSortNat i
+    myNodeVar s i = varTerm $ LVar s LSortNode i
 
 testMatchingHomWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
 testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
@@ -235,6 +241,16 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
     , testUnifyWithPrint mhnd "multi 1" True (pair(x0,x1)) (pair(px0,px1))
     , testUnifyWithPrint mhnd "multi 2" True (pair(x0,px0)) (pair(px0,x0))
     , testUnifyWithPrint mhnd "multi 3" True (pair(x0,myN1)) (pair(px0,x1))
+    , testUnifyWithPrint mhnd "same fresh" True fx0 fx0
+    , testUnifyWithPrint mhnd "same nat" True myN1 myN1
+    , testUnifyWithPrint mhnd "same pub" True px0 px0
+    , testUnifyWithPrint mhnd "same fresh 2" True fx0 fx1
+    , testUnifyWithPrint mhnd "same nat 2" True myN1 myN2
+    , testUnifyWithPrint mhnd "same pub 2" True px0 px1
+    -- timepoint cases
+    , testUnifyWithPrint mhnd "node 1" True myNode1 myNode1
+    , testUnifyWithPrint mhnd "node 2" True myNode1 myNode2
+    , testUnifyWithPrint mhnd "node 3" False myNode1 x0
     ]
   where
     t1 = henc (pair (x0,x1), x2)
@@ -249,7 +265,11 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
     henc = fAppHenc
     hdec = fAppHdec
     myN1 = myNatVar "n" 1
+    myN2 = myNatVar "n" 2
+    myNode1 = myNodeVar "n" 1
+    myNode2 = myNodeVar "n" 2
     myNatVar s i = varTerm $ LVar s LSortNat i
+    myNodeVar s i = varTerm $ LVar s LSortNode i
     norm1 = henc(henc(pair(x0,x1),x2),x3)
     norm2 = pair(henc(henc(x0,x2),x3), henc(henc(x1,x2),x3))
     norm3 = henc( pair(henc(pair(x0,x1),x2), pair(henc(x3,x4),x5)), x6)

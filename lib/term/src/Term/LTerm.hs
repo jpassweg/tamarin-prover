@@ -162,7 +162,6 @@ data LSort = LSortPub   -- ^ Arbitrary public names.
            | LSortMsg   -- ^ Arbitrary messages.
            | LSortNode  -- ^ Sort for variables denoting nodes of derivation graphs.
            | LSortNat   -- ^ Arbitrary natural numbers.
-           | LSortNoth  -- ^ Intern sort that is uncomparable and only used in proofs.
            deriving( Eq, Ord, Show, Enum, Bounded, Typeable, Data, Generic, NFData, Binary )
 
 -- | @sortCompare s1 s2@ compares @s1@ and @s2@ with respect to the partial order on sorts.
@@ -176,9 +175,6 @@ data LSort = LSortPub   -- ^ Arbitrary public names.
 --
 sortCompare :: LSort -> LSort -> Maybe Ordering
 sortCompare s1 s2 = case (s1, s2) of
-    -- Nothing sort is incomparable even with itself
-    (LSortNoth,  _        )  -> Nothing
-    (_,          LSortNoth)  -> Nothing
     (a, b) | a == b          -> Just EQ
     -- Node is incomparable to all other sorts, invalid input
     (LSortNode,  _        )  -> Nothing
