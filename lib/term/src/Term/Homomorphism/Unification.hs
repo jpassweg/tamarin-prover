@@ -47,7 +47,7 @@ matchHomomorphicLTerm sortOf ms = let
     eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
   in case unifyHomomorphicLTerm (sortOfMConst sortOf) eqs of
     Just (s,_) -> Just $ substFromList $ removeSubstsToSelf $ map (second fromMConst) $ substToList s
-    Nothing    -> if all (\(t,p) -> t == p) ms then Just emptySubst else Nothing
+    Nothing    -> if all (uncurry (==)) ms then Just emptySubst else Nothing
 
 removeSubstsToSelf :: IsConst c => [(LVar, LTerm c)] -> [(LVar, LTerm c)]
 removeSubstsToSelf = filter (\(v,t) -> case viewTerm t of (Lit (Var vt)) | v == vt -> False; _ -> True)
@@ -110,19 +110,19 @@ applyHomomorphicRules :: IsConst c => (c -> LSort) -> [HomomorphicRule c] -> [Eq
 applyHomomorphicRules _ [] eqs = eqs -- no more rules to apply 
 applyHomomorphicRules sortOf (rule:rules) eqs =
   case applyHomomorphicRule rule sortOf eqs [] of
-    Just newEqs -> applyHomomorphicRules sortOf allHomomorphicRules newEqs
-    Nothing     -> applyHomomorphicRules sortOf rules eqs
+    Just (newEqs, solvedEqs) -> solvedEqs ++ applyHomomorphicRules sortOf allHomomorphicRules newEqs
+    Nothing                  -> applyHomomorphicRules sortOf rules eqs
 
 -- | Applies the homomorphic rule to the first term possible in equation list or returns Nothing 
 -- if the rule is not applicable to any terms
-applyHomomorphicRule :: IsConst c => HomomorphicRule c -> (c -> LSort) -> [Equal (LPETerm c)] -> [Equal (LPETerm c)] -> Maybe [Equal (LPETerm c)]
+applyHomomorphicRule :: IsConst c => HomomorphicRule c -> (c -> LSort) -> [Equal (LPETerm c)] -> [Equal (LPETerm c)] -> Maybe ([Equal (LPETerm c)], [Equal (LPETerm c)])
 applyHomomorphicRule _ _ [] _ = Nothing
 applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
   case rule equation sortOf (passedEqs ++ equations) of
-    HEqs newEqs ->            Just (passedEqs ++ newEqs ++ equations)
-    HSubstEqs subst newEqs -> Just $ map (applySubstitution subst) (passedEqs ++ equations) ++ newEqs
+    HEqs newEqs ->            Just (passedEqs ++ newEqs ++ equations, [])
+    HSubstEqs subst newEqs -> Just (map (applySubstitution subst) (passedEqs ++ equations), newEqs)
     HNothing ->               applyHomomorphicRule rule sortOf equations (equation:passedEqs)
-    HFail ->                  Just []
+    HFail ->                  Just ([],[])
   where
     applySubstitution subst eq = Equal
       (toLPETerm $ applyVTerm subst $ lTerm $ eqLHS eq)
@@ -131,8 +131,7 @@ applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
 -- Transforms equations to Homomorphic Solved Form
 -- Returns Nothing if it is not possible to put the equations Homomorphic Solved Form
 -- This function does not change the equations themselves, but assures that the variables
--- on the left side of all equations are unique.
--- TODO: need to add last step to transform [Equal (LTerm c)] -> Maybe [(LVar, LTerm c)] 
+-- on the left side of all equations are unique. 
 toHomomorphicSolvedForm :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> Maybe [(LVar, LTerm c)]
 toHomomorphicSolvedForm sortOf eqs = let
   varLeftEqs = map moveVarLeft eqs
@@ -344,7 +343,6 @@ stdDecompositionHomomorphicRule (Equal eL eR) _ _ =
 variableSubstitutionHomomorphicRule :: IsConst c => HomomorphicRule c
 variableSubstitutionHomomorphicRule eq sortOf eqs = let eR = lTerm $ eqRHS eq in
   case (viewTermPE $ eqLHS eq, viewTermPE $ eqRHS eq) of
-    (Lit (Var _), Lit (Var _)) -> HNothing
     (Lit (Var vl), _)          ->
       if not (occursVTerm vl eR) && any (occursVTermEq vl) eqs && sortCorrectForSubst sortOf vl eR
       then HSubstEqs (Subst $ M.fromList [(vl, eR)]) [eq]

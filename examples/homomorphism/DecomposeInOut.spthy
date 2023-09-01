@@ -33,8 +33,4 @@ lemma Send_And_Received: exists-trace
 restriction Only_One_Send_With_Same_Vars: 
   "All x0 x1 x2 #i #j. Send(x0, x1, x2) @i & Send(x0, x1, x2) @j ==> #i = #j"
 
-// Does not work since K(x) only counts if intruder sent x?
-restriction No_Adversial_Help:
-  "All x #i. K(x) @i ==> F"
-
 end
