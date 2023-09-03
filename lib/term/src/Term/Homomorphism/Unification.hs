@@ -206,10 +206,10 @@ addOrderDubVars (lPVars, rPTerms) ((lv,rv):vvs) = let
   in case (lv `elem` lPVars, lv `elem` rPVars, rv `elem` lPVars, rv `elem` rPVars) of
     (True,  True,  _,     _    ) -> error "orderDubVars: left var also on right side"
     (_,     _,     True,  True ) -> error "orderDubVars: left var also on right side"
-    (True,  False, False, True ) -> error "orderDubVars: no duplicates" -- if getRightTerm lv == varTerm rv      then orderDubVars (lPVars, rPTerms) vvs else Nothing
-    (False, True,  True,  False) -> error "orderDubVars: no duplicates" -- if getRightTerm rv == varTerm lv      then orderDubVars (lPVars, rPTerms) vvs else Nothing
+    (True,  False, False, True ) -> error "orderDubVars: no duplicates" -- if getRightTerm lv == varTerm rv then addOrderDubVars (lPVars, rPTerms) vvs else Nothing
+    (False, True,  True,  False) -> error "orderDubVars: no duplicates" -- if getRightTerm rv == varTerm lv then addOrderDubVars (lPVars, rPTerms) vvs else Nothing
     (True,  False, True,  False) -> if getRightTerm lv == getRightTerm rv then addOrderDubVars (lPVars, rPTerms) vvs else Nothing
-    (False, True,  False, True ) -> error "orderDubVars: should not happen" -- orderDubVars (lv:rv:lPVars, nPT:nPT:(map (replaceVars [(lv,nP),(rv,nP)]) rPTerms)) vvs
+    (False, True,  False, True ) -> error "orderDubVars: should not happen" -- addOrderDubVars (lv:rv:lPVars, nPT:nPT:map (replaceVars [(lv,nP),(rv,nP)]) rPTerms) vvs
     (True,  False, False, False) -> addOrderDubVars (rv:lPVars, getRightTerm lv:rPTerms) vvs
     (False, False, True,  False) -> addOrderDubVars (lv:lPVars, getRightTerm rv:rPTerms) vvs
     (False, True,  False, False) -> addOrderDubVars (rv:lPVars, varTerm lv:rPTerms) vvs

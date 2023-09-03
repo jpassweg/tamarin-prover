@@ -259,7 +259,6 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
     ++ "After fTFA:    VSubst: " ++ show substH' ++ "\n"
     ++ "New Terms:     " ++ show t1SubstH' ++ ", " ++ show t2SubstH' ++ "\n"
     ++ "--- with normed terms ---" ++ "\n"
-    ++ "Normed Terms:  " ++ show t1N ++ ", " ++ show t2N ++ "\n"
     ++ "First unifier: " ++ show substH ++ "\n"
     ++ "New Terms:     " ++ show t1NSubstH ++ ", " ++ show t2NSubstH ++ "\n"
     ++ "After fTFA:    VSubst: " ++ show substH' ++ "\n"
@@ -272,9 +271,6 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
     caseOutcome == (t1NSubstH' == t2NSubstH')  -- freshToAvoid does not change the outcome
   )
   where
-    t1N = normHomomorphic t1
-    t2N = normHomomorphic t2
-
     substs = unifyLTerm sortOfName [Equal t1 t2] `runReader` mhnd
     numUnifiers = length substs
     subst = safeHead substs
@@ -299,10 +295,10 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
     t1SubstH' = applyVTerm substH' t1
     t2SubstH' = applyVTerm substH' t2
 
-    t1NSubstH = normHomomorphic $ applyVTerm substH t1N
-    t2NSubstH = normHomomorphic $ applyVTerm substH t2N
-    t1NSubstH' = normHomomorphic $ applyVTerm substH' t1N
-    t2NSubstH' = normHomomorphic $ applyVTerm substH' t2N
+    t1NSubstH = normHomomorphic $ applyVTerm substH t1
+    t2NSubstH = normHomomorphic $ applyVTerm substH t2
+    t1NSubstH' = normHomomorphic $ applyVTerm substH' t1
+    t2NSubstH' = normHomomorphic $ applyVTerm substH' t2
 
     safeHead s = if null s then SubstVFresh $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)] else head s
 
