@@ -165,12 +165,6 @@ noDuplicates (Equal l1 r1:es) = not (any (\(Equal l2 r2) -> (l1 == l2 && r1 == r
 getNewSimilarVar :: LVar -> [LVar] -> LVar
 getNewSimilarVar x allVars = LVar (lvarName x) (lvarSort x) $ (+) 1 $ foldr (max . lvarIdx) (lvarIdx x) (filter (\e -> lvarName x == lvarName e) allVars)
 
-getNewPlainVar :: LSort -> [LVar] -> LVar
-getNewPlainVar sort allVars = let plainVar = LVar plainName sort 0 in getNewSimilarVar plainVar allVars
-
-plainName :: String
-plainName = "plain"
-
 replaceVars :: IsConst c => [(LVar,LVar)] -> LTerm c -> LTerm c
 replaceVars subst t = case viewTerm t of
   (Lit (Var x))      -> termViewToTerm (Lit (Var (foldl (\v1 (v2,v3) -> if v1 == v2 then v3 else v1) x subst)))
@@ -201,8 +195,6 @@ addOrderDubVars :: IsConst c => ([LVar], [LTerm c]) -> [(LVar, LVar)] -> Maybe [
 addOrderDubVars subst [] = Just (uncurry zip subst)
 addOrderDubVars (lPVars, rPTerms) ((lv,rv):vvs) = let
     rPVars = foldVars rPTerms
-    nP     = getNewPlainVar (lvarSort lv) (lPVars ++ rPVars)
-    nPT    = varTerm nP
   in case (lv `elem` lPVars, lv `elem` rPVars, rv `elem` lPVars, rv `elem` rPVars) of
     (True,  True,  _,     _    ) -> error "orderDubVars: left var also on right side"
     (_,     _,     True,  True ) -> error "orderDubVars: left var also on right side"
@@ -214,7 +206,7 @@ addOrderDubVars (lPVars, rPTerms) ((lv,rv):vvs) = let
     (False, False, True,  False) -> addOrderDubVars (lv:lPVars, getRightTerm rv:rPTerms) vvs
     (False, True,  False, False) -> addOrderDubVars (rv:lPVars, varTerm lv:rPTerms) vvs
     (False, False, False, True ) -> addOrderDubVars (lv:lPVars, varTerm rv:rPTerms) vvs
-    (False, False, False, False) -> addOrderDubVars (lv:rv:lPVars, nPT:nPT:rPTerms) vvs
+    (False, False, False, False) -> addOrderDubVars (lv:lPVars, varTerm rv:rPTerms) vvs -- TODO: can be done better
   where
     getRightTerm v = snd $ head $ filter (\s -> fst s == v) (zip lPVars rPTerms)
 
