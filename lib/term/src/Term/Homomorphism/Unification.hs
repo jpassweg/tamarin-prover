@@ -12,13 +12,13 @@ module Term.Homomorphism.Unification (
   , HomomorphicRuleReturn(..)
 ) where
 
-import qualified Data.Map as M
+import Data.Map (fromList)
+import Data.Maybe (fromMaybe, isJust, isNothing, catMaybes)
+import Data.Bifunctor (second)
 
 -- For data MConst
 import Data.Typeable ( Typeable )
 import Data.Data ( Data )
-
-import Data.Bifunctor (second)
 
 import Term.Homomorphism.LPETerm
 
@@ -100,7 +100,7 @@ unifyHomomorphicLTerm sortOf eqs =
   where
     eqsN = map (fmap normHomomorphic) eqs
     toSubst [] = if all (\eq -> eqLHS eq == eqRHS eq) eqsN then Just (emptySubst, emptySubstVFresh) else Nothing
-    toSubst eqsSubst = case toHomomorphicSolvedForm sortOf eqsSubst of
+    toSubst eqsSubst = case toHomomorphicSolvedFormV2 sortOf eqsSubst of
       Just normEqsSubst -> Just (substFromList normEqsSubst, substFromListVFresh normEqsSubst)
       Nothing -> Nothing
 
@@ -120,13 +120,171 @@ applyHomomorphicRule _ _ [] _ = Nothing
 applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
   case rule equation sortOf (passedEqs ++ equations) of
     HEqs newEqs ->            Just (passedEqs ++ newEqs ++ equations, [])
-    HSubstEqs subst newEqs -> Just (map (applySubstitution subst) (passedEqs ++ equations), newEqs)
+    HSubstEqs subst newEqs solvedEqs ->
+      Just (map (applySubstitution subst) (passedEqs ++ equations) ++ newEqs, solvedEqs)
     HNothing ->               applyHomomorphicRule rule sortOf equations (equation:passedEqs)
     HFail ->                  Just ([],[])
   where
     applySubstitution subst eq = Equal
       (toLPETerm $ applyVTerm subst $ lTerm $ eqLHS eq)
       (toLPETerm $ applyVTerm subst $ lTerm $ eqRHS eq)
+
+-- | Helper functions
+---------------------
+
+-- | @sortGreaterEq v t@ returns @True@ if the sort ensures that the sort of @v@ is greater or equal to
+--   the sort of @t@.
+sortCorrectForSubst :: IsConst c => (c -> LSort) -> LVar -> LTerm c -> Bool
+sortCorrectForSubst st v t = sortCompare (lvarSort v) (sortOfLTerm st t) `elem` [Just EQ, Just GT]
+
+occursVTermEqs :: IsConst c => LVar -> [Equal (LPETerm c)] -> Bool
+occursVTermEqs v eqs = any (occursVTerm v . lTerm) (eqsToTerms eqs)
+
+occursVTermEq :: IsConst c => LVar -> Equal (LPETerm c) -> Bool
+occursVTermEq v (Equal eL eR) = occursVTerm v (lTerm eL) || occursVTerm v (lTerm eR)
+
+removeDuplicates :: (Eq a) => [Equal a] -> [Equal a]
+removeDuplicates [] = []
+removeDuplicates (e:es) = if any (\e2 ->
+     (eqLHS e == eqLHS e2 && eqRHS e == eqRHS e2)
+  || (eqLHS e == eqRHS e2 && eqRHS e == eqLHS e2)) es
+  then es
+  else e:removeDuplicates es
+
+eqsToTerms :: [Equal a] -> [a]
+eqsToTerms [] = []
+eqsToTerms (e:es) = eqLHS e : eqRHS e : eqsToTerms es
+
+foldVars :: IsConst c => [LTerm c] -> [LVar]
+foldVars = sortednub . concatMap varsVTerm
+
+noDuplicates :: IsConst c => [Equal (LTerm c)] -> Bool
+noDuplicates [] = True
+noDuplicates (Equal l1 r1:es) = not (any (\(Equal l2 r2) -> (l1 == l2 && r1 == r2) || (l1 == r2 && r1 == l2)) es) && noDuplicates es
+
+getNewSimilarVar :: LVar -> [LVar] -> LVar
+getNewSimilarVar x allVars = LVar (lvarName x) (lvarSort x) $ (+) 1 $ foldr (max . lvarIdx) (lvarIdx x) (filter (\e -> lvarName x == lvarName e) allVars)
+
+getNewPlainVar :: LSort -> [LVar] -> LVar
+getNewPlainVar sort allVars = let plainVar = LVar plainName sort 0 in getNewSimilarVar plainVar allVars
+
+plainName :: String
+plainName = "plain"
+
+replaceVars :: IsConst c => [(LVar,LVar)] -> LTerm c -> LTerm c
+replaceVars subst t = case viewTerm t of
+  (Lit (Var x))      -> termViewToTerm (Lit (Var (foldl (\v1 (v2,v3) -> if v1 == v2 then v3 else v1) x subst)))
+  (Lit (Con _))      -> t
+  (FApp funsym args) -> termViewToTerm (FApp funsym (map (replaceVars subst) args))
+
+
+-- allLeftVarsUnique :: 
+
+-- | To Homomorphic Solved Form
+-------------------------------
+
+-- sanityCheckSolvedForm :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> Bool
+-- sanityCheckSolvedForm sortOf eqs = (noDuplicates eqs && allLeftVarsUnique eqs && allLeftVarsNotRight eqs) || error "Sanity Check for Unification Algorithm failed"
+
+toSubstForm :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> Maybe [(LVar, LTerm c)]
+toSubstForm sortOf eqs = let
+  cleanEqs        = removeDuplicates eqs
+  substWODubVarsM = map (moveVarLeft sortOf) $ filter (not . dubVars) cleanEqs
+  substWODubVars  = catMaybes substWODubVarsM
+  substM          = addOrderDubVars (unzip substWODubVars) $ getDubVars cleanEqs
+  subst           = fromMaybe [] substM
+  in if all isJust substWODubVarsM && isJust substM
+  then Just subst
+  else Nothing
+
+addOrderDubVars :: IsConst c => ([LVar], [LTerm c]) -> [(LVar, LVar)] -> Maybe [(LVar, LTerm c)]
+addOrderDubVars subst [] = Just (uncurry zip subst)
+addOrderDubVars (lPVars, rPTerms) ((lv,rv):vvs) = let
+    rPVars = foldVars rPTerms
+    nP     = getNewPlainVar (lvarSort lv) (lPVars ++ rPVars)
+    nPT    = varTerm nP
+  in case (lv `elem` lPVars, lv `elem` rPVars, rv `elem` lPVars, rv `elem` rPVars) of
+    (True,  True,  _,     _    ) -> error "orderDubVars: left var also on right side"
+    (_,     _,     True,  True ) -> error "orderDubVars: left var also on right side"
+    (True,  False, False, True ) -> error "orderDubVars: no duplicates" -- if getRightTerm lv == varTerm rv      then orderDubVars (lPVars, rPTerms) vvs else Nothing
+    (False, True,  True,  False) -> error "orderDubVars: no duplicates" -- if getRightTerm rv == varTerm lv      then orderDubVars (lPVars, rPTerms) vvs else Nothing
+    (True,  False, True,  False) -> if getRightTerm lv == getRightTerm rv then addOrderDubVars (lPVars, rPTerms) vvs else Nothing
+    (False, True,  False, True ) -> error "orderDubVars: should not happen" -- orderDubVars (lv:rv:lPVars, nPT:nPT:(map (replaceVars [(lv,nP),(rv,nP)]) rPTerms)) vvs
+    (True,  False, False, False) -> addOrderDubVars (rv:lPVars, getRightTerm lv:rPTerms) vvs
+    (False, False, True,  False) -> addOrderDubVars (lv:lPVars, getRightTerm rv:rPTerms) vvs
+    (False, True,  False, False) -> addOrderDubVars (rv:lPVars, varTerm lv:rPTerms) vvs
+    (False, False, False, True ) -> addOrderDubVars (lv:lPVars, varTerm rv:rPTerms) vvs
+    (False, False, False, False) -> addOrderDubVars (lv:rv:lPVars, nPT:nPT:rPTerms) vvs
+  where
+    getRightTerm v = snd $ head $ filter (\s -> fst s == v) (zip lPVars rPTerms)
+
+moveVarLeft :: IsConst c => (c -> LSort) -> Equal (LTerm c) -> Maybe (LVar, LTerm c)
+moveVarLeft sortOf (Equal l r) = case (viewTerm l, viewTerm r) of
+  (Lit (Var lv), Lit (Var rv)) | lvarSort lv == lvarSort rv                          -> error "moveVarLeft: Vars sort equal, no unique ordering"
+  (Lit (Var lv), Lit (Var rv)) | sortCompare (lvarSort lv) (lvarSort rv) == Just GT  -> Just (lv, r)
+  (Lit (Var lv), Lit (Var rv)) | sortCompare (lvarSort lv) (lvarSort rv) == Just LT  -> Just (rv, l)
+  (Lit (Var lv), Lit (Var rv)) | isNothing $ sortCompare (lvarSort lv) (lvarSort rv) -> Nothing -- No comparable sorts are not filtered out by unification algorithm
+  (Lit (Var lv), _) | sortCorrectForSubst sortOf lv r                                -> Just (lv, r)
+  (Lit (Var _ ), _)                                                                  -> Nothing -- No comparable sorts are not filtered out by unification algorithm
+  (_, Lit (Var rv)) | sortCorrectForSubst sortOf rv l                                -> Just (rv, l)
+  (_, Lit (Var _ ))                                                                  -> Nothing -- No comparable sorts are not filtered out by unification algorithm
+  _                                                                                  -> Nothing -- Happens in the case of Const == Const for which no rule fails 
+
+getDubVars :: IsConst c => [Equal (LTerm c)] -> [(LVar, LVar)]
+getDubVars [] = []
+getDubVars (Equal l r:es) = case (viewTerm l, viewTerm r) of
+  (Lit (Var lv), Lit (Var rv)) | lvarSort lv == lvarSort rv -> (lv,rv):getDubVars es
+  _                                                         -> getDubVars es
+
+dubVars :: IsConst c => Equal (LTerm c) -> Bool
+dubVars (Equal l r) = case (viewTerm l, viewTerm r) of
+  (Lit (Var lv), Lit (Var rv)) | lvarSort lv == lvarSort rv -> True
+  _                                                         -> False
+
+toFreeAvoid :: IsConst c => [(LVar, LTerm c)] -> Maybe [(LVar, LTerm c)]
+toFreeAvoid subst = let
+  (lVars, rTerms) = unzip subst
+  allVars = sortednub $ lVars ++ foldVars rTerms
+  freeAvoidingEqs = snd $ getFreeAvoidingEqsOfTerms allVars rTerms []
+  freeAvoidedRightTerms = applyEqsToTerms freeAvoidingEqs rTerms
+  freeAvoidedEqs = zip lVars freeAvoidedRightTerms
+  completeSubstitution = freeAvoidingEqs ++ freeAvoidedEqs
+  in Just completeSubstitution
+
+getFreeAvoidingEqsOfTerms :: IsConst c => [LVar] -> [LTerm c] -> [(LVar, LTerm c)] -> ([LVar], [(LVar, LTerm c)])
+getFreeAvoidingEqsOfTerms allVs [] newEs = (allVs, newEs)
+getFreeAvoidingEqsOfTerms allVs (t:ts) newEs = let (nV, nEs) = getFreeAvoidingEqsOfTerm allVs t newEs in getFreeAvoidingEqsOfTerms nV ts nEs
+
+getFreeAvoidingEqsOfTerm :: IsConst c => [LVar] -> LTerm c -> [(LVar, LTerm c)] -> ([LVar], [(LVar, LTerm c)])
+getFreeAvoidingEqsOfTerm allVs t newEs =
+  case viewTerm t of
+    (Lit (Con _)) -> (allVs, newEs)
+    (Lit (Var x)) -> if t /= applyEqsToTerm newEs t
+      then (allVs, newEs)
+      else let newV = getNewSimilarVar x allVs in (newV:allVs, (x, varTerm newV):newEs)
+    (FApp _ args) -> getFreeAvoidingEqsOfTerms allVs args newEs
+
+applyEqsToTerms :: IsConst c => [(LVar, LTerm c)] -> [LTerm c] -> [LTerm c]
+applyEqsToTerms _ [] = []
+applyEqsToTerms newEs (t:ts) = applyEqsToTerm newEs t:applyEqsToTerms newEs ts
+
+applyEqsToTerm :: IsConst c => [(LVar, LTerm c)] -> LTerm c -> LTerm c
+applyEqsToTerm newEs t =
+  case viewTerm t of
+    (Lit (Var _)) -> foldr applyEqToTerm t newEs
+    (Lit (Con _)) -> t
+    (FApp funsym args) ->
+      termViewToTerm $ FApp funsym $ map (applyEqsToTerm newEs) args
+
+applyEqToTerm :: IsConst c => (LVar, LTerm c) -> LTerm c -> LTerm c
+applyEqToTerm (vl,tr) t = if t == varTerm vl then tr else t
+
+-- TODO OUTDATED:
+-- - create order for vars with not doublevars with same sort
+-- - mapping of lvars to new lvars
+-- - arrange double var eqs accordingly
+toHomomorphicSolvedFormV2 :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> Maybe [(LVar, LTerm c)]
+toHomomorphicSolvedFormV2 sortOf eqs = toFreeAvoid =<< toSubstForm sortOf eqs
 
 -- Transforms equations to Homomorphic Solved Form
 -- Returns Nothing if it is not possible to put the equations Homomorphic Solved Form
@@ -165,13 +323,6 @@ toHomomorphicSolvedForm sortOf eqs = let
         (FApp _ _,    Lit (Var _)) -> Equal (eqRHS e) (eqLHS e)
         (Lit (Con _), Lit (Var _)) -> Equal (eqRHS e) (eqLHS e)
         (_, _)                     -> Equal (eqLHS e) (eqRHS e)
-    removeDuplicates :: IsConst c => [Equal (LTerm c)] -> [Equal (LTerm c)]
-    removeDuplicates [] = []
-    removeDuplicates (e:es) = if any (\e2 ->
-         (eqLHS e == eqLHS e2 && eqRHS e == eqRHS e2)
-      || (eqLHS e == eqRHS e2 && eqRHS e == eqLHS e2)) es
-      then es
-      else e:removeDuplicates es
     doubleVarEq :: IsConst c => Equal (LTerm c) -> Bool
     doubleVarEq e =
       case (viewTerm $ eqLHS e, viewTerm $ eqRHS e) of
@@ -197,9 +348,6 @@ toHomomorphicSolvedForm sortOf eqs = let
         (True, _)   -> e : orderDoubleVarEqs sortOf' es rsPlusE
         (_, True)   -> Equal (eqRHS e) (eqLHS e) : orderDoubleVarEqs sortOf' es rsPlusE
         (_,_)       -> e : orderDoubleVarEqs sortOf' es rsPlusE
-    eqsToTerms :: IsConst c => [Equal (LTerm c)] -> [LTerm c]
-    eqsToTerms [] = []
-    eqsToTerms (e:es) = eqLHS e : eqRHS e : eqsToTerms es
     varNotPartOfTerms :: IsConst c => LTerm c -> [LTerm c] -> Bool
     varNotPartOfTerms _ [] = True
     varNotPartOfTerms l (r:rs) =
@@ -212,10 +360,6 @@ toHomomorphicSolvedForm sortOf eqs = let
         (FApp _ args) -> all (varNotPartOfTerm l) args
         (Lit (Var _)) -> l /= r
         (Lit (Con _)) -> True
-    -- remove duplicates:
-    -- foldVars ts = map head $ group $ sort $ concat $ map varsVTerm ts
-    foldVars :: IsConst c => [LTerm c] -> [LVar]
-    foldVars = sortednub . concatMap varsVTerm
     getFreeAvoidingEqsOfTerms :: IsConst c => [LVar] -> [LTerm c] -> [Equal (LTerm c)] -> ([LVar], [Equal (LTerm c)])
     getFreeAvoidingEqsOfTerms allVs [] newEs = (allVs, newEs)
     getFreeAvoidingEqsOfTerms allVs (t:ts) newEs =
@@ -255,23 +399,13 @@ toHomomorphicSolvedForm sortOf eqs = let
         (_, LSortNode)      -> False
         (sl, sr)            -> sortCompare sl sr `elem` [Just EQ, Just GT]
 
--- | Helper functions
----------------------
-
--- | @sortGreaterEq v t@ returns @True@ if the sort ensures that the sort of @v@ is greater or equal to
---   the sort of @t@.
-sortCorrectForSubst :: IsConst c => (c -> LSort) -> LVar -> LTerm c -> Bool
-sortCorrectForSubst st v t = sortCompare (lvarSort v) (sortOfLTerm st t) `elem` [Just EQ, Just GT]
-
-occursVTermEq :: IsConst c => LVar -> Equal (LPETerm c) -> Bool
-occursVTermEq v (Equal eL eR) = occursVTerm v (lTerm eL) || occursVTerm v (lTerm eR)
 
 -- Homomorphic Rules Managers
 -----------------------------
 
 -- | Return type for a HomomorphicRule
 data HomomorphicRuleReturn c = HEqs [Equal (LPETerm c)]
-  | HSubstEqs (LSubst c) [Equal (LPETerm c)]
+  | HSubstEqs (LSubst c) [Equal (LPETerm c)] [Equal (LPETerm c)]
   | HNothing
   | HFail
   deriving (Show, Eq)
@@ -308,7 +442,7 @@ combineWrapperHomomorphicRule :: IsConst c => HomomorphicRule c -> HomomorphicRu
 combineWrapperHomomorphicRule rule1 rule2 eq sortOf eqs =
   case rule1 eq sortOf eqs of
     HEqs newEqs             -> HEqs newEqs
-    HSubstEqs subst newEqs  -> HSubstEqs subst newEqs
+    HSubstEqs subst newEqs solvedEqs -> HSubstEqs subst newEqs solvedEqs
     HNothing                -> rule2 eq sortOf eqs
     HFail                   -> HFail
 
@@ -343,11 +477,15 @@ stdDecompositionHomomorphicRule (Equal eL eR) _ _ =
 variableSubstitutionHomomorphicRule :: IsConst c => HomomorphicRule c
 variableSubstitutionHomomorphicRule eq sortOf eqs = let eR = lTerm $ eqRHS eq in
   case (viewTermPE $ eqLHS eq, viewTermPE $ eqRHS eq) of
-    (Lit (Var vl), _)          ->
-      if not (occursVTerm vl eR) && any (occursVTermEq vl) eqs && sortCorrectForSubst sortOf vl eR
-      then HSubstEqs (Subst $ M.fromList [(vl, eR)]) [eq]
+    (Lit (Var vl), Lit (Var vr)) | lvarSort vl == lvarSort vr ->
+      if not (occursVTerm vl eR) && occursVTermEqs vl eqs
+      then HSubstEqs (Subst $ fromList [(vl, eR)]) [] [eq]
       else HNothing
-    _                          -> HNothing
+    (Lit (Var vl), _) ->
+      if not (occursVTerm vl eR) && occursVTermEqs vl eqs && sortCorrectForSubst sortOf vl eR
+      then HSubstEqs (Subst $ fromList [(vl, eR)]) [eq] []
+      else HNothing
+    _                            -> HNothing
 
 clashHomomorphicRule :: IsConst c => HomomorphicRule c
 clashHomomorphicRule eq _ _ = let

@@ -106,54 +106,42 @@ testAllHomomorphic mhnd = TestLabel "All Homomorphic Tests" $
 
 testsMatchingHomomorphic :: MaudeHandle -> Test
 testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
-  TestList
-    [ testMatchingHomWithPrint mhnd "a" True x0 x0
-    , testMatchingHomWithPrint mhnd "b" True x1 x0
-    , testMatchingHomWithPrint mhnd "c" True (pair (x1,x2)) x0
-    , testMatchingHomWithPrint mhnd "d" True (pair (x0,x2)) x0
-    , testMatchingHomWithPrint mhnd "homdef 1" True t1 t2
-    , testMatchingHomWithPrint mhnd "homdef 2" True t2 t1
-    , testMatchingHomWithPrint mhnd "homdef1diffVars 1" True t1v0 t2
-    , testMatchingHomWithPrint mhnd "homdef1diffVars 2" False t2 t1v0
-    , testMatchingHomWithPrint mhnd "pair 1" True pair1 pair2
-    , testMatchingHomWithPrint mhnd "pair 2" False pair2 pair1
+  TestList $ map (\(testName, testOutcome, term1, term2) -> testMatchingHomWithPrint mhnd testName testOutcome term1 term2)
+    -- small examples
+    [ ("a",                 True,   x0,           x0  )
+    , ("b",                 True,   x1,           x0  )
+    , ("c",                 True,   pair(x1,x2),  x0  )
+    , ("d",                 True,   pair(x0,x2),  x0  )
+    -- bigger examples
+    , ("homdef 1",          True,   henc (pair (x0,x1), x2),              pair (henc (x0,x2), henc (x1,x2))   )
+    , ("homdef 2",          True,   pair (henc (x0,x2), henc (x1,x2)),    henc (pair (x0,x1), x2)             )
+    , ("homdef1diffVars 1", True,   henc (pair (x0,x0), x0),              pair (henc (x0,x2), henc (x1,x2))   )
+    , ("homdef1diffVars 2", False,  pair (henc (x0,x2), henc (x1,x2)),    henc (pair (x0,x0), x0)             )
+    , ("pair 1",            True,   pair (pair (x0,x0), x0),              pair (pair (x2,x3), x4)             )
+    , ("pair 2",            False,  pair (pair (x2,x3), x4),              pair (pair (x0,x0), x0)             )
     -- cases with different sorts
-    , testMatchingHomWithPrint mhnd "public 1" False x0 px0
-    , testMatchingHomWithPrint mhnd "public 2" True px0 x0
-    , testMatchingHomWithPrint mhnd "fresh 1" False x0 fx0
-    , testMatchingHomWithPrint mhnd "fresh 2" True fx0 x0
-    , testMatchingHomWithPrint mhnd "nat 1" False x0 myN1
-    , testMatchingHomWithPrint mhnd "nat 2" True myN1 x0
-    , testMatchingHomWithPrint mhnd "publicnat 1" False px0 myN1
-    , testMatchingHomWithPrint mhnd "publicnat 2" False myN1 px0
-    , testMatchingHomWithPrint mhnd "publicfresh 1" False px0 fx0
-    , testMatchingHomWithPrint mhnd "publicfresh 2" False fx0 px0
-    , testMatchingHomWithPrint mhnd "freshnat 1" False fx0 myN1
-    , testMatchingHomWithPrint mhnd "freshnat 2" False myN1 fx0
-    , testMatchingHomWithPrint mhnd "same fresh" True fx0 fx0
-    , testMatchingHomWithPrint mhnd "same nat" True myN1 myN1
-    , testMatchingHomWithPrint mhnd "same pub" True px0 px0
-    , testMatchingHomWithPrint mhnd "same fresh 2" True fx0 fx1
-    , testMatchingHomWithPrint mhnd "same nat 2" True myN1 myN2
-    , testMatchingHomWithPrint mhnd "same pub 2" True px0 px1
-    , testMatchingHomWithPrint mhnd "node 1" True myNode1 myNode1
-    , testMatchingHomWithPrint mhnd "node 2" True myNode1 myNode2
-    , testMatchingHomWithPrint mhnd "node 3" False myNode1 x0
+    , ("public 1",          False,  x0,     px0     )
+    , ("public 2",          True,   px0,    x0      )
+    , ("fresh 1",           False,  x0,     fx0     )
+    , ("fresh 2",           True,   fx0,    x0      )
+    , ("nat 1",             False,  x0,     nn1     )
+    , ("nat 2",             True,   nn1,    x0      )
+    , ("publicnat 1",       False,  px0,    nn1     )
+    , ("publicnat 2",       False,  nn1,    px0     )
+    , ("publicfresh 1",     False,  px0,    fx0     )
+    , ("publicfresh 2",     False,  fx0,    px0     )
+    , ("freshnat 1",        False,  fx0,    nn1     )
+    , ("freshnat 2",        False,  nn1,    fx0     )
+    , ("same fresh",        True,   fx0,    fx0     )
+    , ("same nat",          True,   nn1,    nn1     )
+    , ("same pub",          True,   px0,    px0     )
+    , ("same fresh 2",      True,   fx0,    fx1     )
+    , ("same nat 2",        True,   nn1,    nn2     )
+    , ("same pub 2",        True,   px0,    px1     )
+    , ("node 1",            True,   node1,  node1   )
+    , ("node 2",            True,   node1,  node2   )
+    , ("node 3",            False,  node1,  x0      )
     ]
-  where
-    t1 = henc (pair (x0,x1), x2)
-    t1v0 = henc (pair (x0,x0), x0)
-    t2 = pair (henc (x0,x2), henc (x1,x2))
-    pair1 = pair (pair (x0,x0), x0)
-    pair2 = pair (pair (x2,x3), x4)
-    henc = fAppHenc
-    hdec = fAppHdec
-    myN1 = myNatVar "n" 1
-    myN2 = myNatVar "n" 2
-    myNode1 = myNodeVar "n" 1
-    myNode2 = myNodeVar "n" 2
-    myNatVar s i = varTerm $ LVar s LSortNat i
-    myNodeVar s i = varTerm $ LVar s LSortNode i
 
 testMatchingHomWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
 testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
@@ -207,73 +195,52 @@ testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
 -- implemented in unifyHomomorphicLNTerm
 testsUnifyHomomorphic :: MaudeHandle -> Test
 testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
-  TestList
-    [ testUnifyWithPrint mhnd "trivial 1" True x0 x0
-    , testUnifyWithPrint mhnd "trivial 2" True x0 x1
-    , testUnifyWithPrint mhnd "trivial 3" False (henc (x0,x1)) x1
-    , testUnifyWithPrint mhnd "trivial 4" True x0 (henc (x1,x2))
-    , testUnifyWithPrint mhnd "trivial 5" True t1 x4
-    , testUnifyWithPrint mhnd "case 1" True (henc (t1,x0)) (henc (x5,x6))
-    , testUnifyWithPrint mhnd "def henc 1" True t1 t2
-    , testUnifyWithPrint mhnd "def henc 2" True t2 t1
-    , testUnifyWithPrint mhnd "def henc 3" True (henc (t1,x0)) (henc (t1,x0))
-    , testUnifyWithPrint mhnd "case norm 1" True pair1 pair2
-    , testUnifyWithPrint mhnd "case norm 2" True pair2 pair1
-    , testUnifyWithPrint mhnd "case norm 3" True t1v0 t2v1
-    , testUnifyWithPrint mhnd "case norm 4" True t1v0 t2v2
-    , testUnifyWithPrint mhnd "not sym homomorphic" False t1Sym t2Sym
-    , testUnifyWithPrint mhnd "norm 1" True (henc(pair(x0,x1),x2)) (henc(x3,x4))
-    , testUnifyWithPrint mhnd "norm 2" True norm1 norm2
-    , testUnifyWithPrint mhnd "norm 3" True norm3 norm4
+  TestList $ map (\(testName, testOutcome, term1, term2) -> testUnifyWithPrint mhnd testName testOutcome term1 term2)
+    [ ("1",         True,   x0,                                                             x0                                                                            )
+    , ("2",         True,   x0,                                                             x1                                                                            )
+    , ("3",         False,  henc(x0,x1),                                                    x1                                                                            )
+    , ("4",         True,   x0,                                                             henc(x1,x2)                                                                   )
+    , ("5",         True,   henc( pair (x0,x1), x2),                                        x4                                                                            )
+    , ("6",         True,   henc( henc (pair (x0,x1), x2),x0),                              henc(x5,x6)                                                                   )
+    , ("7", True, pair(x0,x0), pair(x1,x2))
+    , ("defhenc 1", True,   henc( pair (x0,x1), x2),                                        pair (henc (x0,x2), henc (x1,x2))                                             )
+    , ("defhenc 2", True,   pair( henc (x0,x2), henc (x1,x2)),                              henc (pair (x0,x1), x2)                                                       )
+    , ("defhenc 3", True,   henc( henc (pair (x0,x1), x2),x0),                              henc(henc (pair (x0,x1), x2),x0)                                              )
+    , ("symEnc 1",  False,  senc( pair (x0,x1), x2),                                        pair (senc (x0,x2), senc (x1,x2))                                             )
+    , ("norm 1",    True,   pair( pair (x0,x0), x0),                                        pair (pair (x2,x3), x4)                                                       )
+    , ("norm 2",    True,   pair( pair (x2,x3), x4),                                        pair (pair (x0,x0), x0)                                                       )
+    , ("norm 3",    True,   henc( pair (x0,x0), x0),                                        pair (henc (x1,x2), henc (x3,x4))                                             )
+    , ("norm 4",    True,   henc( pair (x0,x0), x0),                                        pair (henc (x1,x2), henc (x2,x4))                                             )
+    , ("norm 5",    True,   henc( pair (x0,x1), x2),                                        henc(x3,x4)                                                                   )
+    , ("norm 6",    True,   henc( henc (pair(x0,x1),x2),x3),pair(henc(henc(x0,x2),x3),      henc(henc(x1,x2),x3))                                                         )
+    , ("norm 7",    True,   henc( pair (henc(pair(x0,x1),x2), pair(henc(x3,x4),x5)), x6),   normHomomorphic (henc( pair(henc(pair(x0,x1),x2), pair(henc(x3,x4),x5)), x6)) )
     -- cases with different sorts
-    , testUnifyWithPrint mhnd "public 1" True x0 px0
-    , testUnifyWithPrint mhnd "public 2" True px0 x0
-    , testUnifyWithPrint mhnd "fresh 1" True x0 fx0
-    , testUnifyWithPrint mhnd "fresh 2" True fx0 x0
-    , testUnifyWithPrint mhnd "nat 1" True x0 myN1
-    , testUnifyWithPrint mhnd "nat 2" True myN1 x0
-    , testUnifyWithPrint mhnd "publicnat 1" False px0 myN1
-    , testUnifyWithPrint mhnd "publicnat 2" False myN1 px0
-    , testUnifyWithPrint mhnd "publicfresh 1" False px0 fx0
-    , testUnifyWithPrint mhnd "publicfresh 2" False fx0 px0
-    , testUnifyWithPrint mhnd "freshnat 1" False fx0 myN1
-    , testUnifyWithPrint mhnd "freshnat 2" False myN1 fx0
-    , testUnifyWithPrint mhnd "multi 1" True (pair(x0,x1)) (pair(px0,px1))
-    , testUnifyWithPrint mhnd "multi 2" True (pair(x0,px0)) (pair(px0,x0))
-    , testUnifyWithPrint mhnd "multi 3" True (pair(x0,myN1)) (pair(px0,x1))
-    , testUnifyWithPrint mhnd "same fresh" True fx0 fx0
-    , testUnifyWithPrint mhnd "same nat" True myN1 myN1
-    , testUnifyWithPrint mhnd "same pub" True px0 px0
-    , testUnifyWithPrint mhnd "same fresh 2" True fx0 fx1
-    , testUnifyWithPrint mhnd "same nat 2" True myN1 myN2
-    , testUnifyWithPrint mhnd "same pub 2" True px0 px1
-    -- timepoint cases
-    , testUnifyWithPrint mhnd "node 1" True myNode1 myNode1
-    , testUnifyWithPrint mhnd "node 2" True myNode1 myNode2
-    , testUnifyWithPrint mhnd "node 3" False myNode1 x0
+    , ("public 1",  True,   x0,           px0           )
+    , ("public 2",  True,   px0,          x0            )
+    , ("fresh 1",   True,   x0,           fx0           )
+    , ("fresh 2",   True,   fx0,          x0            )
+    , ("nat 1",     True,   x0,           nn1           )
+    , ("nat 2",     True,   nn1,          x0            )
+    , ("pubnat 1",  False,  px0,          nn1           )
+    , ("pubnat 2",  False,  nn1,          px0           )
+    , ("pubfr 1",   False,  px0,          fx0           )
+    , ("pubfr 2",   False,  fx0,          px0           )
+    , ("frnat 1",   False,  fx0,          nn1           )
+    , ("frnat 2",   False,  nn1,          fx0           )
+    , ("multi 1",   True,   pair(x0,x1),  pair(px0,px1) )
+    , ("multi 2",   True,   pair(x0,px0), pair(px0,x0)  )
+    , ("multi 3",   True,   pair(x0,nn1), pair(px0,x1)  )
+    , ("samefr",    True,   fx0,          fx0           )
+    , ("samenat",   True,   nn1,          nn1           )
+    , ("samepub",   True,   px0,          px0           )
+    , ("samefr 2",  True,   fx0,          fx1           )
+    , ("samenat 2", True,   nn1,          nn2           )
+    , ("samepub 2", True,   px0,          px1           )
+     -- timepoint cases
+    , ("node 1",    True,   node1,        node1         )
+    , ("node 2",    True,   node1,        node2         )
+    , ("node 3",    False,  node1,        x0            )
     ]
-  where
-    t1 = henc (pair (x0,x1), x2)
-    t1v0 = henc (pair (x0,x0), x0)
-    t2 = pair (henc (x0,x2), henc (x1,x2))
-    t2v1 = pair (henc (x1,x2), henc (x3,x4))
-    t2v2 = pair (henc (x1,x2), henc (x2,x4))
-    t1Sym = senc (pair (x0,x1), x2)
-    t2Sym = pair (senc (x0,x2), senc (x1,x2))
-    pair1 = pair (pair (x0,x0), x0)
-    pair2 = pair (pair (x2,x3), x4)
-    henc = fAppHenc
-    hdec = fAppHdec
-    myN1 = myNatVar "n" 1
-    myN2 = myNatVar "n" 2
-    myNode1 = myNodeVar "n" 1
-    myNode2 = myNodeVar "n" 2
-    myNatVar s i = varTerm $ LVar s LSortNat i
-    myNodeVar s i = varTerm $ LVar s LSortNode i
-    norm1 = henc(henc(pair(x0,x1),x2),x3)
-    norm2 = pair(henc(henc(x0,x2),x3), henc(henc(x1,x2),x3))
-    norm3 = henc( pair(henc(pair(x0,x1),x2), pair(henc(x3,x4),x5)), x6)
-    norm4 = normHomomorphic norm3
 
 testUnifyWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
 testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
@@ -369,8 +336,8 @@ testsUnifyHomomorphicSf _ =
     , testTrue "fromtoPRep paper2" (fromPRepresentation (buildPRepresentation tpaper2) == tpaper2)
     , testTrue "fromtoPRep paper3" (fromPRepresentation (buildPRepresentation tpaper3) == tpaper3)
     , testTrue "norm1" (normHomomorphic x0 == x0)
-    , testTrue "norm2" (normHomomorphic (pair(x0,x1)) == (pair(x0,x1)))
-    , testTrue "norm3" (normHomomorphic (henc(pair(x0,x1),x2)) == (pair(henc(x0,x2),henc(x1,x2))))
+    , testTrue "norm2" (normHomomorphic (pair(x0,x1)) == pair(x0,x1))
+    , testTrue "norm3" (normHomomorphic (henc(pair(x0,x1),x2)) == pair(henc(x0,x2),henc(x1,x2)))
     -- example:
     -- henc( henc( pair(x0,x1), k0), k1) 
     -- -> henc( pair( henc(x0,k0), henc(x1,k0) ), k1)
@@ -432,8 +399,6 @@ testsUnifyHomomorphicSf _ =
       , ("2", henc (x2,x3) ) ]
     norm1 = henc(henc(pair(x0,x1),x2),x3)
     norm2 = pair(henc(henc(x0,x2),x3), henc(henc(x1,x2),x3))
-    henc = fAppHenc
-    hdec = fAppHdec
 
 -- *****************************************************************************
 -- Tests for specific rules of the Homomorphic Unification Algorithm
@@ -459,11 +424,12 @@ testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules"
     , testTrue "std dec 2" (debugHomomorphicRule 8 tFE3 s [] == HNothing)
     , testTrue "var sub 1" (debugHomomorphicRule 6 tHE1 s [] == HNothing)
     , testTrue "var sub 2" (debugHomomorphicRule 6 tHE1 s [tE3] == HNothing)
-    , testTrue "var sub 3" (debugHomomorphicRule 6 tHE1 s [tE2] == HSubstEqs tHE1S [tHE1])
-    , testTrue "var sub 4" (debugHomomorphicRule 6 tHE1 s [tFE2] == HSubstEqs tHE1S [tHE1])
-    , testTrue "var sub 5" (debugHomomorphicRule 6 tHE2 s [] == HNothing)
-    , testTrue "var sub 6" (debugHomomorphicRule 6 tHE2 s [tE3] == HNothing)
-    , testTrue "var sub 7" (debugHomomorphicRule 6 tHE2 s [tE2] == HNothing)
+    , testTrue "var sub 3" (debugHomomorphicRule 6 tHE1 s [tE2] == HSubstEqs tHE1S [tHE1] [])
+    , testTrue "var sub 4" (debugHomomorphicRule 6 tHE1 s [tFE2] == HSubstEqs tHE1S [tHE1] [])
+    , testTrue "var sub 5" (debugHomomorphicRule 6 tE2 s [tFE2] == HSubstEqs tE2S [] [tE2])
+    , testTrue "var sub 6" (debugHomomorphicRule 6 tHE2 s [] == HNothing)
+    , testTrue "var sub 7" (debugHomomorphicRule 6 tHE2 s [tE3] == HNothing)
+    , testTrue "var sub 8" (debugHomomorphicRule 6 tHE2 s [tE2] == HNothing)
     , testTrue "clash   1" (debugHomomorphicRule 3 tFE1 s [] == HNothing)
     , testTrue "clash   2" (debugHomomorphicRule 3 tFE3 s [] == HNothing)
     , testTrue "clash   3" (debugHomomorphicRule 3 tFE4 s [] == HFail)
@@ -501,6 +467,7 @@ testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules"
     tFE6 = Equal (fH (henc (x0,x1))) (fH (henc (x0,x2)))
     tHE1 = Equal (fH x0) (fH (henc (x2,x3)))
     tHE1S = Subst $ M.fromList [(LVar "x" LSortMsg 0, henc (x2,x3))]
+    tE2S = Subst $ M.fromList [(LVar "x" LSortMsg 0, x2)]
     tHE2 = Equal (fH x0) (fH (henc (x2,x0)))
     xH1 = varTerm $ LVar "fxShapingHomomorphic" LSortFresh 1
     xH2 = varTerm $ LVar "fxShapingHomomorphic" LSortFresh 2
@@ -515,8 +482,6 @@ testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules"
     tFFE7 = Equal (fH (pair (henc (pair (x0,x1),x2),x3))) (fH (henc (x4,x6)))
     s = sortOfName
     fH = toLPETerm
-    henc = fAppHenc
-    hdec = fAppHdec
     -- shaping:  tFFE1 = Equal P [""] [[x,x.1]] E [x.2,x.3,x.4] with n = 2, m = 2
     --    Return tFFE2 = Equal P [""] [[xH.1, x.3, x.1]] E [x.2,x.3,x.4]
     --           tFFE3 = Equal x.0                       E [xH.1, x.3]

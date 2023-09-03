@@ -24,7 +24,7 @@ b +: e = fAppAC Xor [b,e]
 (++:) :: Ord a => Term a -> Term a -> Term a
 b ++: e = fAppAC NatPlus [b,e]
 
-adec, aenc, sdec, senc, sign, revealSign, rep, check_rep:: (Term a,Term a) -> Term a
+adec, aenc, sdec, senc, sign, revealSign, rep, check_rep, henc, hdec:: (Term a,Term a) -> Term a
 adec (a,b)       = fAppNoEq adecSym [a,b]
 aenc (a,b)       = fAppNoEq aencSym [a,b]
 sdec (a,b)       = fAppNoEq sdecSym [a,b]
@@ -33,6 +33,8 @@ sign (a,b)       = fAppNoEq signSym [a,b]
 revealSign (a,b) = fAppNoEq revealSignSym [a,b]
 rep (a,b)        = fAppNoEq repSym [a,b]
 check_rep (a,b)        = fAppNoEq checkRepSym [a,b]
+henc (a,b)      = fAppHenc (a,b)
+hdec (a,b)      = fAppHdec (a,b)
 
 verify, revealVerify :: (Term a,Term a,Term a) -> Term a
 verify (a,b,c) = fAppNoEq verifySym [a,b,c]
@@ -123,6 +125,34 @@ n6 = natVar "n" 6
 n7 = natVar "n" 7
 n8 = natVar "n" 8
 n9 = natVar "n" 9
+
+natVarNatSort :: String -> Integer -> LNTerm
+natVarNatSort s i = varTerm $ LVar s LSortNat i
+
+nn1,nn2,nn3,nn4,nn5,nn6,nn7,nn8,nn9 :: LNTerm
+nn1 = natVarNatSort "n" 1
+nn2 = natVarNatSort "n" 2
+nn3 = natVarNatSort "n" 3
+nn4 = natVarNatSort "n" 4
+nn5 = natVarNatSort "n" 5
+nn6 = natVarNatSort "n" 6
+nn7 = natVarNatSort "n" 7
+nn8 = natVarNatSort "n" 8
+nn9 = natVarNatSort "n" 9
+
+nodeVar :: String -> Integer -> LNTerm
+nodeVar s i = varTerm $ LVar s LSortNode i
+
+node1,node2,node3,node4,node5,node6,node7,node8,node9 :: LNTerm
+node1 = nodeVar "n" 1
+node2 = nodeVar "n" 2
+node3 = nodeVar "n" 3
+node4 = nodeVar "n" 4
+node5 = nodeVar "n" 5
+node6 = nodeVar "n" 6
+node7 = nodeVar "n" 7
+node8 = nodeVar "n" 8
+node9 = nodeVar "n" 9
 
 lx1,lx2,lx3,lx4,lx5,lx6,lx7,lx8,lx9,lx10 :: LVar
 lx1 = LVar "x" LSortMsg 1

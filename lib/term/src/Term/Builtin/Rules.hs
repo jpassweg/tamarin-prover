@@ -66,9 +66,6 @@ dhRules = S.fromList
 homRules :: Set (RRule LNTerm)
 homRules = S.fromList 
   [ hdec(henc(x1, x2), x2) `RRule` x1 ]
-  where
-    hdec = fAppHdec
-    henc = fAppHenc
 
 -- | The rewriting rules for bilinear pairing. These rules extend the
 --   the rules for Diffie-Hellman.
