@@ -13,7 +13,7 @@ module Term.Homomorphism.Unification (
 ) where
 
 import Data.Map (fromList)
-import Data.Maybe (fromMaybe, fromJust, isJust, isNothing, catMaybes)
+import Data.Maybe (fromMaybe, isJust, isNothing, catMaybes)
 import Data.Bifunctor (second)
 
 -- For data MConst
@@ -110,20 +110,20 @@ applyHomomorphicRules :: IsConst c => (c -> LSort) -> [HomomorphicRule c] -> [Eq
 applyHomomorphicRules _ [] eqs = eqs -- no more rules to apply 
 applyHomomorphicRules sortOf (rule:rules) eqs =
   case applyHomomorphicRule rule sortOf eqs [] of
-    Just (newEqs, solvedEqs) -> solvedEqs ++ applyHomomorphicRules sortOf allHomomorphicRules newEqs
-    Nothing                  -> applyHomomorphicRules sortOf rules eqs
+    Just newEqs -> applyHomomorphicRules sortOf allHomomorphicRules newEqs
+    Nothing     -> applyHomomorphicRules sortOf rules eqs
 
 -- | Applies the homomorphic rule to the first term possible in equation list or returns Nothing 
 -- if the rule is not applicable to any terms
-applyHomomorphicRule :: IsConst c => HomomorphicRule c -> (c -> LSort) -> [Equal (LPETerm c)] -> [Equal (LPETerm c)] -> Maybe ([Equal (LPETerm c)], [Equal (LPETerm c)])
+applyHomomorphicRule :: IsConst c => HomomorphicRule c -> (c -> LSort) -> [Equal (LPETerm c)] -> [Equal (LPETerm c)] -> Maybe [Equal (LPETerm c)]
 applyHomomorphicRule _ _ [] _ = Nothing
 applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
   case rule equation sortOf (passedEqs ++ equations) of
-    HEqs newEqs ->            Just (passedEqs ++ newEqs ++ equations, [])
-    HSubstEqs subst newEqs solvedEqs ->
-      Just (map (applySubstitution subst) (passedEqs ++ equations) ++ newEqs, solvedEqs)
+    HEqs newEqs ->            Just $ passedEqs ++ newEqs ++ equations
+    HSubstEqs subst newEqs ->
+      Just $ map (applySubstitution subst) (passedEqs ++ equations) ++ newEqs
     HNothing ->               applyHomomorphicRule rule sortOf equations (equation:passedEqs)
-    HFail ->                  Just ([],[])
+    HFail ->                  Just []
   where
     applySubstitution subst = fmap (toLPETerm . applyVTerm subst . lTerm)
 
@@ -179,13 +179,19 @@ moveVarLeft sortOf (Equal l r) = case (viewTerm l, viewTerm r) of
   (Lit (Var lv), Lit (Var rv)) | lvarSort lv == lvarSort rv                          -> error "moveVarLeft: Vars sort equal, no unique ordering"
   (Lit (Var lv), Lit (Var rv)) | sortCompare (lvarSort lv) (lvarSort rv) == Just GT  -> Just (lv, r)
   (Lit (Var lv), Lit (Var rv)) | sortCompare (lvarSort lv) (lvarSort rv) == Just LT  -> Just (rv, l)
-  (Lit (Var lv), Lit (Var rv)) | isNothing $ sortCompare (lvarSort lv) (lvarSort rv) -> Nothing -- No comparable sorts are not filtered out by unification algorithm
-  (Lit (Var lv), _) | sortCorrectForSubst sortOf lv r                                -> Just (lv, r)
-  (Lit (Var _ ), _)                                                                  -> Nothing -- No comparable sorts are not filtered out by unification algorithm
-  (_, Lit (Var rv)) | sortCorrectForSubst sortOf rv l                                -> Just (rv, l)
-  (_, Lit (Var _ ))                                                                  -> Nothing -- No comparable sorts are not filtered out by unification algorithm
-  (Lit (Con _), Lit (Con _))                                                         -> Nothing -- Happens in the case of Const == Const for which no rule fails
-  _                                                                                  -> error "moveVarLeft: Uncaught case"
+  (Lit (Var lv), Lit (Var rv)) | isNothing $ sortCompare (lvarSort lv) (lvarSort rv) -> error "moveVarLeft: Uncomparable sorts should have been caught"
+  (Lit (Var lv), _           ) | sortCorrectForSubst sortOf lv r                     -> Just (lv, r)
+  (Lit (Var _ ), _           )                                                       -> error "moveVarLeft: Uncomparable sorts should have been caught"
+  (_,            Lit (Var rv)) | sortCorrectForSubst sortOf rv l                     -> Just (rv, l)
+  (_,            Lit (Var _ ))                                                       -> error "moveVarLeft: Uncomparable sorts should have been caught"
+  (Lit (Con cl), Lit (Con cr)) | cl == cr                                            -> error "moveVarLeft: Equal consts should have dissapeared"
+  (Lit (Con _ ), Lit (Con _ ))                                                       -> error "moveVarLeft: Unequal consts should have been caught"
+  (Lit (Con _ ), _           )                                                       -> error "moveVarLeft: Const to Term not possible"
+  (_,            Lit (Con _ ))                                                       -> error "moveVarLeft: Const to Term not possible"
+  (FApp fl _,    FApp fr _   ) | fl == fr                                            -> error "moveVarLeft: Same functions not possible"
+  (FApp _  _,    FApp _  _   ) | isPair l && isHomEnc r || isHomEnc l && isPair r    -> Nothing -- TODO: shouldn't this be caught by algorithm
+  (FApp _  _,    FApp _  _   )                                                       -> error "moveVarLeft: Only different function symbols allowed are pair/henc"
+
 
 addOrderDubVars :: IsConst c => ([LVar], [LTerm c]) -> [(LVar, LVar)] -> Maybe [(LVar, LTerm c)]
 addOrderDubVars subst [] = Just (uncurry zip subst)
@@ -258,7 +264,7 @@ allLeftVarsNotRight subst = let (vars,terms) = unzip subst in not $ any (\v -> v
 
 -- | Return type for a HomomorphicRule
 data HomomorphicRuleReturn c = HEqs [Equal (LPETerm c)]
-  | HSubstEqs (LSubst c) [Equal (LPETerm c)] [Equal (LPETerm c)]
+  | HSubstEqs (LSubst c) [Equal (LPETerm c)]
   | HNothing
   | HFail
   deriving (Show, Eq)
@@ -280,6 +286,9 @@ allHomomorphicRules = map (\r -> combineWrapperHomomorphicRule r (switchedWrappe
   , failureTwoHomomorphicRule
   , occurCheckHomomorphicRule
   , clashHomomorphicRule
+  -- new failure rule
+  , differentConsts
+  , doSortsCompare
   -- then Homomorphic patterns   
   -- shaping best before parsing  
   , shapingHomomorphicRule
@@ -294,10 +303,10 @@ allHomomorphicRules = map (\r -> combineWrapperHomomorphicRule r (switchedWrappe
 combineWrapperHomomorphicRule :: IsConst c => HomomorphicRule c -> HomomorphicRule c -> HomomorphicRule c
 combineWrapperHomomorphicRule rule1 rule2 eq sortOf eqs =
   case rule1 eq sortOf eqs of
-    HEqs newEqs             -> HEqs newEqs
-    HSubstEqs subst newEqs solvedEqs -> HSubstEqs subst newEqs solvedEqs
-    HNothing                -> rule2 eq sortOf eqs
-    HFail                   -> HFail
+    HEqs newEqs            -> HEqs newEqs
+    HSubstEqs subst newEqs -> HSubstEqs subst newEqs
+    HNothing               -> rule2 eq sortOf eqs
+    HFail                  -> HFail
 
 -- | Since the equality sign used is not oriented, we need
 -- to look at the possibility of rule applications for 
@@ -314,13 +323,11 @@ debugHomomorphicRule i = allHomomorphicRules !! i
 -----------------------------------------
 
 trivialHomomorphicRule :: IsConst c => HomomorphicRule c
-trivialHomomorphicRule eq _ _ = if lTerm (eqLHS eq) == lTerm (eqRHS eq)
-  then HEqs []
-  else HNothing
+trivialHomomorphicRule (Equal el er) _ _ = if lTerm el == lTerm er then HEqs [] else HNothing
 
 stdDecompositionHomomorphicRule :: IsConst c => HomomorphicRule c
-stdDecompositionHomomorphicRule (Equal eL eR) _ _ =
-  case (viewTermPE eL, viewTermPE eR) of
+stdDecompositionHomomorphicRule (Equal el er) _ _ =
+  case (viewTermPE el, viewTermPE er) of
     (FApp lfsym largs, FApp rfsym rargs) ->
       if lfsym == rfsym && length largs == length rargs
       then HEqs $ zipWith (\l r -> Equal (toLPETerm l) (toLPETerm r)) largs rargs
@@ -331,14 +338,14 @@ variableSubstitutionHomomorphicRule :: IsConst c => HomomorphicRule c
 variableSubstitutionHomomorphicRule eq sortOf eqs = let eR = lTerm $ eqRHS eq in
   case (viewTermPE $ eqLHS eq, viewTermPE $ eqRHS eq) of
     (Lit (Var vl), Lit (Var vr)) | lvarSort vl == lvarSort vr ->
-      if not (occursVTerm vl eR) && occursVTermEqs vl eqs
-      then HSubstEqs (Subst $ fromList [(vl, eR)]) [] [eq]
+      if vl /= vr && occursVTermEqs vl eqs && occursVTermEqs vr eqs
+      then HSubstEqs (Subst $ fromList [(vl, eR)]) [eq]
       else HNothing
     (Lit (Var vl), _) ->
       if not (occursVTerm vl eR) && occursVTermEqs vl eqs && sortCorrectForSubst sortOf vl eR
-      then HSubstEqs (Subst $ fromList [(vl, eR)]) [eq] []
+      then HSubstEqs (Subst $ fromList [(vl, eR)]) [eq]
       else HNothing
-    _                            -> HNothing
+    _ -> HNothing
 
 clashHomomorphicRule :: IsConst c => HomomorphicRule c
 clashHomomorphicRule eq _ _ = let
@@ -361,6 +368,25 @@ occurCheckHomomorphicRule eq _ _ =
       else HNothing
     Nothing -> HNothing
 
+-- | Newly added rule
+---------------------
+
+differentConsts :: IsConst c => HomomorphicRule c
+differentConsts (Equal el er) _ _ = case (viewTermPE el, viewTermPE er) of
+  (Lit (Con cl), Lit (Con cr)) -> if cl == cr then HNothing else HFail
+  (Lit (Con _ ), Lit (Var _ )) -> HNothing
+  (Lit (Con _ ), _           ) -> HFail
+  (Lit (Var _ ), Lit (Con _ )) -> HNothing
+  (_,            Lit (Con _ )) -> HFail
+  _                            -> HNothing
+
+doSortsCompare :: IsConst c => HomomorphicRule c
+doSortsCompare (Equal el er) sortOf _ = case (viewTermPE el, viewTermPE er) of
+  (Lit (Var vl), Lit (Var vr)) -> if sortCorrectForSubst sortOf vl (lTerm er) || sortCorrectForSubst sortOf vr (lTerm el) then HNothing else HFail
+  (Lit (Var vl), _           ) -> if sortCorrectForSubst sortOf vl (lTerm er) then HNothing else HFail
+  (_,            Lit (Var vr)) -> if sortCorrectForSubst sortOf vr (lTerm el) then HNothing else HFail
+  _                            -> if isJust $ sortCompare (sortOfLTerm sortOf $ lTerm el) (sortOfLTerm sortOf $ lTerm er) then HNothing else HFail
+
 -- | Homomorphic Patterns
 -------------------------
 
@@ -375,10 +401,8 @@ shapingHomomorphicRule eq _ eqs = let
     Just qualifyingIndex -> let
       qualifyingELhs = eRepsLHS !! qualifyingIndex
       m = n + 2 - length qualifyingELhs
-      -- TODO: maybe use a more apporpriate name like same name than already used but higher ID
-      --xnew = varTerm $ LVar "fxShapingHomomorphic" LSortFresh $ gC (eq : eqs)
       x = head qualifyingELhs
-      xFresh = varTerm $ getNewSimilarVar (fromJust $ termVar x) (foldVars $ eqsToTerms $ map (fmap lTerm) (eq:eqs)) 
+      xFresh = varTerm $ getNewSimilarVar (LVar "x" LSortMsg 0) (foldVars $ eqsToTerms $ map (fmap lTerm) (eq:eqs)) 
       lhs1NewETerm = ([xFresh] ++ take (m-1) (tail eRepRHS) ++ tail qualifyingELhs)
       lhs1NewPTerm = let (ys,zs) = splitAt qualifyingIndex eRepsLHS in
         PRep strsLHS (ys ++ [lhs1NewETerm] ++ tail zs)
