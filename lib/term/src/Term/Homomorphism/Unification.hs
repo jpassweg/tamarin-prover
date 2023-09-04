@@ -184,7 +184,8 @@ moveVarLeft sortOf (Equal l r) = case (viewTerm l, viewTerm r) of
   (Lit (Var _ ), _)                                                                  -> Nothing -- No comparable sorts are not filtered out by unification algorithm
   (_, Lit (Var rv)) | sortCorrectForSubst sortOf rv l                                -> Just (rv, l)
   (_, Lit (Var _ ))                                                                  -> Nothing -- No comparable sorts are not filtered out by unification algorithm
-  _                                                                                  -> Nothing -- Happens in the case of Const == Const for which no rule fails
+  (Lit (Con _), Lit (Con _))                                                         -> Nothing -- Happens in the case of Const == Const for which no rule fails
+  _                                                                                  -> error "moveVarLeft: Uncaught case"
 
 addOrderDubVars :: IsConst c => ([LVar], [LTerm c]) -> [(LVar, LVar)] -> Maybe [(LVar, LTerm c)]
 addOrderDubVars subst [] = Just (uncurry zip subst)
