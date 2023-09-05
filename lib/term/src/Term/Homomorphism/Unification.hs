@@ -189,7 +189,12 @@ moveVarLeft sortOf (Equal l r) = case (viewTerm l, viewTerm r) of
   (Lit (Con _ ), _           )                                                       -> error "moveVarLeft: Const to Term not possible"
   (_,            Lit (Con _ ))                                                       -> error "moveVarLeft: Const to Term not possible"
   (FApp fl _,    FApp fr _   ) | fl == fr                                            -> error "moveVarLeft: Same functions not possible"
-  (FApp _  _,    FApp _  _   ) | isPair l && isHomEnc r || isHomEnc l && isPair r    -> Nothing -- TODO: shouldn't this be caught by algorithm
+  -- This is allowed, as the unification algorithm can not fail on seeing equations like 
+  -- pair(x1,x2) = henc(x3,x4) since with x1 = henc(x5,x4), x2 = henc(x6,x4) and x3 = pair(x5,x6)
+  -- this is unifiable. However, we now know that these equalities don't exist or else varsub
+  -- would have been applied.
+  -- TODO: unification algorithm should be able to apply a rule to this
+  (FApp _  _,    FApp _  _   ) | isPair l && isHomEnc r || isHomEnc l && isPair r    -> Nothing
   (FApp _  _,    FApp _  _   )                                                       -> error "moveVarLeft: Only different function symbols allowed are pair/henc"
 
 
