@@ -324,7 +324,7 @@ switchedWrapperHomomorphicRule rule eq = rule (Equal (eqRHS eq) (eqLHS eq))
 debugHomomorphicRule :: IsConst c => Int -> HomomorphicRule c
 debugHomomorphicRule i = allHomomorphicRules !! i
 
--- | Standard syntatictic inference rules
+-- | Standard syntactic inference rules
 -----------------------------------------
 
 trivialHomomorphicRule :: IsConst c => HomomorphicRule c

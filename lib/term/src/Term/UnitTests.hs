@@ -341,6 +341,10 @@ testsUnifyHomomorphicSf _ =
     , testTrue "fromtoPRep paper1" (fromPRepresentation (buildPRepresentation tpaper1) == tpaper1)
     , testTrue "fromtoPRep paper2" (fromPRepresentation (buildPRepresentation tpaper2) == tpaper2)
     , testTrue "fromtoPRep paper3" (fromPRepresentation (buildPRepresentation tpaper3) == tpaper3)
+    , testTrue "fromtoERep pair" (fromERepresentation (buildERepresentation tP1) == tP1)
+    , testTrue "fromtoERep henc" (fromERepresentation (buildERepresentation tH1) == tH1)
+    , testTrue "fromtoPRep pair" (fromPRepresentation (buildPRepresentation tP1) == tP1)
+    , testTrue "fromtoPRep henc" (fromPRepresentation (buildPRepresentation tH1) == tH1)
     , testTrue "norm1" (normHomomorphic x0 == x0)
     , testTrue "norm2" (normHomomorphic (pair(x0,x1)) == pair(x0,x1))
     , testTrue "norm3" (normHomomorphic (henc(pair(x0,x1),x2)) == pair(henc(x0,x2),henc(x1,x2)))
@@ -405,6 +409,8 @@ testsUnifyHomomorphicSf _ =
       , ("2", henc (x2,x3) ) ]
     norm1 = henc(henc(pair(x0,x1),x2),x3)
     norm2 = pair(henc(henc(x0,x2),x3), henc(henc(x1,x2),x3))
+    tH1 = henc(x0, x1)
+    tP1 = pair(x0, x1)
 
 -- *****************************************************************************
 -- Tests for specific rules of the Homomorphic Unification Algorithm
@@ -415,11 +421,13 @@ testsUnifyHomomorphicSf _ =
 --  , failureTwoHomomorphicRule             1
 --  , occurCheckHomomorphicRule             2
 --  , clashHomomorphicRule                  3
---  , shapingHomomorphicRule                4
---  , parsingHomomorphicRule                5
---  , variableSubstitutionHomomorphicRule   6
---  , trivialHomomorphicRule                7
---  , stdDecompositionHomomorphicRule]      8
+--  , differentConsts                       4
+--  , doSortsCompare                        5
+--  , shapingHomomorphicRule                6
+--  , parsingHomomorphicRule                7
+--  , variableSubstitutionHomomorphicRule   8
+--  , trivialHomomorphicRule                9
+--  , stdDecompositionHomomorphicRule]      10
 testsUnifyHomomorphicRules :: MaudeHandle -> Test
 testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules" $
   TestList
@@ -459,12 +467,13 @@ testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules"
     , testTrue "fail2   4" (debugHomomorphicRule 1 tFFE6 s [] == HNothing)
     , testTrue "fail2   5" (debugHomomorphicRule 1 tFFE7 s [] == HNothing)
     , testTrue "parsing 1" (debugHomomorphicRule 7 tFE1 s [] == HEqs [tE1, tE4])
+    --, testTrue "parsing 2" (debugHomomorphicRule 7 tFE3 s [] == HEqs [TODO])
     ]
   where
     tE1 = Equal (fH x0) (fH x0)
     tE2 = Equal (fH x0) (fH x2)
     tE3 = Equal (fH x1) (fH x3)
-    tE4 = Equal (fH x1) (fH x1)
+    tE4 = Equal (fH x1) (fH x1) 
     tFE1 = Equal (fH (henc (x0,x1))) (fH (henc (x0,x1)))
     tFE2 = Equal (fH (henc (x0,x1))) (fH (henc (x2,x3)))
     tFE3 = Equal (fH (pair (x0,x1))) (fH (henc (x2,x3)))
