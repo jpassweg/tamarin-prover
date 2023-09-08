@@ -42,6 +42,7 @@ import Extension.Prelude (sortednub)
 -----------------------------------------------------
 
 -- | matchHomomorphicLTerm
+-- TODO: need to solve the case where we transform consts back to vars and suddenly the substitution has same vars in both dom and vrange
 matchHomomorphicLTerm :: IsConst c => (c -> LSort) -> [(LTerm c, LTerm c)] -> Maybe (Subst c LVar)
 matchHomomorphicLTerm sortOf ms = let
     eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
@@ -194,7 +195,7 @@ moveVarLeft sortOf (Equal l r) = case (viewTerm l, viewTerm r) of
   -- this is unifiable. However, we now know that these equalities don't exist or else varsub
   -- would have been applied.
   -- TODO: unification algorithm should be able to apply a rule to this
-  (FApp _  _,    FApp _  _   ) | isPair l && isHomEnc r || isHomEnc l && isPair r    -> Nothing
+  -- (FApp _  _,    FApp _  _   ) | isPair l && isHomEnc r || isHomEnc l && isPair r    -> Nothing
   (FApp _  _,    FApp _  _   )                                                       -> error "moveVarLeft: Only different function symbols allowed are pair/henc"
 
 
@@ -404,13 +405,13 @@ shapingHomomorphicRule eq _ eqs = let
   strsLHS = eRepsString $ pRep $ eqLHS eq
   eRepRHS = eRep $ eqRHS eq
   n = length eRepRHS - 1
-  in if not (null eRepsLHS) && n >= 1
+  in if length eRepsLHS > 1 && n >= 1
   then case findQualifyingETerm eRepsLHS n 0 of
     Just qualifyingIndex -> let
       qualifyingELhs = eRepsLHS !! qualifyingIndex
       m = n + 2 - length qualifyingELhs
       x = head qualifyingELhs
-      -- TODO: change to name of x
+      -- TODO: change to name of x ??
       xFresh = varTerm $ getNewSimilarVar (LVar "x" LSortMsg 0) (foldVars $ eqsToTerms $ map (fmap lTerm) (eq:eqs)) 
       lhs1NewETerm = ([xFresh] ++ take (m-1) (tail eRepRHS) ++ tail qualifyingELhs)
       lhs1NewPTerm = let (ys,zs) = splitAt qualifyingIndex eRepsLHS in
