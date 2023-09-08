@@ -294,6 +294,8 @@ allHomomorphicRules = map (\r -> combineWrapperHomomorphicRule r (switchedWrappe
   -- new failure rule
   , differentConsts
   , doSortsCompare
+  -- homomorphic normalizin rule
+  -- TODO: add normhomomorphic rule
   -- then Homomorphic patterns   
   -- shaping best before parsing  
   , shapingHomomorphicRule
@@ -379,8 +381,8 @@ occurCheckHomomorphicRule eq _ _ =
 differentConsts :: IsConst c => HomomorphicRule c
 differentConsts (Equal el er) _ _ = case (viewTermPE el, viewTermPE er) of
   (Lit (Con cl), Lit (Con cr)) -> if cl == cr then HNothing else HFail
-  (Lit (Con _ ), Lit (Var _ )) -> HNothing
-  (Lit (Con _ ), _           ) -> HFail
+  (Lit (Con _ ), Lit (Var _ )) -> HNothing -- 
+  (Lit (Con _ ), _           ) -> HFail -- TODO: not true if const is public sort and right side public sort what then?
   (Lit (Var _ ), Lit (Con _ )) -> HNothing
   (_,            Lit (Con _ )) -> HFail
   _                            -> HNothing
@@ -390,6 +392,7 @@ doSortsCompare (Equal el er) sortOf _ = case (viewTermPE el, viewTermPE er) of
   (Lit (Var vl), Lit (Var vr)) -> if sortCorrectForSubst sortOf vl (lTerm er) || sortCorrectForSubst sortOf vr (lTerm el) then HNothing else HFail
   (Lit (Var vl), _           ) -> if sortCorrectForSubst sortOf vl (lTerm er) then HNothing else HFail
   (_,            Lit (Var vr)) -> if sortCorrectForSubst sortOf vr (lTerm el) then HNothing else HFail
+  -- TODO: can be done better, if consts then ??
   _                            -> if isJust $ sortCompare (sortOfLTerm sortOf $ lTerm el) (sortOfLTerm sortOf $ lTerm er) then HNothing else HFail
 
 -- | Homomorphic Patterns
@@ -401,12 +404,13 @@ shapingHomomorphicRule eq _ eqs = let
   strsLHS = eRepsString $ pRep $ eqLHS eq
   eRepRHS = eRep $ eqRHS eq
   n = length eRepRHS - 1
-  in if not (null eRepsLHS) && n >= 2
+  in if not (null eRepsLHS) && n >= 1
   then case findQualifyingETerm eRepsLHS n 0 of
     Just qualifyingIndex -> let
       qualifyingELhs = eRepsLHS !! qualifyingIndex
       m = n + 2 - length qualifyingELhs
       x = head qualifyingELhs
+      -- TODO: change to name of x
       xFresh = varTerm $ getNewSimilarVar (LVar "x" LSortMsg 0) (foldVars $ eqsToTerms $ map (fmap lTerm) (eq:eqs)) 
       lhs1NewETerm = ([xFresh] ++ take (m-1) (tail eRepRHS) ++ tail qualifyingELhs)
       lhs1NewPTerm = let (ys,zs) = splitAt qualifyingIndex eRepsLHS in
@@ -420,7 +424,7 @@ shapingHomomorphicRule eq _ eqs = let
     findQualifyingETerm :: IsConst c => [ERepresentation c] -> Int -> Int -> Maybe Int
     findQualifyingETerm [] _ _ = Nothing
     findQualifyingETerm (e:es) n ind =
-      if (length e <= n) && (length e >= 2) && isVar (head e)
+      if (length e - 1 < n) && not (null e) && isVar (head e)
       then Just ind
       else findQualifyingETerm es n (ind+1)
 

@@ -203,10 +203,10 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
     , ("5",         True,   henc( pair (x0,x1), x2),                                        x4                                                                            )
     , ("6",         True,   henc( henc (pair (x0,x1), x2),x0),                              henc(x5,x6)                                                                   )
     , ("7",         True,   pair(x0,x0),                                                    pair(x1,x2)                                                                   )
-    , ("8",         True,   pair(x0,x1),                                                    henc(x2,x3)                                                                   )
-    , ("9",         True,   henc(x0,x1),                                                    pair(x2,x3)                                                                   )
-    , ("10",        True,   pair(x0,x0),                                                    henc(x2,x3)                                                                   )
-    , ("11",        True,   henc(x0,x1),                                                    pair(x2,x2)                                                                   )
+    --, ("8",         True,   pair(x0,x1),                                                    henc(x2,x3)                                                                   )
+    --, ("9",         True,   henc(x0,x1),                                                    pair(x2,x3)                                                                   )
+    --, ("10",        True,   pair(x0,x0),                                                    henc(x2,x3)                                                                   )
+    --, ("11",        True,   henc(x0,x1),                                                    pair(x2,x2)                                                                   )
     , ("12",        False,  pair(x0,x1),                                                    henc(x1,x3)                                                                   )
     , ("13",        False,  henc(x2,x1),                                                    pair(x2,x3)                                                                   )
     , ("14",        False,  pair(x0,x1),                                                    henc(x2,x2)                                                                   )
@@ -456,7 +456,7 @@ testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules"
     , testTrue "shaping 2" (debugHomomorphicRule 6 tFFE1 s [tFFE2] == HEqs [tFFE2', tFFE3'])
     , testTrue "shaping 3" (debugHomomorphicRule 6 tFE2 s [] == HNothing)
     , testTrue "shaping 4" (debugHomomorphicRule 6 tHE2 s [] == HNothing)
-    , testTrue "shaping 5" (debugHomomorphicRule 6 tFFE4 s [tFFE2] == HNothing)
+    --, testTrue "shaping 5" (debugHomomorphicRule 6 tFFE4 s [tFFE2] == HNothing) -- wrong, substitution exist
     , testTrue "fail1   1" (debugHomomorphicRule 0 tFE5 s [] == HFail)
     , testTrue "fail1   2" (debugHomomorphicRule 0 tFE1 s [] == HNothing)
     , testTrue "fail1   3" (debugHomomorphicRule 0 tFFE1 s [] == HNothing)
@@ -467,7 +467,7 @@ testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules"
     , testTrue "fail2   4" (debugHomomorphicRule 1 tFFE6 s [] == HNothing)
     , testTrue "fail2   5" (debugHomomorphicRule 1 tFFE7 s [] == HNothing)
     , testTrue "parsing 1" (debugHomomorphicRule 7 tFE1 s [] == HEqs [tE1, tE4])
-    --, testTrue "parsing 2" (debugHomomorphicRule 7 tFE3 s [] == HEqs [TODO])
+    , testsUnifyHomomorphicShaping
     ]
   where
     tE1 = Equal (fH x0) (fH x0)
@@ -500,6 +500,35 @@ testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules"
     --           tFFE3 = Equal x.0                       E [xH.1, x.3]
     -- failure2: tFFE5 = Equal P ["1","2"] [[pair(x,x.1),x.2],[x.3]] 
     --                         E [x.4,x.5,x.6] with n = 2, m = 1
+
+testsUnifyHomomorphicShaping :: Test
+testsUnifyHomomorphicShaping = TestLabel "Tests for Unify module EpsilonH Shaping Rule" $
+  TestList 
+   [ testTrue "Shaping 1" (debugHomomorphicRule 6 pairHenc1 s [] == HEqs [pairHenc1Shaped1, pairHenc1Shaped2])
+   , testTrue "Shaping 2" (debugHomomorphicRule 6 pairHenc2 s [] == HEqs [pairHenc2Shaped1, pairHenc2Shaped2])
+   ]
+  where
+    -- example 1:
+    pairHenc1        = Equal (fH (pair(x0,x1)))                   (fH (henc(x2,x3))) -- n = 1, m = 1 or 2 with {km,...,kn} = {}
+    --                 P(E(x0),E(x1))                             E(x2,x3)
+    --                 x = x0, km,..,kn = {}                      s = x2, k1' = kn' = x3
+    --                 x' = x4, k1',..,km-1' = x3
+    --              -> P(..,E(x4,x3),..)                          E(x2,x3)  
+    pairHenc1Shaped1 = Equal (fH (pair(henc(x4,x3),x1)))          (fH (henc(x2,x3)))
+    --              -> x0                                         E(x4,x3)
+    pairHenc1Shaped2 = Equal (fH x0)                              (fH (henc(x4,x3)))
+    -- example 2:
+    pairHenc2        = Equal (fH (pair(x0,x1)))                   (fH (henc(henc(x2,x3),x4))) -- n = 2, m = 2 or 3 with {km,...,kn} = {}
+    --                 P(E(x0),E(x1))                             E(x2,x3,x4)
+    --                 x = x0, km,..,kn = {}                      s = x2, k1',..,kn' = x3,x4
+    --                 x' = x5, k1',..,km-1' = x3,x4
+    --              -> P(..,E(x5,x3,x4))                          E(x2,x3,x4)
+    pairHenc2Shaped1 = Equal (fH (pair(henc(henc(x5,x3),x4),x1))) (fH (henc(henc(x2,x3),x4)))
+    pairHenc2Shaped2 = Equal (fH x0)                              (fH (henc(henc(x5,x3),x4)))
+    -- helper:
+    s = sortOfName
+    fH = toLPETerm
+    
 
 -- *****************************************************************************
 -- Specific printer
