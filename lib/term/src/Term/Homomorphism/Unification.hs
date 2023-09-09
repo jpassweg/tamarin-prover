@@ -23,11 +23,9 @@ import Data.Data ( Data )
 import Term.Homomorphism.LPETerm
 
 import Term.LTerm (
-  LTerm, Lit(Var, Con), IsConst, LVar(..),
-  termVar, isVar, varTerm, termVar, occursVTerm, varsVTerm,
-  TermView(FApp, Lit), viewTerm, termViewToTerm,
-  isPair, isHomEnc,
-  LSort(..), sortCompare, sortOfLTerm)
+  LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..),
+  termVar, isVar, varTerm, termVar, occursVTerm, varsVTerm, viewTerm, termViewToTerm,
+  isPair, isHomEnc, sortCompare, sortOfLTerm)
 -- Lit(Var, Con), IsConst, isVar, varTerm, termVar, varsVTerm, occursVTerm come from Term.VTerm
 -- isPair, isHomEnc come from Term.Term
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
@@ -43,13 +41,15 @@ import Extension.Prelude (sortednub)
 
 -- | matchHomomorphicLTerm
 -- TODO: need to solve the case where we transform consts back to vars and suddenly the substitution has same vars in both dom and vrange
+-- Due to the switching from vars to constants we need to store the vars seperately as to not create a new var that already exists TODO: describe better
 matchHomomorphicLTerm :: IsConst c => (c -> LSort) -> [(LTerm c, LTerm c)] -> Maybe (Subst c LVar)
 matchHomomorphicLTerm sortOf ms = let
     eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
-  in case unifyHomomorphicLTerm (sortOfMConst sortOf) eqs of
+  in case unifyHomomorphicLTermWithVars (sortOfMConst sortOf) (foldVars $ eqsToTerms eqs) of
     Just (s,_) -> Just $ substFromList $ removeSubstsToSelf $ map (second fromMConst) $ substToList s
     Nothing    -> if all (uncurry (==)) ms then Just emptySubst else Nothing
 
+-- TODO: make full sanity check instead of just removeSubstsToSelf
 removeSubstsToSelf :: IsConst c => [(LVar, LTerm c)] -> [(LVar, LTerm c)]
 removeSubstsToSelf = filter (\(v,t) -> case viewTerm t of (Lit (Var vt)) | v == vt -> False; _ -> True)
 
@@ -86,6 +86,9 @@ sortOfMConst _      (MVar v) = lvarSort v
 -- Unification Algorithm using the Homomorphic Rules
 ----------------------------------------------------
 
+unifyHomomorphicLTerm :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> Maybe (LSubst c, LSubstVFresh c)
+unifyHomomorphicLTerm sortOf eqs = unifyHomomorphicLTermWithVars sortOf (foldVars $ eqsToTerms eqs) eqs
+
 -- | @unifyHomomorphicLNTerm eqs@ returns a set of unifiers for @eqs@ modulo EpsilonH.
 -- returns a substitution for terms so that they unify or an empty list 
 -- if it is not possible to unify the terms
@@ -95,9 +98,10 @@ sortOfMConst _      (MVar v) = lvarSort v
 -- Equal LNTerm = Equal { eqLHS :: LNTerm, eqRHS :: LNTerm }
 -- sortOfName :: Name -> LSort
 -- data LSort = LSortPub | LSortFresh | LSortMsg | LSortNode -- Nodes are for dependency graphs
-unifyHomomorphicLTerm :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> Maybe (LSubst c, LSubstVFresh c)
-unifyHomomorphicLTerm sortOf eqs =
-  toSubst $ map (fmap lTerm) $ applyHomomorphicRules sortOf allHomomorphicRules (map (fmap toLPETerm) eqsN)
+-- TODO: can be written more elegantly
+unifyHomomorphicLTermWithVars :: IsConst c => (c -> LSort) -> [LVar] -> [Equal (LTerm c)] -> Maybe (LSubst c, LSubstVFresh c)
+unifyHomomorphicLTermWithVars sortOf allVars eqs =
+  toSubst $ map (fmap lTerm) $ applyHomomorphicRules sortOf allVars allHomomorphicRules (map (fmap toLPETerm) eqsN)
   where
     eqsN = map (fmap normHomomorphic) eqs
     toSubst [] = if all (\eq -> eqLHS eq == eqRHS eq) eqsN then Just (emptySubst, emptySubstVFresh) else Nothing
@@ -107,24 +111,23 @@ unifyHomomorphicLTerm sortOf eqs =
 
 -- | Applies all homomorphic rules given en block, i.e., 
 -- it applies the first rule always first after each change
-applyHomomorphicRules :: IsConst c => (c -> LSort) -> [HomomorphicRule c] -> [Equal (LPETerm c)] -> [Equal (LPETerm c)]
-applyHomomorphicRules _ [] eqs = eqs -- no more rules to apply 
-applyHomomorphicRules sortOf (rule:rules) eqs =
-  case applyHomomorphicRule rule sortOf eqs [] of
-    Just newEqs -> applyHomomorphicRules sortOf allHomomorphicRules newEqs
-    Nothing     -> applyHomomorphicRules sortOf rules eqs
+applyHomomorphicRules :: IsConst c => (c -> LSort) -> [LVar] -> [HomomorphicRule c] -> [Equal (LPETerm c)] -> [Equal (LPETerm c)]
+applyHomomorphicRules _ _ [] eqs = eqs -- no more rules to apply 
+applyHomomorphicRules sortOf allVars (rule:rules) eqs =
+  case applyHomomorphicRule sortOf allVars rule eqs [] of
+    Just (newEqs, newVars) -> applyHomomorphicRules sortOf newVars allHomomorphicRules newEqs
+    Nothing                -> applyHomomorphicRules sortOf allVars rules eqs
 
 -- | Applies the homomorphic rule to the first term possible in equation list or returns Nothing 
 -- if the rule is not applicable to any terms
-applyHomomorphicRule :: IsConst c => HomomorphicRule c -> (c -> LSort) -> [Equal (LPETerm c)] -> [Equal (LPETerm c)] -> Maybe [Equal (LPETerm c)]
-applyHomomorphicRule _ _ [] _ = Nothing
-applyHomomorphicRule rule sortOf (equation:equations) passedEqs =
-  case rule equation sortOf (passedEqs ++ equations) of
-    HEqs newEqs ->            Just $ passedEqs ++ newEqs ++ equations
-    HSubstEqs subst newEqs ->
-      Just $ map (applySubstitution subst) (passedEqs ++ equations) ++ newEqs
-    HNothing ->               applyHomomorphicRule rule sortOf equations (equation:passedEqs)
-    HFail ->                  Just []
+applyHomomorphicRule :: IsConst c => (c -> LSort) -> [LVar] -> HomomorphicRule c -> [Equal (LPETerm c)] -> [Equal (LPETerm c)] -> Maybe ([Equal (LPETerm c)], [LVar])
+applyHomomorphicRule _ _ _ [] _ = Nothing
+applyHomomorphicRule sortOf allVars rule (equation:equations) passedEqs =
+  case rule equation sortOf allVars (passedEqs ++ equations) of
+    HEqs            newEqs newVars -> Just (passedEqs ++ newEqs ++ equations, allVars ++ newVars)
+    HSubstEqs subst newEqs newVars -> Just (map (applySubstitution subst) (passedEqs ++ equations) ++ newEqs, allVars ++ newVars)
+    HNothing                       -> applyHomomorphicRule sortOf allVars rule equations (equation:passedEqs)
+    HFail                          -> Just ([], allVars)
   where
     applySubstitution subst = fmap (toLPETerm . applyVTerm subst . lTerm)
 
@@ -269,8 +272,9 @@ allLeftVarsNotRight subst = let (vars,terms) = unzip subst in not $ any (\v -> v
 -----------------------------
 
 -- | Return type for a HomomorphicRule
-data HomomorphicRuleReturn c = HEqs [Equal (LPETerm c)]
-  | HSubstEqs (LSubst c) [Equal (LPETerm c)]
+data HomomorphicRuleReturn c = 
+    HEqs                 [Equal (LPETerm c)] [LVar]
+  | HSubstEqs (LSubst c) [Equal (LPETerm c)] [LVar]
   | HNothing
   | HFail
   deriving (Show, Eq)
@@ -279,7 +283,7 @@ data HomomorphicRuleReturn c = HEqs [Equal (LPETerm c)]
 -- @arg1 = equation which we try to apply the rule on
 -- @arg2 = translation from terms to sorts
 -- @arg3 = all other equations (may be needed to check if a variable occurs in them)
-type HomomorphicRule c = Equal (LPETerm c) -> (c -> LSort) -> [Equal (LPETerm c)] -> HomomorphicRuleReturn c
+type HomomorphicRule c = Equal (LPETerm c) -> (c -> LSort) -> [LVar] -> [Equal (LPETerm c)] -> HomomorphicRuleReturn c
 
 -- | All homomorphic rules in order of application
 -- All rules are added as such that they are first applied on the equation
@@ -309,12 +313,12 @@ allHomomorphicRules = map (\r -> combineWrapperHomomorphicRule r (switchedWrappe
 
 -- | Combines two rules and runs the second rule if first returns HNothing
 combineWrapperHomomorphicRule :: IsConst c => HomomorphicRule c -> HomomorphicRule c -> HomomorphicRule c
-combineWrapperHomomorphicRule rule1 rule2 eq sortOf eqs =
-  case rule1 eq sortOf eqs of
-    HEqs newEqs            -> HEqs newEqs
-    HSubstEqs subst newEqs -> HSubstEqs subst newEqs
-    HNothing               -> rule2 eq sortOf eqs
-    HFail                  -> HFail
+combineWrapperHomomorphicRule rule1 rule2 eq sortOf allVars eqs =
+  case rule1 eq sortOf allVars eqs of
+    HEqs            newEqs newVars -> HEqs            newEqs newVars
+    HSubstEqs subst newEqs newVars -> HSubstEqs subst newEqs newVars
+    HNothing                       -> rule2 eq sortOf allVars eqs
+    HFail                          -> HFail
 
 -- | Since the equality sign used is not oriented, we need
 -- to look at the possibility of rule applications for 
