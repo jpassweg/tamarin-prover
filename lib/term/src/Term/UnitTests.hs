@@ -31,6 +31,8 @@ import Control.Monad.Reader
 import Term.Homomorphism.LPETerm
 import Term.Homomorphism.Unification
 
+import Extension.Prelude (sortednub)
+
 testEqual :: (Eq a, Show a) => String -> a -> a -> Test
 testEqual t a b = TestLabel t $ TestCase $ assertEqual t b a
 
@@ -114,6 +116,7 @@ testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
     , ("c",                 True,   pair(x1,x2),  x0           )
     , ("d",                 False,  pair(x0,x2),  x0           )
     , ("e",                 False,  x0,           pair(x0,x2)  )
+    , ("f",                 False,  pair(x0,x1),  pair(x1,x2)  )
     -- bigger examples
     , ("homdef 1",          True,   henc (pair (x0,x1), x2),              pair (henc (x0,x2), henc (x1,x2))   )
     , ("homdef 2",          True,   pair (henc (x0,x2), henc (x1,x2)),    henc (pair (x0,x1), x2)             )
@@ -440,42 +443,42 @@ testsUnifyHomomorphicSf _ =
 testsUnifyHomomorphicRules :: MaudeHandle -> Test
 testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules" $
   TestList
-    [ testTrue "trivial 1" (debugHomomorphicRule 9 tE1 s (vA [tE1]) [] == HEqs [] [])
-    , testTrue "trivial 2" (debugHomomorphicRule 9 tFE1 s (vA [tFE1]) [] == HEqs [] [])
-    , testTrue "trivial 3" (debugHomomorphicRule 9 tE2 s (vA [tE2]) [] == HNothing)
-    , testTrue "std dec 1" (debugHomomorphicRule 10 tFE2 s (vA [tFE2]) [] == HEqs [tE2, tE3] [])
-    , testTrue "std dec 2" (debugHomomorphicRule 10 tFE3 s (vA [tFE3]) [] == HNothing)
-    , testTrue "var sub 1" (debugHomomorphicRule 8 tHE1 s (vA [tHE1]) [] == HNothing)
-    , testTrue "var sub 2" (debugHomomorphicRule 8 tHE1 s (vA [tHE1, tE3]) [tE3] == HNothing)
-    , testTrue "var sub 3" (debugHomomorphicRule 8 tHE1 s (vA [tHE1, tE2]) [tE2] == HSubstEqs tHE1S [tHE1] [])
-    , testTrue "var sub 4" (debugHomomorphicRule 8 tHE1 s (vA [tHE1, tFE2]) [tFE2] == HSubstEqs tHE1S [tHE1] [])
-    , testTrue "var sub 5" (debugHomomorphicRule 8 tE2 s (vA [tE2, tFE2]) [tFE2] == HSubstEqs tE2S [tE2] [])
-    , testTrue "var sub 6" (debugHomomorphicRule 8 tHE2 s (vA [tHE2]) [] == HNothing)
-    , testTrue "var sub 7" (debugHomomorphicRule 8 tHE2 s (vA [tHE2, tE3]) [tE3] == HNothing)
-    , testTrue "var sub 8" (debugHomomorphicRule 8 tHE2 s (vA [tHE2, tE2]) [tE2] == HNothing)
-    , testTrue "clash   1" (debugHomomorphicRule 3 tFE1 s (vA [tFE1]) [] == HNothing)
-    , testTrue "clash   2" (debugHomomorphicRule 3 tFE3 s (vA [tFE3]) [] == HNothing)
-    , testTrue "clash   3" (debugHomomorphicRule 3 tFE4 s (vA [tFE4]) [] == HFail)
-    , testTrue "occur   1" (debugHomomorphicRule 2 tFE4 s (vA [tFE4]) [] == HNothing)
-    , testTrue "occur   2" (debugHomomorphicRule 2 tE1 s (vA [tE1]) [] == HNothing)
-    , testTrue "occur   3" (debugHomomorphicRule 2 tE2 s (vA [tE2]) [] == HNothing)
-    , testTrue "occur   4" (debugHomomorphicRule 2 tHE1 s (vA [tHE1]) [] == HNothing)
-    , testTrue "occur   5" (debugHomomorphicRule 2 tHE2 s (vA [tHE2]) [] == HFail)
-    , testTrue "shaping 1" (debugHomomorphicRule 6 tFFE1 s (vA [tFFE1]) [] == HNothing) -- standart decomposition case
-    , testTrue "shaping 2" (debugHomomorphicRule 6 tFFE1 s (vA [tFFE1, tFFE2]) [tFFE2] == HNothing)
-    , testTrue "shaping 3" (debugHomomorphicRule 6 tFE2 s (vA [tFE2]) [] == HNothing)
-    , testTrue "shaping 4" (debugHomomorphicRule 6 tHE2 s (vA [tHE2]) [] == HNothing)
-    , testTrue "shaping 5" (debugHomomorphicRule 6 tFFE4 s (vA [tFFE4, tFFE2]) [tFFE2] == HNothing)
-    , testTrue "fail1   1" (debugHomomorphicRule 0 tFE5 s (vA [tFE5]) [] == HFail)
-    , testTrue "fail1   2" (debugHomomorphicRule 0 tFE1 s (vA [tFE1]) [] == HNothing)
-    , testTrue "fail1   3" (debugHomomorphicRule 0 tFFE1 s (vA [tFFE1]) [] == HNothing)
-    , testTrue "fail1   4" (debugHomomorphicRule 0 tFE6 s (vA [tFE6]) [] == HNothing)
-    , testTrue "fail2   1" (debugHomomorphicRule 1 tFFE5 s (vA [tFFE5]) [] == HFail)
-    , testTrue "fail2   2" (debugHomomorphicRule 1 tFFE1 s (vA [tFFE1]) [] == HNothing)
-    , testTrue "fail2   3" (debugHomomorphicRule 1 tE1 s (vA [tE1]) [] == HNothing)
-    , testTrue "fail2   4" (debugHomomorphicRule 1 tFFE6 s (vA [tFFE6]) [] == HNothing)
-    , testTrue "fail2   5" (debugHomomorphicRule 1 tFFE7 s (vA [tFFE7]) [] == HNothing)
-    , testTrue "parsing 1" (debugHomomorphicRule 7 tFE1 s (vA [tFE1]) [] == HEqs [tE1, tE4] [])
+    [ testTrue "trivial 1" (debugHomomorphicRule 9 tE1 s ([], vA [tE1]) == HEqs ([],[]) )
+    , testTrue "trivial 2" (debugHomomorphicRule 9 tFE1 s ([], vA [tFE1]) == HEqs ([],[]) )
+    , testTrue "trivial 3" (debugHomomorphicRule 9 tE2 s ([], vA [tE2]) == HNothing)
+    , testTrue "std dec 1" (debugHomomorphicRule 10 tFE2 s ([], vA [tFE2]) == HEqs ([tE2, tE3],[]) )
+    , testTrue "std dec 2" (debugHomomorphicRule 10 tFE3 s ([], vA [tFE3]) == HNothing)
+    , testTrue "var sub 1" (debugHomomorphicRule 8 tHE1 s ([], vA [tHE1]) == HNothing)
+    , testTrue "var sub 2" (debugHomomorphicRule 8 tHE1 s ([tE3], vA [tHE1, tE3]) == HNothing)
+    , testTrue "var sub 3" (debugHomomorphicRule 8 tHE1 s ([tE2], vA [tHE1, tE2]) == HSubstEqs tHE1S ([tHE1],[]) )
+    , testTrue "var sub 4" (debugHomomorphicRule 8 tHE1 s ([tFE2], vA [tHE1, tFE2]) == HSubstEqs tHE1S ([tHE1],[]) )
+    , testTrue "var sub 5" (debugHomomorphicRule 8 tE2 s ([tFE2], vA [tE2, tFE2]) == HSubstEqs tE2S ([tE2],[]) )
+    , testTrue "var sub 6" (debugHomomorphicRule 8 tHE2 s ([], vA [tHE2]) == HNothing)
+    , testTrue "var sub 7" (debugHomomorphicRule 8 tHE2 s ([tE3], vA [tHE2, tE3]) == HNothing)
+    , testTrue "var sub 8" (debugHomomorphicRule 8 tHE2 s ([tE2], vA [tHE2, tE2]) == HNothing)
+    , testTrue "clash   1" (debugHomomorphicRule 3 tFE1 s ([], vA [tFE1]) == HNothing)
+    , testTrue "clash   2" (debugHomomorphicRule 3 tFE3 s ([], vA [tFE3]) == HNothing)
+    , testTrue "clash   3" (debugHomomorphicRule 3 tFE4 s ([], vA [tFE4]) == HFail)
+    , testTrue "occur   1" (debugHomomorphicRule 2 tFE4 s ([], vA [tFE4]) == HNothing)
+    , testTrue "occur   2" (debugHomomorphicRule 2 tE1 s ([], vA [tE1]) == HNothing)
+    , testTrue "occur   3" (debugHomomorphicRule 2 tE2 s ([], vA [tE2]) == HNothing)
+    , testTrue "occur   4" (debugHomomorphicRule 2 tHE1 s ([], vA [tHE1]) == HNothing)
+    , testTrue "occur   5" (debugHomomorphicRule 2 tHE2 s ([], vA [tHE2]) == HFail)
+    , testTrue "shaping 1" (debugHomomorphicRule 6 tFFE1 s ([], vA [tFFE1]) == HNothing) -- resolved by standard decomposition rule
+    , testTrue "shaping 2" (debugHomomorphicRule 6 tFFE1 s ([tFFE2], vA [tFFE1, tFFE2]) == HNothing)
+    , testTrue "shaping 3" (debugHomomorphicRule 6 tFE2 s ([], vA [tFE2]) == HNothing)
+    , testTrue "shaping 4" (debugHomomorphicRule 6 tHE2 s ([], vA [tHE2]) == HNothing)
+    , testTrue "shaping 5" (debugHomomorphicRule 6 tFFE4 s ([tFFE2], vA [tFFE4, tFFE2]) == HNothing)
+    , testTrue "fail1   1" (debugHomomorphicRule 0 tFE5 s ([], vA [tFE5]) == HFail)
+    , testTrue "fail1   2" (debugHomomorphicRule 0 tFE1 s ([], vA [tFE1]) == HNothing)
+    , testTrue "fail1   3" (debugHomomorphicRule 0 tFFE1 s ([], vA [tFFE1]) == HNothing)
+    , testTrue "fail1   4" (debugHomomorphicRule 0 tFE6 s ([], vA [tFE6]) == HNothing)
+    , testTrue "fail2   1" (debugHomomorphicRule 1 tFFE5 s ([], vA [tFFE5]) == HFail)
+    , testTrue "fail2   2" (debugHomomorphicRule 1 tFFE1 s ([], vA [tFFE1]) == HNothing)
+    , testTrue "fail2   3" (debugHomomorphicRule 1 tE1 s ([], vA [tE1]) == HNothing)
+    , testTrue "fail2   4" (debugHomomorphicRule 1 tFFE6 s ([], vA [tFFE6]) == HNothing)
+    , testTrue "fail2   5" (debugHomomorphicRule 1 tFFE7 s ([], vA [tFFE7]) == HNothing)
+    , testTrue "parsing 1" (debugHomomorphicRule 7 tFE1 s ([], vA [tFE1]) == HEqs ([tE1, tE4],[]) )
     , testsUnifyHomomorphicShaping
     ]
   where
@@ -490,8 +493,8 @@ testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules"
     tFE5 = Equal (fH (pair (x0,x1))) (fH (henc (x0,x3))) -- out of phase on t5
     tFE6 = Equal (fH (henc (x0,x1))) (fH (henc (x0,x2)))
     tHE1 = Equal (fH x0) (fH (henc (x2,x3)))
-    tHE1S = Subst $ M.fromList [(LVar "x" LSortMsg 0, henc (x2,x3))]
-    tE2S = Subst $ M.fromList [(LVar "x" LSortMsg 0, x2)]
+    tHE1S = [(LVar "x" LSortMsg 0, henc (x2,x3))]
+    tE2S = [(LVar "x" LSortMsg 0, x2)]
     tHE2 = Equal (fH x0) (fH (henc (x2,x0)))
     tFFE1 = Equal (fH (henc (x0,x1))) (fH (henc (henc (x2,x3),x4)))
     tFFE2 = Equal (fH (henc (henc (x5,x3),x1))) (fH (henc (henc (x2,x3),x4)))
@@ -504,7 +507,7 @@ testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules"
     tFFE7 = Equal (fH (pair (henc (pair (x0,x1),x2),x3))) (fH (henc (x4,x6)))
     s = sortOfName
     fH = toLPETerm
-    vA = foldVars . map lTerm . eqsToTerms
+    vA = sortednub . concatMap (varsVTerm . lTerm) . concatMap (\(Equal l r) -> [l,r])
     -- shaping:  tFFE1 = Equal P [""] [[x,x.1]] E [x.2,x.3,x.4] with n = 2, m = 2
     --    Return tFFE2 = Equal P [""] [[xH.1, x.3, x.1]] E [x.2,x.3,x.4]
     --           tFFE3 = Equal x.0                       E [xH.1, x.3]
@@ -514,31 +517,36 @@ testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules"
 testsUnifyHomomorphicShaping :: Test
 testsUnifyHomomorphicShaping = TestLabel "Tests for Unify module EpsilonH Shaping Rule" $
   TestList 
-   [ testTrue "Shaping 1" (debugHomomorphicRule 6 pairHenc1 s (vA [pairHenc1]) [] == HEqs [pairHenc1Shaped1, pairHenc1Shaped2] [LVar "x" LSortMsg 4])
-   , testTrue "Shaping 2" (debugHomomorphicRule 6 pairHenc2 s (vA [pairHenc2]) [] == HEqs [pairHenc2Shaped1, pairHenc2Shaped2] [LVar "x" LSortMsg 5])
+   [ testTrue "Shaping 1" (debugHomomorphicRule 6 pairHenc1 s ([], vA [pairHenc1]) == HEqs ([pairHenc1Shaped1, pairHenc1Shaped2], [sh1V]))
+   , testTrue "Shaping 2" (debugHomomorphicRule 6 pairHenc2 s ([], vA [pairHenc2]) == HEqs ([pairHenc2Shaped1, pairHenc2Shaped2], [sh1V]))
    ]
   where
     -- example 1:
-    pairHenc1        = Equal (fH (pair(x0,x1)))                   (fH (henc(x2,x3))) -- n = 1, m = 1 or 2 with {km,...,kn} = {}
-    --                 P(E(x0),E(x1))                             E(x2,x3)
-    --                 x = x0, km,..,kn = {}                      s = x2, k1' = kn' = x3
-    --                 x' = x4, k1',..,km-1' = x3
-    --              -> P(..,E(x4,x3),..)                          E(x2,x3)  
-    pairHenc1Shaped1 = Equal (fH (pair(henc(x4,x3),x1)))          (fH (henc(x2,x3)))
-    --              -> x0                                         E(x4,x3)
-    pairHenc1Shaped2 = Equal (fH x0)                              (fH (henc(x4,x3)))
+    pairHenc1        = Equal (fH (pair(x0,x1)))                     (fH (henc(x2,x3))) -- n = 1, m = 1 or 2 with {km,...,kn} = {}
+    --                 P(E(x0),E(x1))                               E(x2,x3)
+    --                 x = x0, km,..,kn = {}                        s = x2, k1' = kn' = x3
+    --                 x' = sh1, k1',..,km-1' = x3
+    --              -> P(..,E(sh1,x3),..)                           E(x2,x3)  
+    pairHenc1Shaped1 = Equal (fH (pair(henc(sh1,x3),x1)))           (fH (henc(x2,x3)))
+    --              -> x0                                           E(sh1,x3)
+    pairHenc1Shaped2 = Equal (fH x0)                                (fH (henc(sh1,x3)))
     -- example 2:
-    pairHenc2        = Equal (fH (pair(x0,x1)))                   (fH (henc(henc(x2,x3),x4))) -- n = 2, m = 2 or 3 with {km,...,kn} = {}
-    --                 P(E(x0),E(x1))                             E(x2,x3,x4)
-    --                 x = x0, km,..,kn = {}                      s = x2, k1',..,kn' = x3,x4
-    --                 x' = x5, k1',..,km-1' = x3,x4
-    --              -> P(..,E(x5,x3,x4))                          E(x2,x3,x4)
-    pairHenc2Shaped1 = Equal (fH (pair(henc(henc(x5,x3),x4),x1))) (fH (henc(henc(x2,x3),x4)))
-    pairHenc2Shaped2 = Equal (fH x0)                              (fH (henc(henc(x5,x3),x4)))
+    pairHenc2        = Equal (fH (pair(x0,x1)))                     (fH (henc(henc(x2,x3),x4))) -- n = 2, m = 2 or 3 with {km,...,kn} = {}
+    --                 P(E(x0),E(x1))                               E(x2,x3,x4)
+    --                 x = x0, km,..,kn = {}                        s = x2, k1',..,kn' = x3,x4
+    --                 x' = sh1, k1',..,km-1' = x3,x4
+    --              -> P(..,E(sh1,x3,x4))                           E(x2,x3,x4)
+    pairHenc2Shaped1 = Equal (fH (pair(henc(henc(sh1,x3),x4),x1)))  (fH (henc(henc(x2,x3),x4)))
+    pairHenc2Shaped2 = Equal (fH x0)                                (fH (henc(henc(sh1,x3),x4)))
+    -- vars
+    sh1V = LVar "sh" LSortMsg 1 
+    sh1 = varTerm sh1V
+    sh2V = LVar "sh" LSortMsg 2
+    sh2 = varTerm sh2V
     -- helper:
     s = sortOfName
     fH = toLPETerm
-    vA = foldVars . map lTerm . eqsToTerms
+    vA = sortednub . concatMap (varsVTerm . lTerm) . concatMap (\(Equal l r) -> [l,r])
     
 
 -- *****************************************************************************
