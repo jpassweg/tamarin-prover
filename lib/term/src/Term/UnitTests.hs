@@ -255,6 +255,14 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
     , ("node 1",    True,   node1,        node1         )
     , ("node 2",    True,   node1,        node2         )
     , ("node 3",    False,  node1,        x0            )
+    -- shaping and parsing
+    , ("shapa 1",   True,   pair(x0,x1),                    henc(x2,x3))
+    , ("shapa 2",   True,   pair(x0,x1),                    henc(henc(x2,x3),x4))
+    , ("shapa 3",   True,   pair(henc(x0,x1),x2),           henc(henc(x3,x4),x5))
+    , ("shapa 4",   True,   pair(henc(henc(x0,x1),x2),x3),  henc(henc(henc(x4,x5),x6),x7))
+    , ("shapa 5",   True,   pair(henc(x0,x1),x2),           henc(x3,x4))
+    , ("shapa 6",   True,   pair(henc(henc(x0,x1),x2),x3),  henc(x4,x5))
+    , ("shapa 7",   True,   pair(henc(henc(x0,x1),x2),x3),  henc(henc(x4,x5),x6))   
     ]
 
 testUnifyWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
