@@ -127,6 +127,7 @@ testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
     , ("homdef1diffVars 2", False,  pair (henc (x0,x2), henc (x1,x2)),    henc (pair (x0,x0), x0)             )
     , ("pair 1",            True,   pair (pair (x0,x0), x0),              pair (pair (x2,x3), x4)             )
     , ("pair 2",            False,  pair (pair (x2,x3), x4),              pair (pair (x0,x0), x0)             )
+    , ("pair 3",            True,   pair(pair(x0,x1),pair(x2,x3)),        pair(pair(x1,x2),pair(x3,x4))       )
     -- cases with different sorts
     , ("public 1",          False,  x0,     px0     )
     , ("public 2",          True,   px0,    x0      )
@@ -148,7 +149,8 @@ testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
     , ("same pub 2",        True,   px0,    px1     )
     , ("node 1",            True,   node1,  node1   )
     , ("node 2",            True,   node1,  node2   )
-    , ("node 3",            False,  node1,  x0      )
+    -- Note: lnMatching will throw error
+    -- , ("node 3",            False,  node1,  x0      )
     ]
 
 testMatchingHomWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
@@ -171,8 +173,10 @@ testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
     ++ "------ END TEST PRINTER ------"
     ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n"
   ) (
-    caseOutcome == substHMatches &&   -- equal to expected outcome
-    caseOutcome == (t1N == t2NSubstH) -- terms equal after norming
+       caseOutcome == substHMatches      -- equal to expected outcome
+    && caseOutcome == (t1N == t2NSubstH) -- terms equal after norming
+    -- if matching without homomorphic rules works then so should it with those rules
+    && (not lnMatches || substHMatches)  -- lnMatches implies substHMatches
   )
   where
     t1N = normHomomorphic t1
@@ -180,6 +184,7 @@ testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
 
     substs = solveMatchLNTerm (t1 `matchWith` t2) `runReader` mhnd
     numMatchers = length substs
+    lnMatches = not (null substs)
     subst = safeHead substs
 
     substH = matchHomomorphicLTerm sortOfName [(t1N, t2N)]
@@ -221,6 +226,7 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
     , ("15",        True,   henc(x0,x0),                                                    pair(x2,x3)                                                                   )
     , ("16",        False,  pair(x0,x1),                                                    henc(x2,x0)                                                                   )
     , ("17",        False,  henc(x0,x2),                                                    pair(x2,x3)                                                                   )    
+    , ("18",        True,   pair(pair(x0,x1),pair(x2,x3)),                                  pair(pair(x1,x2),pair(x3,x4))                                                 )
     , ("defhenc 1", True,   henc( pair (x0,x1), x2),                                        pair (henc (x0,x2), henc (x1,x2))                                             )
     , ("defhenc 2", True,   pair( henc (x0,x2), henc (x1,x2)),                              henc (pair (x0,x1), x2)                                                       )
     , ("defhenc 3", True,   henc( henc (pair (x0,x1), x2),x0),                              henc(henc (pair (x0,x1), x2),x0)                                              )
@@ -257,7 +263,8 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
      -- timepoint cases
     , ("node 1",    True,   node1,        node1         )
     , ("node 2",    True,   node1,        node2         )
-    , ("node 3",    False,  node1,        x0            )
+    -- Note: lnUnfify will throw error
+    -- , ("node 3",    False,  node1,        x0            )
     -- shaping and parsing
     , ("shapa 1",   True,   pair(x0,x1),                    henc(x2,x3))
     , ("shapa 2",   True,   pair(x0,x1),                    henc(henc(x2,x3),x4))
@@ -292,19 +299,24 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
     ++ "Note:          x.2 <~ x means x is being replaced by x.2" ++ "\n"
     ++ "------ END TEST PRINTER ------"
   ) (
-    caseOutcome == substHUnifies &&               -- unification found
-    caseOutcome == (t1NSubstH == t2NSubstH) &&    -- normed terms equal after unification
-    caseOutcome == (t1NSubstH' == t2NSubstH') &&  -- freshToAvoid does not change the outcome
-    isCorrectPreSubst orgVars substForm' &&
-    isCorrectPreSubst orgVars substFormFreeAvoid' &&
-    isCorrectFreeAvoidSubst orgVars substForm' substFormFreeAvoid' &&
-    isCorrectSubst orgVars substH
+       caseOutcome == substHUnifies              -- unification found
+    && caseOutcome == (t1NSubstH == t2NSubstH)   -- normed terms equal after unification
+    && caseOutcome == (t1NSubstH' == t2NSubstH') -- freshToAvoid does not change the outcome
+    -- if unifying without homomorphic rules works then so should it with those rules
+    && (not lnUnifies || substHUnifies)          -- lnUnifies implies substHUnifies
+    -- multiples other tests if the unification was done correctly
+    -- needs to be changed if unifyHomomorphicLTerm changes
+    && isCorrectPreSubst orgVars substForm'
+    && isCorrectPreSubst orgVars substFormFreeAvoid'
+    && isCorrectFreeAvoidSubst orgVars substForm' substFormFreeAvoid'
+    && isCorrectSubst orgVars substH
   )
   where
     substs = unifyLTerm sortOfName [Equal t1 t2] `runReader` mhnd
     numUnifiers = length substs
     subst = safeHead substs
     subst' = freshToFreeAvoiding subst [t1,t2]
+    lnUnifies = not (null substs)
 
     substHUnifier = unifyHomomorphicLTerm sortOfName [Equal t1 t2]
     substH = case substHUnifier of

@@ -41,9 +41,10 @@ import Extension.Prelude (sortednub)
 -- | matchHomomorphicLTerm
 -- NOTE: Tamarin does allow matching pair(x0,x1) with pair(x1,x0) even though the substitution
 -- x0 <~ x1, x1 <~ x0 is not allowed in unification.
--- NOTE: orgVars are given to unifyHomomorphicLTermWithVars such that when creating new 
--- variables, unifyHomomorphicLTermWithVars can also take into account the variables 
--- that we turned into Consts in toMConstA.
+-- NOTE: The variables orgVars are given to unifyHomomorphicLTermWithVars such that when 
+-- creating new variables, unifyHomomorphicLTermWithVars can also take into account the 
+-- variables that we turned into Consts in toMConstA.
+-- NOTE: Id-substitutions (like x0 <~ x0) are being removed by the substFromList function.
 matchHomomorphicLTerm :: IsConst c => (c -> LSort) -> [(LTerm c, LTerm c)] -> Maybe (LSubst c)
 matchHomomorphicLTerm sortOf ms = let
   sO = sortOfMConst sortOf
@@ -51,7 +52,7 @@ matchHomomorphicLTerm sortOf ms = let
   orgVars = foldVars $ foldr (\(t,p) vs -> t:p:vs) [] ms
   orgLVars = foldVars $ map snd ms
   unifier = unifyHomomorphicLTermWithVars sO (eqs, orgVars)
-  in toSingleSubst =<< cleanupSubst =<< substFromMConst =<< toSubstForm sO orgLVars =<< unifier
+  in toSingleSubst =<< substFromMConst =<< toSubstForm sO orgLVars =<< unifier
 
 -- Unification Algorithm Wrapper
 --------------------------------
@@ -247,15 +248,14 @@ allHomomorphicRules = map (\r -> combineWrapperHomomorphicRule r (switchedWrappe
   , failureTwoHomomorphicRule
   , occurCheckHomomorphicRule
   , clashHomomorphicRule
-  -- new failure rule
+  -- new failure rules
   , differentConsts
   , doSortsCompare
-  -- homomorphic normalizin rule
-  -- then Homomorphic patterns   
+  -- then homomorphic patterns   
   -- shaping best before parsing  
   , shapingHomomorphicRule
   , parsingHomomorphicRule
-  -- varSub en block with Homorphic patterns
+  -- varSub en block with homorphic patterns
   , variableSubstitutionHomomorphicRule
   -- then other rules
   , trivialHomomorphicRule
@@ -449,12 +449,3 @@ catMaybesWFail = mapMaybe (\case MJust s -> Just s; _ -> Nothing)
 
 isMFail :: MaybeWFail a -> Bool
 isMFail = \case MFail -> True; _ -> False
-
--- | Cleanup
-------------
-
-cleanupSubst :: IsConst c => PreSubst c -> Maybe (PreSubst c)
-cleanupSubst subst = let cleanSubst = first removeEqsToSelf subst in Just cleanSubst
-
-removeEqsToSelf :: IsConst c => [(LVar, LTerm c)] -> [(LVar, LTerm c)]
-removeEqsToSelf = filter (\(v,t) -> varTerm v /= t)
