@@ -518,11 +518,12 @@ testsUnifyHomomorphicShaping :: Test
 testsUnifyHomomorphicShaping = TestLabel "Tests for Unify module EpsilonH Shaping Rule" $
   TestList 
    [ testTrue "Shaping 1" (debugHomomorphicRule 6 pairHenc1 s ([], vA [pairHenc1]) == HEqs ([pairHenc1Shaped1, pairHenc1Shaped2], [sh1V]))
-   , testTrue "Shaping 2" (debugHomomorphicRule 6 pairHenc2 s ([], vA [pairHenc2]) == HEqs ([pairHenc2Shaped1, pairHenc2Shaped2], [sh1V]))
+   , testTrue "Shaping 2" (debugHomomorphicRule 6 pairHenc2 s ([], vA [pairHenc2]) == HEqs ([pairHenc2Shaped1, pairHenc2Shaped2], [sh2V]))
    ]
   where
     -- example 1:
-    pairHenc1        = Equal (fH (pair(x0,x1)))                     (fH (henc(x2,x3))) -- n = 1, m = 1 or 2 with {km,...,kn} = {}
+     -- n = 1, m = 2
+    pairHenc1        = Equal (fH (pair(x0,x1)))                     (fH (henc(x2,x3)))
     --                 P(E(x0),E(x1))                               E(x2,x3)
     --                 x = x0, km,..,kn = {}                        s = x2, k1' = kn' = x3
     --                 x' = sh1, k1',..,km-1' = x3
@@ -531,17 +532,18 @@ testsUnifyHomomorphicShaping = TestLabel "Tests for Unify module EpsilonH Shapin
     --              -> x0                                           E(sh1,x3)
     pairHenc1Shaped2 = Equal (fH x0)                                (fH (henc(sh1,x3)))
     -- example 2:
-    pairHenc2        = Equal (fH (pair(x0,x1)))                     (fH (henc(henc(x2,x3),x4))) -- n = 2, m = 2 or 3 with {km,...,kn} = {}
+     -- n = 2, m = 3
+    pairHenc2        = Equal (fH (pair(x0,x1)))                     (fH (henc(henc(x2,x3),x4)))
     --                 P(E(x0),E(x1))                               E(x2,x3,x4)
     --                 x = x0, km,..,kn = {}                        s = x2, k1',..,kn' = x3,x4
-    --                 x' = sh1, k1',..,km-1' = x3,x4
-    --              -> P(..,E(sh1,x3,x4))                           E(x2,x3,x4)
-    pairHenc2Shaped1 = Equal (fH (pair(henc(henc(sh1,x3),x4),x1)))  (fH (henc(henc(x2,x3),x4)))
-    pairHenc2Shaped2 = Equal (fH x0)                                (fH (henc(henc(sh1,x3),x4)))
+    --                 x' = sh2, k1',..,km-1' = x3,x4
+    --              -> P(..,E(sh2,x3,x4))                           E(x2,x3,x4)
+    pairHenc2Shaped1 = Equal (fH (pair(henc(henc(sh2,x3),x4),x1)))  (fH (henc(henc(x2,x3),x4)))
+    pairHenc2Shaped2 = Equal (fH x0)                                (fH (henc(henc(sh2,x3),x4)))
     -- vars
-    sh1V = LVar "sh" LSortMsg 1 
+    sh1V = LVar "sh" LSortMsg 4
     sh1 = varTerm sh1V
-    sh2V = LVar "sh" LSortMsg 2
+    sh2V = LVar "sh" LSortMsg 5
     sh2 = varTerm sh2V
     -- helper:
     s = sortOfName

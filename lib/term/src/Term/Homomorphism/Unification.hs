@@ -21,7 +21,7 @@ import Term.Homomorphism.MConst
 
 import Term.LTerm (
   LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..),
-  termVar, isVar, varTerm, termVar, occursVTerm, varsVTerm, viewTerm,
+  isVar, varTerm, occursVTerm, varsVTerm, viewTerm,
   isPair, isHomEnc, sortCompare, sortOfLTerm)
 -- Lit(Var, Con), IsConst, isVar, varTerm, termVar, varsVTerm, occursVTerm come from Term.VTerm
 -- isPair, isHomEnc come from Term.Term
@@ -280,57 +280,46 @@ debugHomomorphicRule i = allHomomorphicRules !! i
 -----------------------------------------
 
 trivialHomomorphicRule :: IsConst c => HomomorphicRule c
-trivialHomomorphicRule (Equal el er) _ _ = if lTerm el == lTerm er then HEqs ([],[]) else HNothing
+trivialHomomorphicRule (Equal eL eR) _ _ = if lTerm eL == lTerm eR then HEqs ([],[]) else HNothing
 
 stdDecompositionHomomorphicRule :: IsConst c => HomomorphicRule c
-stdDecompositionHomomorphicRule (Equal el er) _ _ =
-  case (viewTermPE el, viewTermPE er) of
-    (FApp lfsym largs, FApp rfsym rargs) ->
-      if lfsym == rfsym && length largs == length rargs
-      then HEqs (zipWith (\l r -> Equal (toLPETerm l) (toLPETerm r)) largs rargs, [])
-      else HNothing
-    (_,_) -> HNothing
+stdDecompositionHomomorphicRule (Equal eL eR) _ _ =
+  case (viewTermPE eL, viewTermPE eR) of
+    (FApp lfsym largs, FApp rfsym rargs) | lfsym == rfsym && length largs == length rargs 
+      -> HEqs (zipWith (\l r -> Equal (toLPETerm l) (toLPETerm r)) largs rargs, [])
+    _ -> HNothing
 
 variableSubstitutionHomomorphicRule :: IsConst c => HomomorphicRule c
-variableSubstitutionHomomorphicRule eq sortOf (eqs,_) = let eR = lTerm $ eqRHS eq in
-  case (viewTermPE $ eqLHS eq, viewTermPE $ eqRHS eq) of
+variableSubstitutionHomomorphicRule (Equal eL eR) sortOf (eqs,_) = let tR = lTerm eR in
+  case (viewTermPE eL, viewTermPE eR) of
     (Lit (Var vl), Lit (Var vr)) | lvarSort vl == lvarSort vr ->
       if vl /= vr && occursVTermEqs vl eqs && occursVTermEqs vr eqs
-      then HSubstEqs [(vl, eR)] ([eq],[])
+      then HSubstEqs [(vl, tR)] ([Equal eL eR],[])
       else HNothing
     (Lit (Var vl), _) ->
-      if not (occursVTerm vl eR) && occursVTermEqs vl eqs && sortCorrectForSubst sortOf vl eR
-      then HSubstEqs [(vl, eR)] ([eq],[])
+      if not (occursVTerm vl tR) && occursVTermEqs vl eqs && sortCorrectForSubst sortOf vl tR
+      then HSubstEqs [(vl, tR)] ([Equal eL eR],[])
       else HNothing
     _ -> HNothing
 
 clashHomomorphicRule :: IsConst c => HomomorphicRule c
-clashHomomorphicRule eq _ _ = let
-    tL = lTerm $ eqLHS eq
-    tR = lTerm $ eqRHS eq
-  in case (viewTerm tL, viewTerm tR) of
-    (FApp lfsym _, FApp rfsym _) ->
-      if lfsym == rfsym || (isPair tL && isHomEnc tR) || (isHomEnc tL && isPair tR)
-      then HNothing
-      else HFail
-    (_,_) -> HNothing
+clashHomomorphicRule (Equal eL eR) _ _ = let tL = lTerm eL; tR = lTerm eR
+  in case (viewTermPE eL, viewTermPE eR) of
+    (FApp lfsym _, FApp rfsym _) | lfsym /= rfsym && not (isPair tL && isHomEnc tR) && not (isHomEnc tL && isPair tR)
+      -> HFail
+    _ -> HNothing
 
 occurCheckHomomorphicRule :: IsConst c => HomomorphicRule c
-occurCheckHomomorphicRule eq _ _ =
-  case termVar $ lTerm $ eqLHS eq of
-    Just v  -> if
-        (lTerm (eqLHS eq) /= lTerm (eqRHS eq))
-        && occursVTerm v (lTerm $ eqRHS eq)
-      then HFail
-      else HNothing
-    Nothing -> HNothing
+occurCheckHomomorphicRule (Equal tL tR) _ _ = case viewTermPE tL of
+    (Lit (Var vL)) | tL /= tR && occursVTerm vL (lTerm tR) -> HFail
+    _                                                      -> HNothing
 
 -- | Newly added rules for incompatible sorts
 ---------------------------------------------
 
 -- Checks if consts can be unified
 differentConsts :: IsConst c => HomomorphicRule c
-differentConsts (Equal el er) _ _ = case (viewTermPE el, viewTermPE er) of
+differentConsts (Equal eL eR) _ _ = case (viewTermPE eL, viewTermPE eR) of
   (Lit (Con cl), Lit (Con cr)) -> if cl == cr then HNothing else HFail
   (Lit (Con _ ), Lit (Var _ )) -> HNothing
   (Lit (Con _ ), _           ) -> HFail
@@ -340,60 +329,54 @@ differentConsts (Equal el er) _ _ = case (viewTermPE el, viewTermPE er) of
 
 -- Checks if sorts are incompatible
 doSortsCompare :: IsConst c => HomomorphicRule c
-doSortsCompare (Equal el er) sortOf _ = case (viewTermPE el, viewTermPE er) of
-  (Lit (Var vl), Lit (Var vr)) -> if sortCorrectForSubst sortOf vl (lTerm er) || sortCorrectForSubst sortOf vr (lTerm el) then HNothing else HFail
-  (Lit (Var vl), _           ) -> if sortCorrectForSubst sortOf vl (lTerm er) then HNothing else HFail
-  (_,            Lit (Var vr)) -> if sortCorrectForSubst sortOf vr (lTerm el) then HNothing else HFail
-  _                            -> if isJust $ sortCompare (sortOfLTerm sortOf $ lTerm el) (sortOfLTerm sortOf $ lTerm er) then HNothing else HFail
+doSortsCompare (Equal eL eR) sortOf _ = case (viewTermPE eL, viewTermPE eR) of
+  (Lit (Var vl), Lit (Var vr)) -> 
+    if sortCorrectForSubst sortOf vl (lTerm eR) || sortCorrectForSubst sortOf vr (lTerm eL) then HNothing else HFail
+  (Lit (Var vl), _           ) -> 
+    if sortCorrectForSubst sortOf vl (lTerm eR) then HNothing else HFail
+  (_,            Lit (Var vr)) -> 
+    if sortCorrectForSubst sortOf vr (lTerm eL) then HNothing else HFail
+  _                            -> 
+    if isJust $ sortCompare (sortOfLTerm sortOf $ lTerm eL) (sortOfLTerm sortOf $ lTerm eR) then HNothing else HFail
 
 -- | Homomorphic Patterns
 -------------------------
 
 shapingHomomorphicRule :: IsConst c => HomomorphicRule c
-shapingHomomorphicRule eq _ (_,allVars) = let
-  eRepsLHS = eRepsTerms $ pRep $ eqLHS eq
-  strsLHS = eRepsString $ pRep $ eqLHS eq
-  eRepRHS = eRep $ eqRHS eq
-  n = length eRepRHS - 1
+shapingHomomorphicRule (Equal eL eR) _ (_, allVars) = let
+  eRepsLHS = eRepsTerms $ pRep eL
+  n = length (eRep eR) - 1
   in if length eRepsLHS > 1 && n >= 1
   then case findQualifyingETerm eRepsLHS n 0 of
-    Just qualifyingIndex -> let
-      qualifyingELhs = eRepsLHS !! qualifyingIndex
+    Just (qualifyingIndex, qualifyingELhs, x) -> let
       m = n + 2 - length qualifyingELhs
-      x = head qualifyingELhs
       xFresh = getNewSimilarVar (LVar "sh" LSortMsg 0) allVars
-      lhs1NewETerm = ([varTerm xFresh] ++ take (m-1) (tail eRepRHS) ++ tail qualifyingELhs)
       lhs1NewPTerm = let (ys,zs) = splitAt qualifyingIndex eRepsLHS in
-        PRep strsLHS (ys ++ [lhs1NewETerm] ++ tail zs)
+        PRep (eRepsString $ pRep eL) 
+        (ys ++ [[varTerm xFresh] ++ take (m-1) (tail (eRep eR)) ++ tail qualifyingELhs] ++ tail zs)
       lhs1 = toLPETerm $ fromPRepresentation lhs1NewPTerm
-      rhs2 = toLPETerm $ fromERepresentation $ varTerm xFresh : take (m-1) (tail eRepRHS)
-      in HEqs ([Equal lhs1 (eqRHS eq), Equal (toLPETerm x) rhs2], [xFresh])
+      rhs2 = toLPETerm $ fromERepresentation $ varTerm xFresh : take (m-1) (tail (eRep eR))
+      in HEqs ([Equal lhs1 eR, Equal (toLPETerm $ varTerm x) rhs2], [xFresh])
     Nothing -> HNothing
   else HNothing
   where
-    findQualifyingETerm :: IsConst c => [ERepresentation c] -> Int -> Int -> Maybe Int
+    findQualifyingETerm :: IsConst c => [ERepresentation c] -> Int -> Int -> Maybe (Int, ERepresentation c, LVar)
     findQualifyingETerm [] _ _ = Nothing
-    findQualifyingETerm (e:es) n ind =
-      if (length e - 1 < n) && not (null e) && isVar (head e)
-      then Just ind
-      else findQualifyingETerm es n (ind+1)
+    findQualifyingETerm (e:es) n ind = case viewTerm (head e) of
+      (Lit (Var v)) | (length e - 1 < n) && not (null e) -> Just (ind, e, v)
+      _                                                  -> findQualifyingETerm es n (ind+1)
 
 failureOneHomomorphicRule :: IsConst c => HomomorphicRule c
-failureOneHomomorphicRule eq _ _ = let
-    t1 = lTerm $ eqLHS eq
-    t2 = lTerm $ eqRHS eq
-    t1Pos = positionsWithTerms t1
-    t2Pos = positionsWithTerms t2
-    t1NonKey = filter (\(p,_) -> all ('1' ==) (ePosition p t1)) t1Pos
-    t2NonKey = filter (\(p,_) -> all ('1' ==) (ePosition p t2)) t2Pos
-    matchedVars = matchVars t1NonKey t2NonKey
-  in if (t1 /= t2) && any (\(m1,m2) -> positionsIncompatible m1 t1 m2 t2) matchedVars
+failureOneHomomorphicRule (Equal eL eR) _ _ = let
+    (tL, tR) = (lTerm eL, lTerm eR)
+    tLNonKey = filter (\(p,_) -> all ('1' ==) (ePosition p tL)) (positionsWithTerms tL)
+    tRNonKey = filter (\(p,_) -> all ('1' ==) (ePosition p tR)) (positionsWithTerms tR)
+  in if any (\(mL,mR) -> positionsIncompatible mL tL mR tR) (matchVars tLNonKey tRNonKey)
   then HFail
   else HNothing
   where
     matchVars :: IsConst c => [(String, LTerm c)] -> [(String, LTerm c)] -> [(String, String)]
     matchVars [] _ = []
-    matchVars _ [] = []
     matchVars (v:vs) vs2 =
       let matches = filter (\vv2 -> snd v == snd vv2) vs2 in
       if isVar (snd v) && not (null matches)
@@ -401,23 +384,18 @@ failureOneHomomorphicRule eq _ _ = let
       else matchVars vs vs2
 
 failureTwoHomomorphicRule :: IsConst c => HomomorphicRule c
-failureTwoHomomorphicRule eq _ _ = let
-  n = length (eRep $ eqRHS eq) - 1
-  eRepsLHS = eRepsTerms $ pRep $ eqLHS eq
-  in if any (\e -> not (isVar $ head e) && (length e < n + 1)) eRepsLHS && length eRepsLHS > 1 
+failureTwoHomomorphicRule (Equal eL eR) _ _ = let eRepsLHS = eRepsTerms $ pRep eL in 
+  if any (\e -> not (isVar $ head e) && (length e < length (eRep eR))) eRepsLHS && length eRepsLHS > 1 
   then HFail
   else HNothing
 
 parsingHomomorphicRule :: IsConst c => HomomorphicRule c
-parsingHomomorphicRule eq _ _ = let
-  eRepsLHS = eRepsTerms $ pRep $ eqLHS eq
-  strRepsLHS = eRepsString $ pRep $ eqLHS eq
-  newERepsLHS = map init eRepsLHS
-  eRepRHS = eRep $ eqRHS eq
-  newLHS = toLPETerm $ fromPRepresentation $ PRep strRepsLHS newERepsLHS
-  newRHS = toLPETerm $ fromERepresentation $ init eRepRHS
-  allKms = map toLPETerm $ last eRepRHS : map last eRepsLHS
-  in if all (\t -> length t >= 2) (eRepsLHS ++ [eRepRHS])
+parsingHomomorphicRule (Equal eL eR) _ _ = let
+  eRepsLHS = eRepsTerms $ pRep eL
+  newLHS = toLPETerm $ fromPRepresentation $ PRep (eRepsString $ pRep eL) (map init eRepsLHS)
+  newRHS = toLPETerm $ fromERepresentation $ init (eRep eR)
+  allKms = map toLPETerm $ last (eRep eR) : map last eRepsLHS
+  in if all (\t -> length t >= 2) (eRepsLHS ++ [eRep eR])
   then HEqs (Equal newLHS newRHS : getAllCombinations allKms, [])
   else HNothing
   where
@@ -443,7 +421,7 @@ foldVars :: [LTerm c] -> [LVar]
 foldVars = sortednub . concatMap varsVTerm
 
 getNewSimilarVar :: LVar -> [LVar] -> LVar
-getNewSimilarVar x allVars = LVar (lvarName x) (lvarSort x) $ (+) 1 $ foldr (max . lvarIdx) (lvarIdx x) (filter (\e -> lvarName x == lvarName e) allVars)
+getNewSimilarVar x allVars = LVar (lvarName x) (lvarSort x) $ (+) 1 $ foldr (max . lvarIdx) (lvarIdx x) allVars
 
 occursVTermEqs :: LVar -> [Equal (LPETerm c)] -> Bool
 occursVTermEqs v eqs = any (occursVTerm v . lTerm) (eqsToTerms eqs)
