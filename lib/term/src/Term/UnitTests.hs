@@ -27,6 +27,7 @@ import Prelude
 import Test.HUnit
 import Control.Monad.Reader
 -- import Data.Monoid
+import Data.Bifunctor (second, bimap)
 
 import Term.Homomorphism.LPETerm
 import Term.Homomorphism.Unification
@@ -114,9 +115,11 @@ testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
     [ ("a",                 True,   x0,           x0           )
     , ("b",                 True,   x1,           x0           )
     , ("c",                 True,   pair(x1,x2),  x0           )
-    , ("d",                 False,  pair(x0,x2),  x0           )
+    , ("d",                 True,   pair(x0,x2),  x0           )
     , ("e",                 False,  x0,           pair(x0,x2)  )
-    , ("f",                 False,  pair(x0,x1),  pair(x1,x2)  )
+    , ("f",                 True,   pair(x0,x1),  pair(x1,x2)  )
+    , ("g",                 True,   pair(x0,x1),  pair(x1,x0)  )
+    , ("h",                 True,   pair(x1,x0),  pair(x0,x1)  )
     -- bigger examples
     , ("homdef 1",          True,   henc (pair (x0,x1), x2),              pair (henc (x0,x2), henc (x1,x2))   )
     , ("homdef 2",          True,   pair (henc (x0,x2), henc (x1,x2)),    henc (pair (x0,x1), x2)             )
@@ -289,9 +292,13 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
     ++ "Note:          x.2 <~ x means x is being replaced by x.2" ++ "\n"
     ++ "------ END TEST PRINTER ------"
   ) (
-    caseOutcome == substHUnifies &&            -- unification found
-    caseOutcome == (t1NSubstH == t2NSubstH) && -- normed terms equal after unification
-    caseOutcome == (t1NSubstH' == t2NSubstH')  -- freshToAvoid does not change the outcome
+    caseOutcome == substHUnifies &&               -- unification found
+    caseOutcome == (t1NSubstH == t2NSubstH) &&    -- normed terms equal after unification
+    caseOutcome == (t1NSubstH' == t2NSubstH') &&  -- freshToAvoid does not change the outcome
+    isCorrectPreSubst orgVars substForm' &&
+    isCorrectPreSubst orgVars substFormFreeAvoid' &&
+    isCorrectFreeAvoidSubst orgVars substForm' substFormFreeAvoid' &&
+    isCorrectSubst orgVars substH
   )
   where
     substs = unifyLTerm sortOfName [Equal t1 t2] `runReader` mhnd
@@ -310,6 +317,13 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
       Just (_,_) -> True
       Nothing    -> False
 
+    orgVars = foldVars [t1,t2]
+    unifier = unifyHomomorphicLTermWithVars sortOfName ([Equal t1 t2], orgVars)
+    substForm = toSubstForm sortOfName orgVars =<< unifier
+    substForm' = fromMaybe ([],[]) substForm
+    substFormFreeAvoid = toFreeAvoid orgVars =<< substForm
+    substFormFreeAvoid' = fromMaybe ([],[]) substFormFreeAvoid
+
     t1Subst' = applyVTerm subst' t1
     t2Subst' = applyVTerm subst' t2
 
@@ -324,6 +338,41 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
     t2NSubstH' = normHomomorphic $ applyVTerm substH' t2
 
     safeHead s = if null s then SubstVFresh $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)] else head s
+
+-- *****************************************************************************
+-- Functions to test if the substitution is correct
+-- *****************************************************************************
+
+isCorrectSubst :: IsConst c =>  [LVar] -> LSubst c -> Bool
+isCorrectSubst orgVars subst = let s = substToList subst in 
+  allLeftVarsUnique s && allLeftVarsNotRight s && all ((`elem` orgVars) . fst) s 
+
+isCorrectPreSubst :: IsConst c => [LVar] -> ([(LVar, LTerm c)], [LVar]) -> Bool
+isCorrectPreSubst orgVars (s,_) = allLeftVarsUnique s && allLeftVarsNotRight s && all ((`elem` orgVars) . fst) s 
+
+isCorrectMatchSubst :: [(LTerm c, LTerm c)] -> LSubst c -> Bool
+isCorrectMatchSubst ms subst = let
+  (tVars, pVars) = bimap foldVars foldVars $ unzip ms
+  (leftVars, rightVars) = second foldVars $ unzip $ substToList subst
+  in   all (\v -> v `notElem` leftVars  || v `elem` pVars) tVars
+    && all (\v -> v `notElem` rightVars || v `elem` tVars) pVars
+    && all (`elem` pVars) leftVars && all (`elem` tVars) rightVars
+
+isCorrectFreeAvoidSubst :: [LVar] -> ([(LVar, LTerm c)], [LVar]) -> ([(LVar, LTerm c)], [LVar]) -> Bool
+isCorrectFreeAvoidSubst orgVars orgSubst completeSubst = let
+  (cmpLVars, cmpRVars) = second foldVars $ unzip $ fst completeSubst
+  (_, orgRVars) = second foldVars $ unzip $ fst orgSubst
+  in all (`notElem` cmpRVars) orgVars && all (\v -> v `notElem` orgVars || v `elem` cmpLVars) orgRVars
+
+allLeftVarsUnique :: [(LVar, a)] -> Bool
+allLeftVarsUnique [] = True
+allLeftVarsUnique ((vL,_):substs) = not (any (\(vR,_) -> vL == vR) substs) && allLeftVarsUnique substs
+
+allLeftVarsNotRight :: [(LVar, LTerm c)] -> Bool
+allLeftVarsNotRight subst = let (vars,terms) = unzip subst in not $ any (\v -> v `elem` foldVars terms) vars
+
+foldVars :: [LTerm c] -> [LVar]
+foldVars = sortednub . concatMap varsVTerm
 
 -- *****************************************************************************
 -- Tests for Subfunctions of the Unification Algorithm modulo EpsilonH

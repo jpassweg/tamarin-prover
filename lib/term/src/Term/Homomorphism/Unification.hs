@@ -8,13 +8,15 @@ module Term.Homomorphism.Unification (
   , matchHomomorphicLTerm
 
   -- * For debugging
-  , allLeftVarsNotRight
   , debugHomomorphicRule
   , HomomorphicRuleReturn(..)
+  , unifyHomomorphicLTermWithVars
+  , toSubstForm
+  , toFreeAvoid
 ) where
 
 import Data.Maybe     (isJust, isNothing, mapMaybe, fromMaybe)
-import Data.Bifunctor (bimap, first, second)
+import Data.Bifunctor (first, second)
 
 import Term.Homomorphism.LPETerm
 import Term.Homomorphism.MConst
@@ -46,7 +48,7 @@ matchHomomorphicLTerm sortOf ms = let
   orgVars = foldVars $ foldr (\(t,p) vs -> t:p:vs) [] ms
   orgLVars = foldVars $ map snd ms
   unifier = unifyHomomorphicLTermWithVars sO (eqs, orgVars)
-  in toSingleSubst orgLVars =<< checkMatchSubst ms =<< cleanupSubst =<< substFromMConst =<< toSubstForm sO orgLVars =<< unifier
+  in toSingleSubst =<< cleanupSubst =<< substFromMConst =<< toSubstForm sO orgLVars =<< unifier
 
 -- Unification Algorithm Wrapper
 --------------------------------
@@ -55,7 +57,7 @@ unifyHomomorphicLTerm :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> Maybe
 unifyHomomorphicLTerm sortOf eqs = let
   orgVars = foldVars $ eqsToTerms eqs
   unifier = unifyHomomorphicLTermWithVars sortOf (eqs, orgVars)
-  in toDoubleSubst orgVars =<< toFreeAvoid orgVars =<< toSubstForm sortOf orgVars =<< unifier
+  in toDoubleSubst =<< toFreeAvoid orgVars =<< toSubstForm sortOf orgVars =<< unifier
 
 -- Unification Algorithm using the Homomorphic Rules
 ----------------------------------------------------
@@ -120,9 +122,7 @@ toSubstForm sortOf orgVars (eqs, allVars) = let
   substWODubVars = map (moveVarLeft sortOf orgVars) $ filter (not . dubVars) eqs
   substM         = addOrderDubVars orgVars (unzip $ catMaybesWFail substWODubVars) $ getDubVars eqs
   subst          = fromMaybe [] substM
-  in if not (any isMFail substWODubVars) && isJust substM
-  then checkSubst orgVars (subst, allVars)
-  else Nothing
+  in if not (any isMFail substWODubVars) && isJust substM then Just (subst, allVars) else Nothing
 
 moveVarLeft :: IsConst c => (c -> LSort) -> [LVar] -> Equal (LTerm c) -> MaybeWFail (LVar, LTerm c)
 moveVarLeft sortOf orgVars (Equal l r) = case (viewTerm l, viewTerm r) of
@@ -189,7 +189,7 @@ toFreeAvoid :: IsConst c => [LVar] -> PreSubst c -> Maybe (PreSubst c)
 toFreeAvoid orgVars subst = let
   freeAvoidingSubst = getFreeAvoidingSubstOfTerms orgVars ([], snd subst) (map snd (fst subst))
   completeSubst = combineAnySubst freeAvoidingSubst (applyPreSubstToVrange freeAvoidingSubst subst)
-  in checkFreeAvoidSubst orgVars subst =<< checkSubst orgVars completeSubst
+  in Just completeSubst
   where
     applyPreSubstToVrange :: IsConst c => PreSubst c -> PreSubst c -> PreSubst c
     applyPreSubstToVrange fstSubst = first (map (second (applyVTerm (substFromList (fst fstSubst)))))
@@ -210,11 +210,11 @@ getFreeAvoidingSubstOfTerm orgVars (newSubst, allVs) t =
 -- Presubst to Substitution
 ---------------------------
 
-toDoubleSubst :: [LVar] -> PreSubst c -> Maybe (LSubst c, LSubstVFresh c)
-toDoubleSubst orgVars subst = Just . (\s -> (substFromList s, substFromListVFresh s)) . fst =<< checkSubst orgVars subst
+toDoubleSubst :: PreSubst c -> Maybe (LSubst c, LSubstVFresh c)
+toDoubleSubst = Just . (\s -> (substFromList s, substFromListVFresh s)) . fst
 
-toSingleSubst :: [LVar] -> PreSubst c -> Maybe (LSubst c)
-toSingleSubst orgVars subst = Just . substFromList . fst =<< checkSubst orgVars subst
+toSingleSubst :: PreSubst c -> Maybe (LSubst c)
+toSingleSubst = Just . substFromList . fst
 
 -- Homomorphic Rules Managers
 -----------------------------
@@ -447,51 +447,11 @@ catMaybesWFail = mapMaybe (\case MJust s -> Just s; _ -> Nothing)
 isMFail :: MaybeWFail a -> Bool
 isMFail = \case MFail -> True; _ -> False
 
--- | Sanity checks
-------------------
+-- | Cleanup
+------------
 
 cleanupSubst :: IsConst c => PreSubst c -> Maybe (PreSubst c)
-cleanupSubst subst = let cleanSubst = first (removeDuplicates . removeEqsToSelf) subst in
-  if isCorrectSubst cleanSubst then Just cleanSubst else Nothing
+cleanupSubst subst = let cleanSubst = first removeEqsToSelf subst in Just cleanSubst
 
 removeEqsToSelf :: IsConst c => [(LVar, LTerm c)] -> [(LVar, LTerm c)]
 removeEqsToSelf = filter (\(v,t) -> varTerm v /= t)
-
-removeDuplicates :: IsConst c => [(LVar, LTerm c)] -> [(LVar, LTerm c)]
-removeDuplicates [] = []
-removeDuplicates ((v1,t1):es) =
-  if any (\(v2,t2) -> (v1 == v2 && t1 == t2) || (varTerm v1 == t2 && t1 == varTerm v2)) es
-  then removeDuplicates es
-  else (v1,t1) : removeDuplicates es
-
-isCorrectSubst :: PreSubst c -> Bool
-isCorrectSubst (s,_) = allLeftVarsUnique s && allLeftVarsNotRight s
-
-checkSubst :: [LVar] -> PreSubst c -> Maybe (PreSubst c)
-checkSubst orgVars (s,v) =
-  if allLeftVarsUnique s && allLeftVarsNotRight s && all ((`elem` orgVars) . fst) s 
-  then Just (s,v) else Nothing
-
-checkMatchSubst :: [(LTerm c, LTerm c)] -> PreSubst c -> Maybe (PreSubst c)
-checkMatchSubst ms subst = let
-  (tVars, pVars) = bimap foldVars foldVars $ unzip ms
-  (leftVars, rightVars) = second foldVars $ unzip $ fst subst
-  in if all (\v -> v `notElem` leftVars  || v `elem` pVars) tVars
-     && all (\v -> v `notElem` rightVars || v `elem` tVars) pVars
-     && all (`elem` pVars) leftVars && all (`elem` tVars) rightVars
-  then Just subst else Nothing
-
-checkFreeAvoidSubst :: [LVar] -> PreSubst c -> PreSubst c -> Maybe (PreSubst c)
-checkFreeAvoidSubst orgVars orgSubst completeSubst = let
-  (cmpLVars, cmpRVars) = second foldVars $ unzip $ fst completeSubst
-  (_, orgRVars) = second foldVars $ unzip $ fst orgSubst
-  in if all (`notElem` cmpRVars) orgVars
-     && all (\v -> v `notElem` orgVars || v `elem` cmpLVars) orgRVars
-  then Just completeSubst else Nothing
-
-allLeftVarsUnique :: [(LVar, a)] -> Bool
-allLeftVarsUnique [] = True
-allLeftVarsUnique ((v1,_):substs) = not (any (\(v2,_) -> v1 == v2) substs) && allLeftVarsUnique substs
-
-allLeftVarsNotRight :: [(LVar, LTerm c)] -> Bool
-allLeftVarsNotRight subst = let (vars,terms) = unzip subst in not $ any (\v -> v `elem` foldVars terms) vars
