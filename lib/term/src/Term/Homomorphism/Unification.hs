@@ -39,8 +39,11 @@ import Extension.Prelude (sortednub)
 -----------------------------------------------------
 
 -- | matchHomomorphicLTerm
--- orgVars are given to unifyHomomorphicLTermWithVars such that when creating new variables, unifyHomomorphicLTermWithVars can
--- also take into account the variables that we turned into Consts in toMConstA.
+-- NOTE: Tamarin does allow matching pair(x0,x1) with pair(x1,x0) even though the substitution
+-- x0 <~ x1, x1 <~ x0 is not allowed in unification.
+-- NOTE: orgVars are given to unifyHomomorphicLTermWithVars such that when creating new 
+-- variables, unifyHomomorphicLTermWithVars can also take into account the variables 
+-- that we turned into Consts in toMConstA.
 matchHomomorphicLTerm :: IsConst c => (c -> LSort) -> [(LTerm c, LTerm c)] -> Maybe (LSubst c)
 matchHomomorphicLTerm sortOf ms = let
   sO = sortOfMConst sortOf
