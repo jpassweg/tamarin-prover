@@ -401,9 +401,7 @@ parsingHomomorphicRule (Equal eL eR) _ _ = let
   where
     getAllCombinations :: IsConst c => [LPETerm c] -> [Equal (LPETerm c)]
     getAllCombinations [] = []
-    getAllCombinations (x:xs) = pairCombinations x xs ++ getAllCombinations xs
-    pairCombinations _ [] = []
-    pairCombinations x (y:ys) = Equal x y : pairCombinations x ys
+    getAllCombinations (x:xs) = map (Equal x) xs ++ getAllCombinations xs
 
 -- | Helper functions
 ---------------------
