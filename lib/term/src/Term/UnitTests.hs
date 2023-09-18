@@ -27,7 +27,7 @@ import Prelude
 import Test.HUnit
 import Control.Monad.Reader
 -- import Data.Monoid
-import Data.Bifunctor (second, bimap)
+import Data.Bifunctor (second)
 
 import Term.Homomorphism.LPETerm
 import Term.Homomorphism.Unification
@@ -156,33 +156,39 @@ testsMatchingHomomorphic mhnd mhndHom = TestLabel "Tests for Matching modulo Eps
 
 testMatchingHomWithPrint :: MaudeHandle -> MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
 testMatchingHomWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
-  TestLabel (caseName ++ "\n"
-    ++ "------ TEST PRINTER ------" ++ "\n"
-    ++ "Case:        " ++ caseName ++ "\n"
-    ++ "Terms:       " ++ show t1 ++ ", " ++ show t2 ++ "\n"
-    ++ "--- matchLNTerm ---" ++ "\n"
-    ++ "NumMatchers: " ++ show numMatchers ++ "\n"
-    ++ "Fst Matcher: " ++ show subst ++ "\n"
-    ++ "New Terms:   " ++ show t1 ++ ", " ++ show t2Subst ++ "\n"
-    ++ "--- matchHomLNTerm ---" ++ "\n"
-    ++ "Did-Match    " ++ show substHomMatches ++ "\n"
-    ++ "Matcher:     " ++ show directSubstHom ++ "\n"
-    ++ "New Terms:   " ++ show t1 ++ ", " ++ show t2SubstH ++ "\n"
-    ++ "--- with normed terms ---" ++ "\n"
-    ++ "Terms:       " ++ show t1N ++ ", " ++ show t2N ++ "\n"
-    ++ "New Terms:   " ++ show t1N ++ ", " ++ show t2NSubstH ++ "\n"
-    ++ "------ END TEST PRINTER ------"
-    ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n" )
-  $ TestList [
-      testTrue "hello" (caseOutcome == substHomMatches)     -- equal to expected outcome
-    , testTrue "sd" (caseOutcome == (t1N == t2NSubstH))  -- terms equal after norming
-    -- if matching without homomorphic rules works then so should it with those rules
-    , testTrue "" (not lnMatches || substHomMatches) -- lnMatches implies substHMatches
-    , testTrue "" (caseOutcome == lnMatchesHom)
-    , testTrue "" (not lnMatches || lnMatchesHom) -- lnMatches implies substHMatches
-    , testTrue "" (isCorrectMatchSubst (foldVars [t2]) directSubstHom)
+  TestLabel caseName $ TestList [
+      -- equal to expected outcome
+      testTrue printText (caseOutcome == substHomMatches)
+      -- terms equal after norming
+    , testTrue "equal n" (caseOutcome == (t1N == t2NSubstH)) 
+      -- if matching without homomorphic rules works then so should it with those rules
+      -- lnMatches implies substHMatches
+    , testTrue "ln=>hom" (not lnMatches || substHomMatches)
+      -- comparing with the maude handle including homomorphic unification
+    , testTrue "equal mhndHom" (caseOutcome == lnMatchesHom)
+    -- lnMatches implies lnMatchesHom
+    , testTrue "ln=>mhndHom" (not lnMatches || lnMatchesHom)
+    -- checks that vars on the left are all orgVars
+    , testTrue "isCorr match" (isCorrectMatchSubst (foldVars [t2]) directSubstHom)
   ]
   where
+    printText = "------ TEST PRINTER ------" ++ "\n"
+      ++ "Case:        " ++ caseName ++ "\n"
+      ++ "Terms:       " ++ show t1 ++ ", " ++ show t2 ++ "\n"
+      ++ "--- matchLNTerm ---" ++ "\n"
+      ++ "NumMatchers: " ++ show numMatchers ++ "\n"
+      ++ "Fst Matcher: " ++ show subst ++ "\n"
+      ++ "New Terms:   " ++ show t1 ++ ", " ++ show t2Subst ++ "\n"
+      ++ "--- matchHomLNTerm ---" ++ "\n"
+      ++ "Did-Match    " ++ show substHomMatches ++ "\n"
+      ++ "Matcher:     " ++ show directSubstHom ++ "\n"
+      ++ "New Terms:   " ++ show t1 ++ ", " ++ show t2SubstH ++ "\n"
+      ++ "--- with normed terms ---" ++ "\n"
+      ++ "Terms:       " ++ show t1N ++ ", " ++ show t2N ++ "\n"
+      ++ "New Terms:   " ++ show t1N ++ ", " ++ show t2NSubstH ++ "\n"
+      ++ "------ END TEST PRINTER ------"
+      ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n" 
+
     t1N = normHomomorphic t1
     t2N = normHomomorphic t2
 
@@ -287,61 +293,65 @@ testsUnifyHomomorphic mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH"
 
 testUnifyWithPrint :: MaudeHandle -> MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
 testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
-  TestLabel (caseName ++ "\n"
-    ++ "------ TEST PRINTER ------" ++ "\n"
-    ++ "Case:          " ++ caseName ++ "\n"
-    ++ "Terms:         " ++ show t1 ++ ", " ++ show t2 ++ "\n"
-    ++ "--- unifyLNTerm ---" ++ "\n"
-    ++ "NumUnifiers:   " ++ show numUnifiers ++ "\n"
-    ++ "First unifier: " ++ show subst ++ "\n"
-    ++ "After fTFA:    VSubst: " ++ show subst' ++ "\n"
-    ++ "New Terms:     " ++ show t1Subst' ++ ", " ++ show t2Subst' ++ "\n"
-    ++ "--- unifyHomomorphicLTerm ---" ++ "\n" 
-    ++ "First unifier: " ++ show substH ++ "\n"
-    ++ "New Terms:     " ++ show t1SubstH ++ ", " ++ show t2SubstH ++ "\n"
-    ++ "After fTFA:    VSubst: " ++ show substH' ++ "\n"
-    ++ "New Terms:     " ++ show t1SubstH' ++ ", " ++ show t2SubstH' ++ "\n"
-    ++ "--- with normed terms ---" ++ "\n"
-    ++ "First unifier: " ++ show substH ++ "\n"
-    ++ "New Terms:     " ++ show t1NSubstH ++ ", " ++ show t2NSubstH ++ "\n"
-    ++ "After fTFA:    VSubst: " ++ show substH' ++ "\n"
-    ++ "New Terms:     " ++ show t1NSubstH' ++ ", " ++ show t2NSubstH' ++ "\n"
-    ++ "Note:          x.2 <~ x means x is being replaced by x.2" ++ "\n"
-    ++ "------ END TEST PRINTER ------" )
-  $ TestList [
-      testTrue "" (caseOutcome == substHUnifies)              -- unification found
-    , testTrue "" (caseOutcome == (t1NSubstH == t2NSubstH))   -- normed terms equal after unification
-    , testTrue "" (caseOutcome == (t1NSubstH' == t2NSubstH')) -- freshToAvoid does not change the outcome
-    -- if unifying without homomorphic rules works then so should it with those rules
-    , testTrue "" (not lnUnifies || substHUnifies)          -- lnUnifies implies substHUnifies
-    -- multiples other tests if the unification was done correctly
-    -- needs to be changed if unifyHomomorphicLTerm changes
-    , testTrue "" (isCorrectPreSubst orgVars substForm')
-    , testTrue "" (isCorrectPreSubst orgVars substFormFreeAvoid')
-    , testTrue "" (isCorrectFreeAvoidSubst orgVars substForm' substFormFreeAvoid')
-    , testTrue "" (isCorrectSubst orgVars substH)
-    -- second maude handle
-    , testTrue "" (caseOutcome == lnUnifiesHom) 
-    , testTrue "" (not lnUnifies || lnUnifiesHom)          -- lnUnifies implies substHUnifies
+  TestLabel caseName $ TestList [
+      -- test if unification works as expected
+      testTrue printText (caseOutcome == substHUnifies)
+      -- normed terms equal after unification
+    , testTrue "n equal" (caseOutcome == (t1NSubstH == t2NSubstH))
+      -- freeToAvoid does not change the outcome
+    , testTrue "freeAvoid" (caseOutcome == (t1NSubstHFreeAvoid == t2NSubstHFreeAvoid)) 
+      -- if unifying without homomorphic rules works then so should it with those rules
+      -- lnUnifies implies substHUnifies
+    , testTrue "ln=>hom" (not lnUnifies || substHUnifies)          
+      -- multiples other tests if the unification was done correctly
+      -- needs to be changed if unifyHomomorphicLTerm changes
+    , testTrue "isCorr substForm" (isCorrectPreSubst orgVars substForm)
+    , testTrue "isCorr freeAvoid" (isCorrectPreSubst orgVars substFormFreeAvoid)
+    , testTrue "isCorr freeAvoid 2" (isCorrectFreeAvoidSubst orgVars substForm substFormFreeAvoid)
+    , testTrue "isCorr subst" (isCorrectSubst orgVars substH)
+      -- tests with second maude handle
+    , testTrue "equal mhndHom" (caseOutcome == lnUnifiesHom) 
+    , testTrue "ln=>mhndHom" (not lnUnifies || lnUnifiesHom)
   ]
   where
+    printText = "------ TEST PRINTER ------" ++ "\n"
+      ++ "Case:          " ++ caseName ++ "\n"
+      ++ "Terms:         " ++ show t1 ++ ", " ++ show t2 ++ "\n"
+      ++ "--- unifyLNTerm ---" ++ "\n"
+      ++ "NumUnifiers:   " ++ show numUnifiers ++ "\n"
+      ++ "First unifier: " ++ show subst ++ "\n"
+      ++ "After fTFA:    VSubst: " ++ show substFreeAvoid ++ "\n"
+      ++ "New Terms:     " ++ show t1SubstFreeAvoid ++ ", " ++ show t2SubstFreeAvoid ++ "\n"
+      ++ "--- unifyHomomorphicLTerm ---" ++ "\n" 
+      ++ "First unifier: " ++ show substH ++ "\n"
+      ++ "New Terms:     " ++ show t1SubstH ++ ", " ++ show t2SubstH ++ "\n"
+      ++ "After fTFA:    VSubst: " ++ show substHFreeAvoid ++ "\n"
+      ++ "New Terms:     " ++ show t1SubstHFreeAvoid ++ ", " ++ show t2SubstHFreeAvoid ++ "\n"
+      ++ "--- with normed terms ---" ++ "\n"
+      ++ "First unifier: " ++ show substH ++ "\n"
+      ++ "New Terms:     " ++ show t1NSubstH ++ ", " ++ show t2NSubstH ++ "\n"
+      ++ "After fTFA:    VSubst: " ++ show substHFreeAvoid ++ "\n"
+      ++ "New Terms:     " ++ show t1NSubstHFreeAvoid ++ ", " ++ show t2NSubstHFreeAvoid ++ "\n"
+      ++ "Note:          x.2 <~ x means x is being replaced by x.2" ++ "\n"
+      ++ "------ END TEST PRINTER ------"
+
     substs = unifyLTerm sortOfName [Equal t1 t2] `runReader` mhnd
     numUnifiers = length substs
     subst = safeHead substs
-    subst' = freshToFreeAvoiding subst [t1,t2]
+    substFreeAvoid = freshToFreeAvoiding subst [t1,t2]
     lnUnifies = not (null substs)
 
     substsHom = unifyLTerm sortOfName [Equal t1 t2] `runReader` mhndHom
     numUnifiersHom = length substsHom
     substHom = safeHead substsHom
-    substHom' = freshToFreeAvoiding substHom [t1,t2]
+    substHomFreeAvoid = freshToFreeAvoiding substHom [t1,t2]
     lnUnifiesHom = not (null substsHom)
 
     substHUnifier = unifyHomomorphicLTerm sortOfName [Equal t1 t2]
     substH = case substHUnifier of
       Just (s,_) -> s
       Nothing    -> emptySubst
-    substH' = case substHUnifier of
+    substHFreeAvoid = case substHUnifier of
       Just (_,s) -> freshToFreeAvoiding s [t1,t2]
       Nothing    -> emptySubst
     substHUnifies = case substHUnifier of
@@ -350,23 +360,23 @@ testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
 
     orgVars = foldVars [t1,t2]
     unifier = unifyHomomorphicLTermWithVars sortOfName ([Equal t1 t2], orgVars)
-    substForm = toSubstForm sortOfName orgVars =<< unifier
-    substForm' = fromMaybe ([],[]) substForm
-    substFormFreeAvoid = toFreeAvoid orgVars =<< substForm
-    substFormFreeAvoid' = fromMaybe ([],[]) substFormFreeAvoid
+    substFormM = toSubstForm sortOfName orgVars =<< unifier
+    substForm = fromMaybe ([],[]) substFormM
+    substFormFreeAvoidM = toFreeAvoid orgVars =<< substFormM
+    substFormFreeAvoid = fromMaybe ([],[]) substFormFreeAvoidM
 
-    t1Subst' = applyVTerm subst' t1
-    t2Subst' = applyVTerm subst' t2
+    t1SubstFreeAvoid = applyVTerm substFreeAvoid t1
+    t2SubstFreeAvoid = applyVTerm substFreeAvoid t2
 
     t1SubstH = applyVTerm substH t1
     t2SubstH = applyVTerm substH t2
-    t1SubstH' = applyVTerm substH' t1
-    t2SubstH' = applyVTerm substH' t2
+    t1SubstHFreeAvoid = applyVTerm substHFreeAvoid t1
+    t2SubstHFreeAvoid = applyVTerm substHFreeAvoid t2
 
     t1NSubstH = normHomomorphic $ applyVTerm substH t1
     t2NSubstH = normHomomorphic $ applyVTerm substH t2
-    t1NSubstH' = normHomomorphic $ applyVTerm substH' t1
-    t2NSubstH' = normHomomorphic $ applyVTerm substH' t2
+    t1NSubstHFreeAvoid = normHomomorphic $ applyVTerm substHFreeAvoid t1
+    t2NSubstHFreeAvoid = normHomomorphic $ applyVTerm substHFreeAvoid t2
 
     safeHead s = if null s then SubstVFresh $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)] else head s
 
@@ -663,7 +673,6 @@ testsUnifyHomomorphicShaping = TestLabel "Tests for Unify module EpsilonH Shapin
     fH = toLPETerm
     vA = sortednub . concatMap (varsVTerm . lTerm) . concatMap (\(Equal l r) -> [l,r])
     
-
 -- *****************************************************************************
 -- Specific printer
 -- *****************************************************************************
