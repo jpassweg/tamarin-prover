@@ -93,14 +93,14 @@ propUnifySound hnd t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
 -- Tests aggregate for homomorphic encryption
 -- *****************************************************************************
 
-testAllHomomorphic :: MaudeHandle -> Test
-testAllHomomorphic mhnd = TestLabel "All Homomorphic Tests" $
+testAllHomomorphic :: MaudeHandle -> MaudeHandle -> Test
+testAllHomomorphic mhnd mhndHom = TestLabel "All Homomorphic Tests" $
   TestList
-    [ testsMatchingHomomorphic mhnd
-    , testsUnifyHomomorphic mhnd
-    , testsUnifyHomomorphicSf mhnd
-    , testsUnifyHomomorphicRules mhnd
-    , testPrinterHomomorphic mhnd
+    [ testsMatchingHomomorphic mhnd mhndHom
+    , testsUnifyHomomorphic mhnd mhndHom
+    , testsUnifyHomomorphicSf mhnd mhndHom
+    , testsUnifyHomomorphicRules mhnd mhndHom
+    , testPrinterHomomorphic mhnd mhndHom
     ]
 
 -- *****************************************************************************
@@ -108,9 +108,10 @@ testAllHomomorphic mhnd = TestLabel "All Homomorphic Tests" $
 -- *****************************************************************************
 
 -- match t p tries to find a substitution phi such that "t == phi applied to p"
-testsMatchingHomomorphic :: MaudeHandle -> Test
-testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
-  TestList $ map (\(testName, testOutcome, term1, term2) -> testMatchingHomWithPrint mhnd testName testOutcome term1 term2)
+testsMatchingHomomorphic :: MaudeHandle -> MaudeHandle -> Test
+testsMatchingHomomorphic mhnd mhndHom = TestLabel "Tests for Matching modulo EpsilonH" $
+  TestList $ map (\(testName, testOutcome, term1, term2) -> 
+    testMatchingHomWithPrint mhnd mhndHom testName testOutcome term1 term2)
     -- small examples
     [ ("a",                 True,   x0,           x0           )
     , ("b",                 True,   x1,           x0           )
@@ -153,10 +154,10 @@ testsMatchingHomomorphic mhnd = TestLabel "Tests for Matching modulo EpsilonH" $
     -- , ("node 3",            False,  node1,  x0      )
     ]
 
-testMatchingHomWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
-testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
-  TestLabel caseName $ TestCase $ assertBool (
-    "------ TEST PRINTER ------" ++ "\n"
+testMatchingHomWithPrint :: MaudeHandle -> MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
+testMatchingHomWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
+  TestLabel (caseName ++ "\n"
+    ++ "------ TEST PRINTER ------" ++ "\n"
     ++ "Case:        " ++ caseName ++ "\n"
     ++ "Terms:       " ++ show t1 ++ ", " ++ show t2 ++ "\n"
     ++ "--- matchLNTerm ---" ++ "\n"
@@ -164,20 +165,20 @@ testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
     ++ "Fst Matcher: " ++ show subst ++ "\n"
     ++ "New Terms:   " ++ show t1 ++ ", " ++ show t2Subst ++ "\n"
     ++ "--- matchHomLNTerm ---" ++ "\n"
-    ++ "Did-Match    " ++ show substHMatches ++ "\n"
-    ++ "Matcher:     " ++ show substH' ++ "\n"
+    ++ "Did-Match    " ++ show substHomMatches ++ "\n"
+    ++ "Matcher:     " ++ show directSubstHom ++ "\n"
     ++ "New Terms:   " ++ show t1 ++ ", " ++ show t2SubstH ++ "\n"
     ++ "--- with normed terms ---" ++ "\n"
     ++ "Terms:       " ++ show t1N ++ ", " ++ show t2N ++ "\n"
     ++ "New Terms:   " ++ show t1N ++ ", " ++ show t2NSubstH ++ "\n"
     ++ "------ END TEST PRINTER ------"
-    ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n"
-  ) (
-       caseOutcome == substHMatches      -- equal to expected outcome
-    && caseOutcome == (t1N == t2NSubstH) -- terms equal after norming
+    ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n" )
+  $ TestList [
+      testTrue "hello" (caseOutcome == substHomMatches)     -- equal to expected outcome
+    , testTrue "sd" (caseOutcome == (t1N == t2NSubstH))  -- terms equal after norming
     -- if matching without homomorphic rules works then so should it with those rules
-    && (not lnMatches || substHMatches)  -- lnMatches implies substHMatches
-  )
+    , testTrue "" (not lnMatches || substHomMatches) -- lnMatches implies substHMatches
+  ]
   where
     t1N = normHomomorphic t1
     t2N = normHomomorphic t2
@@ -187,14 +188,19 @@ testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
     lnMatches = not (null substs)
     subst = safeHead substs
 
-    substH = matchHomomorphicLTerm sortOfName [(t1N, t2N)]
-    substH' = fromMaybe emptySubst substH
+    substsHom = solveMatchLNTerm (t1 `matchWith` t2) `runReader` mhndHom
+    numMatchersHom = length substsHom
+    lnMatchesHom = not (null substsHom)
+    substHom = safeHead substsHom
+
+    directSubstHomM = matchHomomorphicLTerm sortOfName [(t1N, t2N)]
+    directSubstHom = fromMaybe emptySubst directSubstHomM
 
     t2Subst = applyVTerm subst t2
-    t2SubstH = applyVTerm substH' t2
-    t2NSubstH = normHomomorphic $ applyVTerm substH' t2N
+    t2SubstH = applyVTerm directSubstHom t2
+    t2NSubstH = normHomomorphic $ applyVTerm directSubstHom t2N
 
-    substHMatches = case substH of
+    substHomMatches = case directSubstHomM of
       Just _ -> True
       _      -> False
 
@@ -206,9 +212,10 @@ testMatchingHomWithPrint mhnd caseName caseOutcome t1 t2 =
 
 -- Multiple tests for unification modulo EpisolonH algorithm 
 -- implemented in unifyHomomorphicLNTerm
-testsUnifyHomomorphic :: MaudeHandle -> Test
-testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
-  TestList $ map (\(testName, testOutcome, term1, term2) -> testUnifyWithPrint mhnd testName testOutcome term1 term2)
+testsUnifyHomomorphic :: MaudeHandle -> MaudeHandle -> Test
+testsUnifyHomomorphic mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH" $
+  TestList $ map (\(testName, testOutcome, term1, term2) -> 
+    testUnifyWithPrint mhnd mhndHom testName testOutcome term1 term2)
     [ ("1",         True,   x0,                                                             x0                                                                            )
     , ("2",         True,   x0,                                                             x1                                                                            )
     , ("3",         False,  henc(x0,x1),                                                    x1                                                                            )
@@ -275,10 +282,10 @@ testsUnifyHomomorphic mhnd = TestLabel "Tests for Unify modulo EpsilonH" $
     , ("shapa 7",   True,   pair(henc(henc(x0,x1),x2),x3),  henc(henc(x4,x5),x6))   
     ]
 
-testUnifyWithPrint :: MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
-testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
-  TestLabel caseName $ TestCase $ assertBool (
-    "------ TEST PRINTER ------" ++ "\n"
+testUnifyWithPrint :: MaudeHandle -> MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
+testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
+  TestLabel (caseName ++ "\n"
+    ++ "------ TEST PRINTER ------" ++ "\n"
     ++ "Case:          " ++ caseName ++ "\n"
     ++ "Terms:         " ++ show t1 ++ ", " ++ show t2 ++ "\n"
     ++ "--- unifyLNTerm ---" ++ "\n"
@@ -297,26 +304,32 @@ testUnifyWithPrint mhnd caseName caseOutcome t1 t2 =
     ++ "After fTFA:    VSubst: " ++ show substH' ++ "\n"
     ++ "New Terms:     " ++ show t1NSubstH' ++ ", " ++ show t2NSubstH' ++ "\n"
     ++ "Note:          x.2 <~ x means x is being replaced by x.2" ++ "\n"
-    ++ "------ END TEST PRINTER ------"
-  ) (
-       caseOutcome == substHUnifies              -- unification found
-    && caseOutcome == (t1NSubstH == t2NSubstH)   -- normed terms equal after unification
-    && caseOutcome == (t1NSubstH' == t2NSubstH') -- freshToAvoid does not change the outcome
+    ++ "------ END TEST PRINTER ------" )
+  $ TestList [
+      testTrue "" (caseOutcome == substHUnifies)              -- unification found
+    , testTrue "" (caseOutcome == (t1NSubstH == t2NSubstH))   -- normed terms equal after unification
+    , testTrue "" (caseOutcome == (t1NSubstH' == t2NSubstH')) -- freshToAvoid does not change the outcome
     -- if unifying without homomorphic rules works then so should it with those rules
-    && (not lnUnifies || substHUnifies)          -- lnUnifies implies substHUnifies
+    , testTrue "" (not lnUnifies || substHUnifies)          -- lnUnifies implies substHUnifies
     -- multiples other tests if the unification was done correctly
     -- needs to be changed if unifyHomomorphicLTerm changes
-    && isCorrectPreSubst orgVars substForm'
-    && isCorrectPreSubst orgVars substFormFreeAvoid'
-    && isCorrectFreeAvoidSubst orgVars substForm' substFormFreeAvoid'
-    && isCorrectSubst orgVars substH
-  )
+    , testTrue "" (isCorrectPreSubst orgVars substForm')
+    , testTrue "" (isCorrectPreSubst orgVars substFormFreeAvoid')
+    , testTrue "" (isCorrectFreeAvoidSubst orgVars substForm' substFormFreeAvoid')
+    , testTrue "" (isCorrectSubst orgVars substH)
+  ]
   where
     substs = unifyLTerm sortOfName [Equal t1 t2] `runReader` mhnd
     numUnifiers = length substs
     subst = safeHead substs
     subst' = freshToFreeAvoiding subst [t1,t2]
     lnUnifies = not (null substs)
+
+    substsHom = unifyLTerm sortOfName [Equal t1 t2] `runReader` mhndHom
+    numUnifiersHom = length substsHom
+    substHom = safeHead substsHom
+    substHom' = freshToFreeAvoiding substHom [t1,t2]
+    lnUnifiesHom = not (null substsHom)
 
     substHUnifier = unifyHomomorphicLTerm sortOfName [Equal t1 t2]
     substH = case substHUnifier of
@@ -392,8 +405,8 @@ foldVars = sortednub . concatMap varsVTerm
 
 -- Multiple tests for the functions directly used by the 
 -- homomorphic encrytion unification algorithm 
-testsUnifyHomomorphicSf :: MaudeHandle -> Test
-testsUnifyHomomorphicSf _ =
+testsUnifyHomomorphicSf :: MaudeHandle -> MaudeHandle -> Test
+testsUnifyHomomorphicSf _ _ =
   TestLabel "Tests for Unify module EpsilonH subfunctions" $
   TestList
     [ testTrue "position var" (positionsWithTerms x0 == [("",x0)])
@@ -509,8 +522,8 @@ testsUnifyHomomorphicSf _ =
 --  , variableSubstitutionHomomorphicRule   8
 --  , trivialHomomorphicRule                9
 --  , stdDecompositionHomomorphicRule]      10
-testsUnifyHomomorphicRules :: MaudeHandle -> Test
-testsUnifyHomomorphicRules _ = TestLabel "Tests for Unify module EpsilonH Rules" $
+testsUnifyHomomorphicRules :: MaudeHandle -> MaudeHandle -> Test
+testsUnifyHomomorphicRules _ _ = TestLabel "Tests for Unify module EpsilonH Rules" $
   TestList
     [ testTrue "trivial 1" (debugHomomorphicRule 9 tE1 s ([], vA [tE1]) == HEqs ([],[]) )
     , testTrue "trivial 2" (debugHomomorphicRule 9 tFE1 s ([], vA [tFE1]) == HEqs ([],[]) )
@@ -649,8 +662,8 @@ testsUnifyHomomorphicShaping = TestLabel "Tests for Unify module EpsilonH Shapin
 
 -- Test used to print return values and variables for debugging
 -- Set Test return value to false to print out text
-testPrinterHomomorphic :: MaudeHandle -> Test
-testPrinterHomomorphic _ =
+testPrinterHomomorphic :: MaudeHandle -> MaudeHandle -> Test
+testPrinterHomomorphic _ _ =
   TestLabel "prints out debugging information" $
   TestList
     [ testTrue (show "***text being printed***") True]
@@ -843,7 +856,8 @@ testsSimple _hnd =
 -- | All unification infrastructure unit tests.
 tests :: FilePath -> IO Test
 tests maudePath = do
-    mhnd <- startMaude maudePath allMaudeSig
+    mhnd    <- startMaude maudePath allMaudeSig
+    mhndHom <- startMaude maudePath allMaudeSigPlusHomomorphic
     return $ TestList [ testsVariant mhnd
                       , tcompare mhnd
                       , testsSubs mhnd
@@ -851,7 +865,7 @@ tests maudePath = do
                       , testsSubst
                       , testsNorm mhnd
                       , testsUnify mhnd
-                      , testAllHomomorphic mhnd
+                      , testAllHomomorphic mhnd mhndHom
                       , testsSimple mhnd
                       , testsMatching mhnd
                       ]
@@ -860,6 +874,12 @@ tests maudePath = do
 allMaudeSig :: MaudeSig
 allMaudeSig = mconcat
     [ bpMaudeSig, msetMaudeSig -- do not add homMaudeSig
+    , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
+
+-- with enableHom=True
+allMaudeSigPlusHomomorphic :: MaudeSig
+allMaudeSigPlusHomomorphic = mconcat
+    [ bpMaudeSig, msetMaudeSig, homMaudeSig
     , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
 
 
