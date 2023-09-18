@@ -178,6 +178,9 @@ testMatchingHomWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
     , testTrue "sd" (caseOutcome == (t1N == t2NSubstH))  -- terms equal after norming
     -- if matching without homomorphic rules works then so should it with those rules
     , testTrue "" (not lnMatches || substHomMatches) -- lnMatches implies substHMatches
+    , testTrue "" (caseOutcome == lnMatchesHom)
+    , testTrue "" (not lnMatches || lnMatchesHom) -- lnMatches implies substHMatches
+    , testTrue "" (isCorrectMatchSubst (foldVars [t2]) directSubstHom)
   ]
   where
     t1N = normHomomorphic t1
@@ -317,6 +320,9 @@ testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
     , testTrue "" (isCorrectPreSubst orgVars substFormFreeAvoid')
     , testTrue "" (isCorrectFreeAvoidSubst orgVars substForm' substFormFreeAvoid')
     , testTrue "" (isCorrectSubst orgVars substH)
+    -- second maude handle
+    , testTrue "" (caseOutcome == lnUnifiesHom) 
+    , testTrue "" (not lnUnifies || lnUnifiesHom)          -- lnUnifies implies substHUnifies
   ]
   where
     substs = unifyLTerm sortOfName [Equal t1 t2] `runReader` mhnd
@@ -370,24 +376,20 @@ testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
 
 isCorrectSubst :: IsConst c =>  [LVar] -> LSubst c -> Bool
 isCorrectSubst orgVars subst = let s = substToList subst in 
-  allLeftVarsUnique s && allLeftVarsNotRight s && all ((`elem` orgVars) . fst) s 
+  allLeftVarsUnique s && allLeftVarsNotRight s && allLeftVarsOrgVars orgVars s && noOrgVarsRight orgVars s
 
 isCorrectPreSubst :: IsConst c => [LVar] -> ([(LVar, LTerm c)], [LVar]) -> Bool
-isCorrectPreSubst orgVars (s,_) = allLeftVarsUnique s && allLeftVarsNotRight s && all ((`elem` orgVars) . fst) s 
+isCorrectPreSubst orgVars (s,_) = 
+  allLeftVarsUnique s && allLeftVarsNotRight s && allLeftVarsOrgVars orgVars s
 
-isCorrectMatchSubst :: [(LTerm c, LTerm c)] -> LSubst c -> Bool
-isCorrectMatchSubst ms subst = let
-  (tVars, pVars) = bimap foldVars foldVars $ unzip ms
-  (leftVars, rightVars) = second foldVars $ unzip $ substToList subst
-  in   all (\v -> v `notElem` leftVars  || v `elem` pVars) tVars
-    && all (\v -> v `notElem` rightVars || v `elem` tVars) pVars
-    && all (`elem` pVars) leftVars && all (`elem` tVars) rightVars
+isCorrectMatchSubst :: [LVar] -> LSubst c -> Bool
+isCorrectMatchSubst orgVars subst = allLeftVarsOrgVars orgVars (substToList subst)
 
 isCorrectFreeAvoidSubst :: [LVar] -> ([(LVar, LTerm c)], [LVar]) -> ([(LVar, LTerm c)], [LVar]) -> Bool
 isCorrectFreeAvoidSubst orgVars orgSubst completeSubst = let
-  (cmpLVars, cmpRVars) = second foldVars $ unzip $ fst completeSubst
+  (cmpLVars, _) = second foldVars $ unzip $ fst completeSubst
   (_, orgRVars) = second foldVars $ unzip $ fst orgSubst
-  in all (`notElem` cmpRVars) orgVars && all (\v -> v `notElem` orgVars || v `elem` cmpLVars) orgRVars
+  in all (\v -> v `notElem` orgVars || v `elem` cmpLVars) orgRVars
 
 allLeftVarsUnique :: [(LVar, a)] -> Bool
 allLeftVarsUnique [] = True
@@ -395,6 +397,12 @@ allLeftVarsUnique ((vL,_):substs) = not (any (\(vR,_) -> vL == vR) substs) && al
 
 allLeftVarsNotRight :: [(LVar, LTerm c)] -> Bool
 allLeftVarsNotRight subst = let (vars,terms) = unzip subst in not $ any (\v -> v `elem` foldVars terms) vars
+
+allLeftVarsOrgVars :: [LVar] -> [(LVar, LTerm c)] -> Bool
+allLeftVarsOrgVars orgVars = all ((`elem` orgVars). fst)
+
+noOrgVarsRight :: [LVar] -> [(LVar, LTerm c)] -> Bool
+noOrgVarsRight orgVars subst = let rightVars = foldVars (map snd subst) in all (`notElem` rightVars) orgVars
 
 foldVars :: [LTerm c] -> [LVar]
 foldVars = sortednub . concatMap varsVTerm
