@@ -150,7 +150,7 @@ testsMatchingHomomorphic mhnd mhndHom = TestLabel "Tests for Matching modulo Eps
     , ("same pub 2",        True,   px0,    px1     )
     , ("node 1",            True,   node1,  node1   )
     , ("node 2",            True,   node1,  node2   )
-    -- Note: lnMatching will throw error
+    -- Note: lnMatching will throw error so we don't test
     -- , ("node 3",            False,  node1,  x0      )
     ]
 
@@ -273,7 +273,7 @@ testsUnifyHomomorphic mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH"
      -- timepoint cases
     , ("node 1",    True,   node1,        node1         )
     , ("node 2",    True,   node1,        node2         )
-    -- Note: lnUnfify will throw error
+    -- Note: lnUnfify will throw error so we don't test
     -- , ("node 3",    False,  node1,        x0            )
     -- shaping and parsing
     , ("shapa 1",   True,   pair(x0,x1),                    henc(x2,x3))
