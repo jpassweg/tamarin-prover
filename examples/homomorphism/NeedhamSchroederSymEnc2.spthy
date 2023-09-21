@@ -1,6 +1,6 @@
 // NEEDHAM-SCHROEDER SYMMETRIC KEY PROTOCOL from the Cap Unification paper
 
-theory NeedhamSchroederSymEnc
+theory NeedhamSchroederSymEncWithForwarding
 begin
 
 builtins: symmetric-encryption
@@ -15,20 +15,20 @@ rule A_1:
     [ CSKey($A, $S, KAS)
     , Fr(~NA) ]
     --[]->
-    [ Out( <<$A, $B>, ~NA> )
+    [ Out(<<$A, $B>, ~NA>)
     , A_1_State($S, $A, $B, KAS, ~NA) ]
 
 rule S_1:
     [ SCKey($S, $A, KAS)
     , SCKey($S, $B, KBS)
-    , In( <<$A, $B>, NA> )
+    , In(<<$A, $B>, NA>)
     , Fr(~KAB) ]
-    --[ Sending( senc(<~KAB, $A>, KBS), $S, $A) ]->
-    [ Out( senc( <<<NA, $B>, ~KAB>, senc(<~KAB, $A>, KBS)>, KAS) ) ]
+    --[ Sending(senc(<~KAB, $A>, KBS), $S, $A) ]->
+    [ Out(senc(<<<NA, $B>, ~KAB>, senc(<~KAB, $A>, KBS)>, KAS)) ]
 
 rule A_2:
     [ A_1_State($S, $A, $B, KAS, ~NA)
-    , In( senc( <<<~NA, $B>, KAB>, SBMsg>, KAS) ) ]
+    , In(senc(<<<~NA, $B>, KAB>, SBMsg>, KAS)) ]
     --[ Forwarded(SBMsg, $S, $A) ]->
     [ Out(SBMsg)
     , A_2_State($S, $A, $B, KAS, KAB) ]
@@ -54,15 +54,9 @@ rule B_2:
     []
 
 lemma forwardmessage [sources]:
-    "
-    All S A m #i. 
-        Forwarded(m, S, A) @ #i ==> (Ex #t. Sending(m, S, A)@t & (#t < #i))
-    "
+    "All S A m #i. Forwarded(m, S, A) @ #i ==> (Ex #t. Sending(m, S, A)@t & (#t < #i))"
 
 lemma Secret_Shared_Key: 
-    "
-    All agent key #i. 
-    SecretKey(agent, key) @ #i ==> (not (Ex #t. K(key) @ #t))
-    "
+    "All agent key #i. SecretKey(agent, key) @ #i ==> (not (Ex #t. K(key) @ #t))"
 
 end

@@ -1,6 +1,6 @@
 // NEEDHAM-SCHROEDER SYMMETRIC KEY PROTOCOL from the Cap Unification paper
 
-theory NeedhamSchroeder
+theory NeedhamSchroederWithForwarding
 begin
 
 builtins: homomorphic-encryption
@@ -9,32 +9,32 @@ functions: succ/1
 rule Client_Server_Keys:
     [ Fr(~key) ]
     --[]->
-    [ !SCKey($Server, $Client, ~key), !CSKey($Client, $Server, ~key) ]
+    [ SCKey($Server, $Client, ~key), CSKey($Client, $Server, ~key) ]
 
 rule A_1:
-    [ !CSKey($A, $S, KAS)
+    [ CSKey($A, $S, KAS)
     , Fr(~NA) ]
     --[]->
-    [ Out( <<$A, $B>, ~NA> )
+    [ Out(<<$A, $B>, ~NA>)
     , A_1_State($S, $A, $B, KAS, ~NA) ]
 
 rule S_1:
-    [ !SCKey($S, $A, KAS)
-    , !SCKey($S, $B, KBS)
-    , In( <<$A, $B>, NA> )
+    [ SCKey($S, $A, KAS)
+    , SCKey($S, $B, KBS)
+    , In(<<$A, $B>, NA>)
     , Fr(~KAB) ]
-    --[ Sending( henc(<~KAB, $A>, KBS), $S, $A) ]->
-    [ Out( henc( <<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS) ) ]
+    --[ Sending(henc(<~KAB, $A>, KBS), $S, $A) ]->
+    [ Out(henc(<<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS)) ]
 
 rule A_2:
     [ A_1_State($S, $A, $B, KAS, ~NA)
-    , In( henc( <<<~NA, $B>, KAB>, SBMsg>, KAS) ) ]
+    , In(henc(<<<~NA, $B>, KAB>, SBMsg>, KAS)) ]
     --[ Forwarded(SBMsg, $S, $A) ]->
     [ Out(SBMsg)
     , A_2_State($S, $A, $B, KAS, KAB) ]
 
 rule B_1:
-    [ !CSKey($B, $S, KBS)
+    [ CSKey($B, $S, KBS)
     , In(henc(<KAB, $A>, KBS))
     , Fr(~NB) ]
     --[]->
@@ -54,15 +54,9 @@ rule B_2:
     []
 
 lemma forwardmessage [sources]:
-    "
-    All S A m #i. 
-        Forwarded(m, S, A) @ #i ==> (Ex #t. Sending(m, S, A)@t & (#t < #i))
-    "
+    "All S A m #i. Forwarded(m, S, A) @ #i ==> (Ex #t. Sending(m, S, A)@t & (#t < #i))"
 
 lemma Secret_Shared_Key: 
-    "
-    All agent key #i. 
-    SecretKey(agent, key) @ #i ==> (not (Ex #t. K(key) @ #t))
-    "
+    "All agent key #i. SecretKey(agent, key) @ #i ==> (not (Ex #t. K(key) @ #t))"
 
 end
