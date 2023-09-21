@@ -1,0 +1,69 @@
+// NEEDHAM-SCHROEDER SYMMETRIC KEY PROTOCOL from the Cap Unification paper
+
+theory NeedhamSchroederAlternativeProtocol
+begin
+
+/*
+Alternative Protocol:
+A->S: A, B, N_a
+S->A: {N_a, B, K_ab}Kas
+S->B: {K_ab,A}Kbs
+B->A: {N_b}Kab
+A->B: {succ(N_b)}Kab
+*/
+
+builtins: homomorphic-encryption
+functions: succ/1
+
+rule Client_Server_Keys:
+    [ Fr(~key) ]
+    --[]->
+    [ !SCKey($Server, $Client, ~key) ]
+
+rule A_1:
+    [ !SCKey($S, $A, KAS)
+    , Fr(~NA) ]
+    --[]->
+    [ Out( <<$A, $B>, ~NA> )
+    , A_1_State($S, $A, $B, KAS, ~NA) ]
+
+rule S_1:
+    [ !SCKey($S, $A, KAS)
+    , !SCKey($S, $B, KBS)
+    , In( <<$A, $B>, NA> )
+    , Fr(~KAB) ]
+    --[Sending(henc(<~KAB, $A>, KBS), $S,$A)]->
+    [ Out(henc( <<NA, $B>, ~KAB>, KAS) ), Out(henc(<~KAB, $A>, KBS)) ]
+
+rule A_2:
+    [ A_1_State($S, $A, $B, KAS, ~NA)
+    , In( henc( <<~NA, $B>, KAB>, KAS) ) ]
+    --[]->
+    [ 
+    A_2_State($S, $A, $B, KAS, KAB) ]
+
+rule B_1:
+    [ !SCKey($S, $B, KBS)
+    , In(henc(<KAB, $A>, KBS))
+    , Fr(~NB) ]
+    --[]->
+    [ Out(henc(~NB, KAB)) 
+    , B_1_State($S, $A, $B, KBS, KAB, ~NB) ]
+
+rule A_3:
+    [ A_2_State($S, $A, $B, KAS, KAB)
+    , In(henc(NB, KAB)) ]
+    --[ Secret($S, $A, $B, KAS, KAB), SecretKey($A, KAB) ]->
+    [ Out(henc(succ(NB), KAB)) ]
+
+rule B_2:
+    [ B_1_State($S, $A, $B, KBS, KAB, ~NB)
+    , In(henc(succ(~NB), KAB)) ]
+    --[ Secret($S, $B, $A, KBS, KAB), SecretKey($B, KAB) ]->
+    []
+
+
+lemma Secret_Shared_Key: 
+    "All agent key #i. SecretKey(agent, key) @ #i ==> (not (Ex #t. K(key) @ #t))"
+
+end
