@@ -169,7 +169,7 @@ testMatchingHomWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
     -- lnMatches implies lnMatchesHom
     , testTrue "ln=>mhndHom" (not lnMatches || lnMatchesHom)
     -- checks that vars on the left are all orgVars
-    , testTrue "isCorr match" (isCorrectMatchSubst (foldVars [t2]) directSubstHom)
+    , testTrue "isCorr match" (isCorrectMatchSubst (foldVars [t1]) (foldVars [t2]) directSubstHom)
   ]
   where
     printText = "------ TEST PRINTER ------" ++ "\n"
@@ -392,8 +392,9 @@ isCorrectPreSubst :: IsConst c => [LVar] -> ([(LVar, LTerm c)], [LVar]) -> Bool
 isCorrectPreSubst orgVars (s,_) = 
   allLeftVarsUnique s && allLeftVarsNotRight s && allLeftVarsOrgVars orgVars s
 
-isCorrectMatchSubst :: [LVar] -> LSubst c -> Bool
-isCorrectMatchSubst orgVars subst = allLeftVarsOrgVars orgVars (substToList subst)
+isCorrectMatchSubst :: [LVar] -> [LVar] -> LSubst c -> Bool
+isCorrectMatchSubst leftVars rightVars subst = let s = substToList subst in
+  allLeftVarsOrgVars rightVars s && onlyOrgVarsRight leftVars s
 
 isCorrectFreeAvoidSubst :: [LVar] -> ([(LVar, LTerm c)], [LVar]) -> ([(LVar, LTerm c)], [LVar]) -> Bool
 isCorrectFreeAvoidSubst orgVars orgSubst completeSubst = let
@@ -413,6 +414,9 @@ allLeftVarsOrgVars orgVars = all ((`elem` orgVars). fst)
 
 noOrgVarsRight :: [LVar] -> [(LVar, LTerm c)] -> Bool
 noOrgVarsRight orgVars subst = let rightVars = foldVars (map snd subst) in all (`notElem` rightVars) orgVars
+
+onlyOrgVarsRight :: [LVar] -> [(LVar, LTerm c)] -> Bool
+onlyOrgVarsRight orgVars subst = let rightVars = foldVars (map snd subst) in all (`elem` orgVars) rightVars
 
 foldVars :: [LTerm c] -> [LVar]
 foldVars = sortednub . concatMap varsVTerm
