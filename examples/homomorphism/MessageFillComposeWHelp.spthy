@@ -34,9 +34,6 @@ rule B:
   --[ Received(k) ]->
   []
 
-// Did not find trace in HomomorphicExamples2 (MessageFillCompWHelp2)
-// Did not find trace in HomomorphicExamples3
-// Found trace setting sortOfMConst to LSortMsg for (MVar v)
 lemma Intruder_Fills_Message: exists-trace
   "Ex k #i. Received(k) @i & not K(k) @i"
 
