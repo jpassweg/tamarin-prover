@@ -23,7 +23,7 @@ rule S_1:
     , SCKey($S, $B, KBS)
     , A1Out(<<$A, $B>, NA>)
     , Fr(~KAB) ]
-    --[ Sending($S, $A, $B, henc(<~KAB, $A>, KBS)) ]->
+    --[ Sent($S, $A, $B, henc(<~KAB, $A>, KBS)) ]->
     [ Out(henc(<<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS)) ]
 
 rule A_2:
@@ -55,18 +55,73 @@ rule B_2:
       , Finished($B, $A, KAB) ]->
     []
 
+/*
+version 1
 lemma forwardmessage [sources]:
-    "All S A B m1 m2 #i. Forwarded(S, A, B, m) @i ==> (Ex #t. Sending(S, A, B, m) @t & (#t < #i))"
+    "All S A B m #i. Forwarded(S, A, B, m) @i ==> (Ex #t. Sent(S, A, B, m) @t & (#t < #i))"
+Does not work since
+In rule S1: Out( henc(<<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS) ) and Sent($S, $A, $B, henc(<~KAB, $A>, KBS)) 
+               = <henc(<<NA, $B>, ~KAB>, KAS), henc(henc(<~KAB, $A>, KBS)>, KAS))>
+               = <<henc(<NA, $B>, KAS), henc(~KAB, KAS)>, henc(henc(<~KAB, $A>, KBS)>, KAS))>
+               = <<<henc(NA, KAS), henc($B, KAS)>, henc(~KAB, KAS)>, henc(henc(<~KAB, $A>, KBS)>, KAS))>
+              => KU(henc(NA, KAS)) and KU(henc($B, KAS))
+              => KU(<<<henc(NA, KAS), henc($B, KAS)>, henc(NA, KAS)>, henc(NA, KAS)>)
+              => KU(henc(<<<NA, $B>, NA>, NA>, KAS) )
+In rule A2:  In( henc(<<<~NA, $B>, KAB>, SBMsg>, KAS)) and Forwarded($S, $A, $B, NA)
+With NA != henc(<~KAB, $A>, KBS)
+See NeedhamSchroeder4_S_1.png
+*/
 
 /*
-lemma sourceagentb [sources]:
-    "All S A B m #i. Received(S, A, B, m) @i ==> (Ex #t. Forwarded(S, A, B, m) @t & (#t < #i))"
+version 2
+lemma forwardmessage [sources]:
+    "All S A B m #i. Forwarded(S, A, B, m) @i ==> ((Ex #t. Sent(S, A, B, m) @t & (#t < #i)) | (Ex key #t. K(henc(m, key)) @t & (#t < #i)))"
+Does not work since KU(henc(m, key)) holds, but we only have the action K() when we put the message back to the in fact of rule A2
+and at that point it is K(henc(<<<NA, $B>, NA>, NA>, KAS))
+NOTE: It does work with KU
 */
+
+/*
+version 3
+was able to saturate source with receivemessage version 1. However, version 1 of receivemessage was falsified by tamarin.
+*/
+lemma forwardmessage [sources]:
+    "All S A B m #i. Forwarded(S, A, B, m) @i ==> (
+          (Ex #t. Sent(S, A, B, m) @t & (#t < #i)) 
+        | (Ex key m1 m2 m3 #t. K(henc(<<<m1, m2>, m3>, m>, key)) @t & (#t < #i))
+        )"
+
+/*
+version 1
+lemma receivemessage [sources]:
+    "All S A B m #i. Received(S, A, B, m) @i ==> ((Ex #t. Sent(S, A, B, m) @t (#t < #i)) | (K(m) @i))"
+Does not work since we can do the same trick as for last lemma and give something wrong to rule A2
+See NeedhamSchroeder4_S_2.png
+*/
+
+/*
+lemma receivemessage [sources]:
+    "All S A B m #i. Received(S, A, B, m) @i ==> (
+          (Ex #t1 #t2. Sent(S, A, B, m) @t1 & Forwarded(S, A, B, m) @t2 & (#t1 < #t2) & (#t2 < #i))  
+        | (Ex key m1 m2 m3 #t1 #t2. Forwarded(S, A, B, m) @t1 & K(henc(<<<m1, m2>, m3>, m>, key)) @t2 & (#t2 < #t1) & (#t1 < #i))
+        | (K(m) @i)
+        )"
+Does not work, can not saturate sources
+*/
+
+lemma receivemessage [sources]:
+    "All S A B m #i. Received(S, A, B, m) @i ==> (
+          (Ex #t. Sent(S, A, B, m) @t & (#t < #i))  
+ //       | (Ex key m1 m2 m3 #t. K(henc(<<<m1, m2>, m3>, m>, key)) @t & (#t < #i))
+        | (K(m) @i)
+        )"
 
 lemma Executability_Lemma:
     exists-trace "Ex A B key #i #j. Finished(A, B, key) @i & Finished(B, A, key) @j & not (A = B)"
 
+/*
 lemma Secret_Shared_Key: 
     "All agent key #i. SecretKey(agent, key) @i ==> (not (Ex #t. K(key) @t))"
+*/
 
 end
