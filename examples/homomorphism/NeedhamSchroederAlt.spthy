@@ -18,50 +18,54 @@ functions: succ/1
 rule Client_Server_Keys:
     [ Fr(~key) ]
     --[]->
-    [ !SCKey($Server, $Client, ~key) ]
+    [ SCKey($Server, $Client, ~key), CSKey($Client, $Server, ~key) ]
 
 rule A_1:
-    [ !SCKey($S, $A, KAS)
+    [ CSKey($A, $S, KAS)
     , Fr(~NA) ]
     --[]->
-    [ Out( <<$A, $B>, ~NA> )
+    [ A1Out(<<$A, $B>, ~NA>)
     , A_1_State($S, $A, $B, KAS, ~NA) ]
 
 rule S_1:
-    [ !SCKey($S, $A, KAS)
-    , !SCKey($S, $B, KBS)
-    , In( <<$A, $B>, NA> )
+    [ SCKey($S, $A, KAS)
+    , SCKey($S, $B, KBS)
+    , A1Out(<<$A, $B>, NA>)
     , Fr(~KAB) ]
-    --[Sending(henc(<~KAB, $A>, KBS), $S,$A)]->
-    [ Out(henc( <<NA, $B>, ~KAB>, KAS) ), Out(henc(<~KAB, $A>, KBS)) ]
+    --[]->
+    [ Out(henc(<<NA, $B>, ~KAB>, KAS))
+    , Out(henc(<~KAB, $A>, KBS)) ]
 
 rule A_2:
     [ A_1_State($S, $A, $B, KAS, ~NA)
-    , In( henc( <<~NA, $B>, KAB>, KAS) ) ]
+    , In(henc(<<~NA, $B>, KAB>, KAS)) ]
     --[]->
-    [ 
-    A_2_State($S, $A, $B, KAS, KAB) ]
+    [ A_2_State($S, $A, $B, KAS, KAB) ]
 
 rule B_1:
-    [ !SCKey($S, $B, KBS)
+    [ CSKey($B, $S, KBS)
     , In(henc(<KAB, $A>, KBS))
     , Fr(~NB) ]
     --[]->
-    [ Out(henc(~NB, KAB)) 
+    [ B1Out(henc(~NB, KAB)) 
     , B_1_State($S, $A, $B, KBS, KAB, ~NB) ]
 
 rule A_3:
     [ A_2_State($S, $A, $B, KAS, KAB)
-    , In(henc(NB, KAB)) ]
-    --[ Secret($S, $A, $B, KAS, KAB), SecretKey($A, KAB) ]->
-    [ Out(henc(succ(NB), KAB)) ]
+    , B1Out(henc(NB, KAB)) ]
+    --[ SecretKey($A, KAB)
+      , Finished($A, $B, KAB) ]->
+    [ A3Out(henc(succ(NB), KAB)) ]
 
 rule B_2:
     [ B_1_State($S, $A, $B, KBS, KAB, ~NB)
-    , In(henc(succ(~NB), KAB)) ]
-    --[ Secret($S, $B, $A, KBS, KAB), SecretKey($B, KAB) ]->
+    , A3Out(henc(succ(~NB), KAB)) ]
+    --[ SecretKey($B, KAB)
+      , Finished($B, $A, KAB) ]->
     []
 
+lemma Executability_Lemma:
+    exists-trace "Ex A B key #i #j. Finished(A, B, key) @i & Finished(B, A, key) @j & not (A = B)"
 
 lemma Secret_Shared_Key: 
     "All agent key #i. SecretKey(agent, key) @ #i ==> (not (Ex #t. K(key) @ #t))"
