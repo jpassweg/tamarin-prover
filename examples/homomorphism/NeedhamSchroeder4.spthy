@@ -30,12 +30,12 @@ rule A_2:
     [ A_1_State($S, $A, $B, KAS, ~NA)
     , In(henc(<<<~NA, $B>, KAB>, SBMsg>, KAS)) ]
     --[ Forwarded($S, $A, $B, SBMsg) ]->
-    [ Out(SBMsg)
+    [ A2Out(SBMsg)
     , A_2_State($S, $A, $B, KAS, KAB) ]
 
 rule B_1:
     [ CSKey($B, $S, KBS)
-    , In(henc(<KAB, $A>, KBS))
+    , A2Out(henc(<KAB, $A>, KBS))
     , Fr(~NB) ]
     --[ Received($S, $A, $B, henc(<KAB, $A>, KBS))]->
     [ B1Out(henc(~NB, KAB)) 
@@ -94,7 +94,7 @@ lemma forwardmessage [sources]:
 /*
 version 1
 lemma receivemessage [sources]:
-    "All S A B m #i. Received(S, A, B, m) @i ==> ((Ex #t. Sent(S, A, B, m) @t (#t < #i)) | (K(m) @i))"
+    "All S A B m #i. Received(S, A, B, m) @i ==> ((Ex #t. Sent(S, A, B, m) @t & (#t < #i)) | (K(m) @i))"
 Does not work since we can do the same trick as for last lemma and give something wrong to rule A2
 See NeedhamSchroeder4_S_2.png
 Can not saturate source if we have Out(SBMsg) instead of AOut(SBMsg) fact in rule A_2

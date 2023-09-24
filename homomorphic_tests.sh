@@ -12,7 +12,7 @@ function all_homomorphic () {
 
   if [ $1 ]; then
     /home/$USER/.local/bin/tamarin-prover $1 --derivcheck-timeout=0
-    /home/$USER/.local/bin/tamarin-prover $1 --prove --derivcheck-timeout=0 --Output=$OUTPUT_FOLDER
+    /home/$USER/.local/bin/tamarin-prover $1 -s=5 --prove --derivcheck-timeout=0 --Output=$OUTPUT_FOLDER
   fi
 
   for f in $INPUT_FOLDER/*

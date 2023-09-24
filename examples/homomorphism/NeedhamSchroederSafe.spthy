@@ -1,0 +1,75 @@
+// NEEDHAM-SCHROEDER SYMMETRIC KEY PROTOCOL from the Cap Unification paper
+
+theory NeedhamSchroederSafe
+begin
+
+builtins: homomorphic-encryption
+functions: succ/1
+
+/*
+This version has In/Out facts for all steps except S1Out
+to show that this is indeed the issue with source saturation 
+*/
+
+rule Client_Server_Keys:
+    [ Fr(~key) ]
+    --[]->
+    [ SCKey($Server, $Client, ~key), CSKey($Client, $Server, ~key) ]
+
+rule A_1:
+    [ CSKey($A, $S, KAS)
+    , Fr(~NA) ]
+    --[]->
+    [ Out(<<$A, $B>, ~NA>)
+    , A_1_State($S, $A, $B, KAS, ~NA) ]
+
+rule S_1:
+    [ SCKey($S, $A, KAS)
+    , SCKey($S, $B, KBS)
+    , In(<<$A, $B>, NA>)
+    , Fr(~KAB) ]
+    --[ Sent($S, $A, $B, henc(<~KAB, $A>, KBS)) ]->
+    [ S1Out(henc(<<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS)) ]
+
+rule A_2:
+    [ A_1_State($S, $A, $B, KAS, ~NA)
+    , S1Out(henc(<<<~NA, $B>, KAB>, SBMsg>, KAS)) ]
+    --[ Forwarded($S, $A, $B, SBMsg) ]->
+    [ Out(SBMsg)
+    , A_2_State($S, $A, $B, KAS, KAB) ]
+
+rule B_1:
+    [ CSKey($B, $S, KBS)
+    , In(henc(<KAB, $A>, KBS))
+    , Fr(~NB) ]
+    --[ Received($S, $A, $B, henc(<KAB, $A>, KBS))]->
+    [ Out(henc(~NB, KAB)) 
+    , B_1_State($S, $A, $B, KBS, KAB, ~NB) ]
+
+rule A_3:
+    [ A_2_State($S, $A, $B, KAS, KAB)
+    , In(henc(NB, KAB)) ]
+    --[ SecretKey($A, KAB)
+      , Finished($A, $B, KAB) ]->
+    [ Out(henc(succ(NB), KAB)) ]
+
+rule B_2:
+    [ B_1_State($S, $A, $B, KBS, KAB, ~NB)
+    , In(henc(succ(~NB), KAB)) ]
+    --[ SecretKey($B, KAB) 
+      , Finished($B, $A, KAB) ]->
+    []
+
+lemma forwardmessage [sources]:
+    "All S A B m #i. Forwarded(S, A, B, m) @i ==> (
+          (Ex #t. Sent(S, A, B, m) @t & (#t < #i)) 
+        | (Ex key m1 m2 m3 #t. K(henc(<<<m1, m2>, m3>, m>, key)) @t & (#t < #i))
+        )"
+
+lemma Executability_Lemma:
+    exists-trace "Ex A B key #i #j. Finished(A, B, key) @i & Finished(B, A, key) @j & not (A = B)"
+
+lemma Secret_Shared_Key: 
+    "All agent key #i. SecretKey(agent, key) @i ==> (not (Ex #t. K(key) @t))"
+
+end
