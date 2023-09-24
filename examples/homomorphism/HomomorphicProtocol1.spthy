@@ -1,0 +1,36 @@
+theory HomomorphicProtocol1
+begin
+
+builtins: homomorphic-encryption
+functions: succ/1
+
+// Trivial homomorphic protocol to show that the unification algorithm works
+
+rule GetKey:
+  [ Fr(~key) ]
+  --[]->
+  [ Init($A, $B, ~key), Resp($B, $A, ~key) ]
+
+rule A_1:
+  [ Fr(~NA)
+  , Init($A, $B, key) ]
+  --[]->
+  [ Out(henc(<$A, ~NA>, key))
+  , A_1_State($A, $B, key, ~NA) ]
+
+rule B_1:
+  [ Resp($B, $A, key) 
+  , In(henc(<$A, NA>, key)) ]
+  --[ SecretKey($B, NA) ]->
+  [ Out(henc(<$B, succ(NA)>, key)) ]
+
+rule A_2:
+  [ A_1_State($A, $B, key, ~NA)
+  , In(henc(<$B, succ(~NA)>, key)) ]
+  --[ SecretKey($A, ~NA) ]->
+  []
+
+lemma Secret_Shared_Key: 
+  "All agent key #i. SecretKey(agent, key) @i ==> (not (Ex #t. K(key) @t))"
+
+end
