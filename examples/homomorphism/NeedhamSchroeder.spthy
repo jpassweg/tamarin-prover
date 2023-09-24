@@ -1,6 +1,6 @@
 // NEEDHAM-SCHROEDER SYMMETRIC KEY PROTOCOL from the Cap Unification paper
 
-theory NeedhamSchroederSafe
+theory NeedhamSchroeder
 begin
 
 builtins: homomorphic-encryption
