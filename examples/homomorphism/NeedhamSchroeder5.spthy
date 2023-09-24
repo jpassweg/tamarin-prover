@@ -1,0 +1,179 @@
+// NEEDHAM-SCHROEDER SYMMETRIC KEY PROTOCOL from the Cap Unification paper
+
+theory NeedhamSchroederVersion5
+begin
+
+builtins: homomorphic-encryption
+functions: succ/1
+
+/*
+As far as we can go and still being able to saturate sources.
+This protocol allows not enough to find an attack
+*/
+
+rule Client_Server_Keys:
+    [ Fr(~key) ]
+    --[]->
+    [ SCKey($Server, $Client, ~key), CSKey($Client, $Server, ~key) ]
+
+rule A_1:
+    [ CSKey($A, $S, KAS)
+    , Fr(~NA) ]
+    --[]->
+    [ A1Out(<<$A, $B>, ~NA>)
+    , A_1_State($S, $A, $B, KAS, ~NA) ]
+
+rule S_1:
+    [ SCKey($S, $A, KAS)
+    , SCKey($S, $B, KBS)
+    , A1Out(<<$A, $B>, NA>)
+    , Fr(~KAB) ]
+    --[ Sent($S, $A, $B, henc(<~KAB, $A>, KBS)) ]->
+    [ Out(henc(<<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS)) ]
+
+rule A_2:
+    [ A_1_State($S, $A, $B, KAS, ~NA)
+    , In(henc(<<<~NA, $B>, KAB>, SBMsg>, KAS)) ]
+    --[ Forwarded($S, $A, $B, SBMsg) ]->
+    [ A2Out(SBMsg)
+    , A_2_State($S, $A, $B, KAS, KAB) ]
+
+rule B_1:
+    [ CSKey($B, $S, KBS)
+    , A2Out(henc(<KAB, $A>, KBS))
+    , Fr(~NB) ]
+    --[ Received($S, $A, $B, henc(<KAB, $A>, KBS))]->
+    [ B1Out(henc(~NB, KAB)) 
+    , B_1_State($S, $A, $B, KBS, KAB, ~NB) ]
+
+rule A_3:
+    [ A_2_State($S, $A, $B, KAS, KAB)
+    , B1Out(henc(NB, KAB)) ]
+    --[ SecretKey($A, KAB)
+      , Finished($A, $B, KAB) ]->
+    [ A3Out(henc(succ(NB), KAB)) ]
+
+rule B_2:
+    [ B_1_State($S, $A, $B, KBS, KAB, ~NB)
+    , A3Out(henc(succ(~NB), KAB)) ]
+    --[ SecretKey($B, KAB) 
+      , Finished($B, $A, KAB) ]->
+    []
+
+/*
+version 1
+lemma forwardmessage [sources]:
+    "All S A B m #i. Forwarded(S, A, B, m) @i ==> (Ex #t. Sent(S, A, B, m) @t & (#t < #i))"
+Does not work since
+In rule S1: Out( henc(<<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS) ) and Sent($S, $A, $B, henc(<~KAB, $A>, KBS)) 
+               = <henc(<<NA, $B>, ~KAB>, KAS), henc(henc(<~KAB, $A>, KBS)>, KAS))>
+               = <<henc(<NA, $B>, KAS), henc(~KAB, KAS)>, henc(henc(<~KAB, $A>, KBS)>, KAS))>
+               = <<<henc(NA, KAS), henc($B, KAS)>, henc(~KAB, KAS)>, henc(henc(<~KAB, $A>, KBS)>, KAS))>
+              => KU(henc(NA, KAS)) and KU(henc($B, KAS))
+              => KU(<<<henc(NA, KAS), henc($B, KAS)>, henc(NA, KAS)>, henc(NA, KAS)>)
+              => KU(henc(<<<NA, $B>, NA>, NA>, KAS) )
+In rule A2:  In( henc(<<<~NA, $B>, KAB>, SBMsg>, KAS)) and Forwarded($S, $A, $B, NA)
+With NA != henc(<~KAB, $A>, KBS)
+See NeedhamSchroeder4_S_1.png
+*/
+
+/*
+version 2
+lemma forwardmessage [sources]:
+    "All S A B m #i. Forwarded(S, A, B, m) @i ==> ((Ex #t. Sent(S, A, B, m) @t & (#t < #i)) | (Ex key #t. K(henc(m, key)) @t & (#t < #i)))"
+Does not work since KU(henc(m, key)) holds, but we only have the action K() when we put the message back to the in fact of rule A2
+and at that point it is K(henc(<<<NA, $B>, NA>, NA>, KAS))
+NOTE: It does work with KU
+*/
+
+/*
+version 3
+was able to saturate source with receivemessage version 1. However, version 1 of receivemessage was falsified by tamarin.
+*/
+lemma forwardmessage [sources]:
+    "All S A B m #i. Forwarded(S, A, B, m) @i ==> (
+          (Ex #t. Sent(S, A, B, m) @t & (#t < #i)) 
+        | (Ex key m1 m2 m3 #t. K(henc(<<<m1, m2>, m3>, m>, key)) @t & (#t < #i))
+        )"
+
+lemma receivemessage [sources]:
+    "All S A B m #i. Received(S, A, B, m) @i ==> ((Ex #t. Sent(S, A, B, m) @t & (#t < #i)) | (K(m) @i))"
+
+/*
+version 1
+lemma receivemessage [sources]:
+    "All S A B m #i. Received(S, A, B, m) @i ==> ((Ex #t. Sent(S, A, B, m) @t & (#t < #i)) | (K(m) @i))"
+Does not work since we can do the same trick as for last lemma and give something wrong to rule A2
+See NeedhamSchroeder4_S_2.png
+Can not saturate source if we have Out(SBMsg) instead of AOut(SBMsg) fact in rule A_2
+*/
+
+/*
+version 2
+lemma receivemessage [sources]:
+    "All S A B m #i. Received(S, A, B, m) @i ==> (
+          (Ex #t1 #t2. Sent(S, A, B, m) @t1 & Forwarded(S, A, B, m) @t2 & (#t1 < #t2) & (#t2 < #i))  
+        | (Ex key m1 m2 m3 #t1 #t2. Forwarded(S, A, B, m) @t1 & K(henc(<<<m1, m2>, m3>, m>, key)) @t2 & (#t2 < #t1) & (#t1 < #i))
+        | (K(m) @i)
+        )"
+Does not work, can not saturate sources
+*/
+
+/*
+version 3
+NOTE: breaking doen receivemessage into two lemmas receiveforwardedmessage and receivesentmessage
+with this lemma, saturating sources takes 42 seconds
+lemma receiveforwardedmessage [sources]:
+    "All S A B m #i. Received(S, A, B, m) @i ==> (
+          (Ex #t. Forwarded(S, A, B, m) @t & (#t < #i)) 
+        | (K(m) @i)
+        )"
+
+lemma receivesentmessage [sources]:
+    "All S A B m #i. Received(S, A, B, m) @i ==> (
+          (Ex #t. Sent(S, A, B, m) @t & (#t < #i))  
+//        | (Ex key m1 m2 m3 #t. K(henc(<<<m1, m2>, m3>, m>, key)) @t & (#t < #i))
+        | (K(m) @i)
+        )"
+
+If we remove the commented out part in receivesentmessage, saturating sources takes forever
+=> searching for other solution, it seems the problem is that in rule A_2 the agent does not know
+the content of the forwarded message
+*/
+
+/*
+version 4
+lemma receivemessage [sources]:
+    "All S A B m #i. Received(S, A, B, m) @i ==> (
+          (Ex #t. Sent(S, A, B, m) @t & (#t < #i)) 
+        | (Ex m2 #t1 #t2. Sent(S, A, B, m2) @t1 & Forwarded(S, A, B, m) @t2 & (#t1 < #t2) & (#t2 < #i))
+        )"
+can not saturate sources
+*/
+
+/*
+version 5
+lemma receivemessage [sources]:
+    "All S A B m #i. Received(S, A, B, m) @i ==> (
+          (Ex #t. Sent(S, A, B, m) @t & (#t < #i)) 
+        | (Ex m2 #t. Sent(S, A, B, m2) @t & (#t < #i))
+        )"
+can not saturate sources
+*/
+
+/*
+version 6
+lemma receiveforwardedmessage [sources]:
+    "All S A B m #i. Received(S, A, B, m) @i ==> ((Ex #t. Forwarded(S, A, B, m) @t & (#t < #i)))"
+
+lemma receivesentmessage [sources]:
+    "All S A B m #i. Received(S, A, B, m) @i ==> ((Ex m2 #t. Sent(S, A, B, m2) @t & (#t < #i)))"
+*/
+
+lemma Executability_Lemma:
+    exists-trace "Ex A B key #i #j. Finished(A, B, key) @i & Finished(B, A, key) @j & not (A = B)"
+
+lemma Secret_Shared_Key: 
+    "All agent key #i. SecretKey(agent, key) @i ==> (not (Ex #t. K(key) @t))"
+
+end
