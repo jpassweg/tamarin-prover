@@ -170,6 +170,8 @@ testMatchingHomWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
     , testTrue "ln=>mhndHom" (not lnMatches || lnMatchesHom)
     -- checks that vars on the left are all orgVars
     , testTrue "isCorr match" (isCorrectMatchSubst (foldVars [t1]) (foldVars [t2]) directSubstHom)
+    -- test correct sort
+    , testTrue "correct sort match" (isSortCorrectSubst directSubstHom sortOfName)
   ]
   where
     printText = "------ TEST PRINTER ------" ++ "\n"
@@ -309,6 +311,10 @@ testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
     , testTrue "isCorr freeAvoid" (isCorrectPreSubst orgVars substFormFreeAvoid)
     , testTrue "isCorr freeAvoid 2" (isCorrectFreeAvoidSubst orgVars substForm substFormFreeAvoid)
     , testTrue "isCorr subst" (isCorrectSubst orgVars substH)
+    -- test correct sort
+    , testTrue "correct sort match" (isSortCorrectSubst substH sortOfName)
+    -- test correct sort
+    , testTrue "correct sort match" (isSortCorrectSubst substHomFreeAvoid sortOfName)
       -- tests with second maude handle
     , testTrue "equal mhndHom" (caseOutcome == lnUnifiesHom) 
     , testTrue "ln=>mhndHom" (not lnUnifies || lnUnifiesHom)
@@ -395,6 +401,9 @@ isCorrectPreSubst orgVars (s,_) =
 isCorrectMatchSubst :: [LVar] -> [LVar] -> LSubst c -> Bool
 isCorrectMatchSubst leftVars rightVars subst = let s = substToList subst in
   allLeftVarsOrgVars rightVars s && onlyOrgVarsRight leftVars s
+
+isSortCorrectSubst :: IsConst c => LSubst c -> (c -> LSort) -> Bool
+isSortCorrectSubst subst st = let s = substToList subst in all (\(v,t) -> sortCompare (lvarSort v) (sortOfLTerm st t) `elem` [Just EQ, Just GT]) s
 
 isCorrectFreeAvoidSubst :: [LVar] -> ([(LVar, LTerm c)], [LVar]) -> ([(LVar, LTerm c)], [LVar]) -> Bool
 isCorrectFreeAvoidSubst orgVars orgSubst completeSubst = let
