@@ -82,6 +82,8 @@ module Term.Term (
     , multSymString
     , zeroSymString
     , xorSymString
+    , homEncSymString
+    , homDecSymString
 
     -- ** Function symbols
     , diffSym

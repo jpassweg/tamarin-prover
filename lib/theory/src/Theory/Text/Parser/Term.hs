@@ -74,6 +74,8 @@ reservedBuiltins =  map unpackChars [
   , emapSymString 
   , zeroSymString
   , xorSymString 
+  , homEncSymString
+  , homDecSymString
   ]
 
 -- | Parse an n-ary operator application for arbitrary n.

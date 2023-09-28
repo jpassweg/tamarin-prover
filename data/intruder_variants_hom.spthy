@@ -1,0 +1,8 @@
+rule (modulo AC) c_hdec:
+   [ !KU( x ), !KU( x.1 ) ] --[ !KU( hdec(x, x.1) ) ]-> [ !KU( hdec(x, x.1) ) ]
+
+rule (modulo AC) c_henc:
+   [ !KU( x ), !KU( x.1 ) ] --[ !KU( henc(x, x.1) ) ]-> [ !KU( henc(x, x.1) ) ]
+
+rule (modulo AC) d_hdec:
+   [ !KD( henc(x.1, x.2) ), !KU( x.2 ) ] --> [ !KD( x.1 ) ]
