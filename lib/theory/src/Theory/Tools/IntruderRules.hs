@@ -13,6 +13,7 @@ module Theory.Tools.IntruderRules (
     subtermIntruderRules
   , dhIntruderRules
   , bpIntruderRules
+  , homIntruderRules
   , xorIntruderRules
   , multisetIntruderRules
   , mkDUnionRule
@@ -418,6 +419,31 @@ bpVariantsIntruder hnd ru = do
         mappings = substToListVFresh subst
         doms     = map fst mappings
         rngs     = map snd mappings
+
+------------------------------------------------------------------------------
+-- Homomorphic encryption Intruder rules
+------------------------------------------------------------------------------
+
+-- | @homIntruderRules@ computes the intruder rules for homomorphic encryption
+-- Bool argument: is diff theory or not
+-- from module Theory.Model.Rule: Rule _rInfo :: i, _rPrems :: [LNFact], _rConcs :: [LNFact], _rActs :: [LNFact], _rNewVars :: [LNTerm]
+homIntruderRules :: Bool -> WithMaude [IntrRuleAC]
+homIntruderRules diff = reader $ \hnd -> minimizeIntruderRules diff $
+  [ Rule constrHomEnc kuTwoVars kuHomEnc kuHomEnc []
+  , Rule constrHomDec kuTwoVars kuHomDec kuHomDec []
+  ] 
+  ++
+  (variantsIntruder hnd id True (Rule destrHomDec [kdHomEnc, kuFact x_var_1] [kdFact x_var_0] [] []))
+  where
+    x_var_0 = varTerm (LVar "x" LSortMsg 0)
+    x_var_1 = varTerm (LVar "x" LSortMsg 1)
+    constrHomEnc = (ConstrRule (append (pack "_") homEncSymString))
+    constrHomDec = (ConstrRule (append (pack "_") homDecSymString))
+    destrHomDec = (DestrRule (append (pack "_") homDecSymString) 0 True False) 
+    kuTwoVars = [kuFact x_var_0, kuFact  x_var_1]
+    kuHomEnc = [kuFact (fAppHenc (x_var_0, x_var_1))]
+    kuHomDec = [kuFact (fAppHdec (x_var_0, x_var_1))]
+    kdHomEnc = kdFact (fAppHenc (x_var_0, x_var_1))
 
 ------------------------------------------------------------------------------
 -- Classification functions

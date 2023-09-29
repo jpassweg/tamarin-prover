@@ -21,7 +21,7 @@ import           Theory
 import           Theory.Tools.IntruderRules
 
 import           Main.Console
-import           Main.TheoryLoader               (dhIntruderVariantsFile,bpIntruderVariantsFile)
+import           Main.TheoryLoader               (dhIntruderVariantsFile,bpIntruderVariantsFile,homIntruderVariantsFile)
 import           Main.Utils
 
 
@@ -45,21 +45,25 @@ intruderMode = tamarinMode
 run :: TamarinMode -> Arguments -> IO ()
 run _thisMode as = do
     _ <- ensureMaude as
-    dhHnd <- startMaude (maudePath as) dhMaudeSig
-    bpHnd <- startMaude (maudePath as) bpMaudeSig
+    dhHnd  <- startMaude (maudePath as) dhMaudeSig
+    bpHnd  <- startMaude (maudePath as) bpMaudeSig
+    homHnd <- startMaude (maudePath as) homMaudeSig
     let dhRules    = (dhIntruderRules False) `runReader` dhHnd
         bpRules    = (bpIntruderRules False) `runReader` bpHnd
+        homRules   = (homIntruderRules False) `runReader` homHnd
         dhS = renderDoc . prettyIntruderVariants $ dhRules
         bpS = renderDoc . prettyIntruderVariants $ bpRules
+        homS = renderDoc . prettyIntruderVariants $ homRules
 
-    putStrLn (dhS++bpS)
-    writeRules dhS bpS
+    putStrLn (dhS++bpS++homS)
+    writeRules dhS bpS homS
   where
     -- output generation
     --------------------
 
-    writeRules dhS bpS = case findArg "outDir" as of
+    writeRules dhS bpS homS = case findArg "outDir" as of
       Just outDir ->
           do writeFileWithDirs (outDir </> dhIntruderVariantsFile) dhS
              writeFileWithDirs (outDir </> bpIntruderVariantsFile) bpS
+             writeFileWithDirs (outDir </> homIntruderVariantsFile) homS
       Nothing     -> return ()

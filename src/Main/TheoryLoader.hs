@@ -38,6 +38,7 @@ module Main.TheoryLoader (
   -- ** Cached Message Deduction Rule Variants
   , dhIntruderVariantsFile
   , bpIntruderVariantsFile
+  , homIntruderVariantsFile
   , addMessageDeductionRuleVariants
 
   ) where
@@ -498,6 +499,9 @@ dhIntruderVariantsFile = "data/intruder_variants_dh.spthy"
 bpIntruderVariantsFile :: FilePath
 bpIntruderVariantsFile = "data/intruder_variants_bp.spthy"
 
+homIntruderVariantsFile :: FilePath
+homIntruderVariantsFile = "data/intruder_variants_hom.spthy"
+
 -- | Construct the DH intruder variants for the given maude signature.
 mkDhIntruderVariants :: MaudeSig -> [IntrRuleAC]
 mkDhIntruderVariants msig =
@@ -512,14 +516,31 @@ mkBpIntruderVariants msig =
   $ parseIntruderRules msig bpIntruderVariantsFile
                 $(embedFile "data/intruder_variants_bp.spthy")
 
+mkHomIntruderVariants :: MaudeSig -> [IntrRuleAC]
+mkHomIntruderVariants msig =
+    either (error . show) id  -- report errors lazily through 'error'
+  $ parseIntruderRules msig homIntruderVariantsFile
+                $(embedFile "data/intruder_variants_hom.spthy")
+
 -- | Add the variants of the message deduction rule. Uses built-in cached
 -- files for the variants of the message deduction rules for Diffie-Hellman
 -- exponentiation and Bilinear-Pairing.
 addMessageDeductionRuleVariants :: OpenTranslatedTheory -> OpenTranslatedTheory
 addMessageDeductionRuleVariants thy0
-  | enableBP msig = addIntruderVariants [ mkDhIntruderVariants
-                                        , mkBpIntruderVariants ]
-  | enableDH msig = addIntruderVariants [ mkDhIntruderVariants ]
+  | enableBP msig && enableHom msig = addIntruderVariants 
+                                      [ mkDhIntruderVariants
+                                      , mkBpIntruderVariants
+                                      , mkHomIntruderVariants ]
+  | enableBP msig = addIntruderVariants 
+                                      [ mkDhIntruderVariants
+                                      , mkBpIntruderVariants ]
+  | enableDH msig && enableHom msig = addIntruderVariants 
+                                      [ mkDhIntruderVariants
+                                      , mkHomIntruderVariants ]
+  | enableDH msig = addIntruderVariants
+                                      [ mkDhIntruderVariants ]
+  | enableHom msig = addIntruderVariants
+                                      [ mkHomIntruderVariants ]
   | otherwise     = thy
   where
     msig         = get (sigpMaudeSig . thySignature) thy0
@@ -534,9 +555,20 @@ addMessageDeductionRuleVariants thy0
 -- deduction rules for Diffie-Hellman exponentiation.
 addMessageDeductionRuleVariantsDiff :: OpenDiffTheory -> OpenDiffTheory
 addMessageDeductionRuleVariantsDiff thy0
-  | enableBP msig = addIntruderVariantsDiff [ mkDhIntruderVariants
-                                            , mkBpIntruderVariants ]
-  | enableDH msig = addIntruderVariantsDiff [ mkDhIntruderVariants ]
+  | enableBP msig && enableHom msig = addIntruderVariantsDiff 
+                                      [ mkDhIntruderVariants
+                                      , mkBpIntruderVariants
+                                      , mkHomIntruderVariants ]
+  | enableBP msig = addIntruderVariantsDiff 
+                                      [ mkDhIntruderVariants
+                                      , mkBpIntruderVariants ]
+  | enableDH msig && enableHom msig = addIntruderVariantsDiff 
+                                      [ mkDhIntruderVariants
+                                      , mkHomIntruderVariants ]
+  | enableDH msig = addIntruderVariantsDiff
+                                      [ mkDhIntruderVariants ]
+  | enableHom msig = addIntruderVariantsDiff
+                                      [ mkHomIntruderVariants ]
   | otherwise     = addIntrRuleLabels thy
   where
     msig         = get (sigpMaudeSig . diffThySignature) thy0
