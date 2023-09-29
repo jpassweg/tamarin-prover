@@ -90,14 +90,13 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             FEMap _                         (viewTerm2 -> FPMult _ _) -> False
             FEMap (viewTerm2 -> FPMult _ _) _                         -> False
             -- homomorphic encryption
-            FHdec      t1 _  | isHomEnc t1 && hasSameHomKey t t1 -> False
-            FHdec      t1 t2                                     -> go t1 && go t2
-
+            FHdec _  _             -> False
+            --FHenc t1 _ | isPair t1 -> False
+            FHenc t1 t2            -> go t1 && go t2
             -- topmost position not reducible, check subterms
             FExp       t1 t2 -> go t1 && go t2
             FPMult     t1 t2 -> go t1 && go t2
             FEMap      t1 t2 -> go t1 && go t2
-            FHenc      t1 t2 -> go t1 && go t2
             FInv       t1    -> go t1
             FMult      ts    -> all go ts
             FXor       ts    -> all go ts
