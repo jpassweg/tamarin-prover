@@ -1,5 +1,7 @@
 // NEEDHAM-SCHROEDER SYMMETRIC KEY PROTOCOL from the Cap Unification paper
 
+// LOOK OUT!! IN FACTS STILL USE FRESH VALUES
+
 theory NeedhamSchroederAlternativeProtocol2
 begin
 
@@ -58,13 +60,13 @@ rule B_1:
 
 rule A_3:
     [ A_2_State($S, $A, $B, KAS, KAB)
-    , In(henc(NB, KAB)) ]
+    , In(henc(~NB, KAB)) ]
     --[ NotEqual(KAB, $A)
       , NotEqual(KAB, $B)
       , NotEqual(KAB, $S)
       , SecretKey($A, KAB)
       , FinishedA($A, $B, KAB) ]->
-    [ Out(henc(succ(NB), KAB)) ]
+    [ Out(henc(succ(~NB), KAB)) ]
 
 rule B_2:
     [ B_1_State($S, $A, $B, KBS, KAB, ~NB)
