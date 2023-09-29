@@ -60,12 +60,6 @@ rule B_2:
       , Finished($B, $A, KAB) ]->
     []
 
-lemma forwardmessage [sources]:
-    "All S A B m #i. Forwarded(S, A, B, m) @i ==> (
-          (Ex #t. Sent(S, A, B, m) @t & (#t < #i)) 
-        | (Ex key m1 m2 m3 #t. K(henc(<<<m1, m2>, m3>, m>, key)) @t & (#t < #i))
-        )"
-
 lemma Executability_Lemma:
     exists-trace "Ex A B key #i #j. Finished(A, B, key) @i & Finished(B, A, key) @j & not (A = B)"
 

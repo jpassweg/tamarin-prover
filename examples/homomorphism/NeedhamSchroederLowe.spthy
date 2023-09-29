@@ -1,0 +1,21 @@
+theory NeedhamSchroederLowe
+begin
+
+builtins: homomorphic-encryption
+
+// NEEDS HOMOMORPHIC ASSYMETRIC ENCRYPTION???
+
+/*
+rule Register_pk:
+  [ Fr(~ltk) ]
+  -->
+  [ !Ltk($A, ~ltk), !Pk($A, pk(~ltk)) ]
+
+rule A_1:
+  [ !Ltk($A, ~ltk)
+  , Fr(~NA) ]
+  --[]->
+  [ Out(henc(~NA))]
+*/
+
+end
