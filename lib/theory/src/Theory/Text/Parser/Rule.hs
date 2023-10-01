@@ -39,6 +39,7 @@ import           Theory.Text.Parser.Let
 import           Theory.Text.Parser.Fact
 import           Theory.Text.Parser.Term
 import           Theory.Text.Parser.Formula
+import Term.Homomorphism.LPETerm (normHomomorphic)
 
 -- | Parse a "(modulo ..)" information.
 modulo :: String -> Parser ()
@@ -108,7 +109,7 @@ diffRule = do
     (ps0,as0,cs0,rs0) <- genericRule msgvar nodevar
     let (ps,as,cs,rs) = apply subst (ps0,as0,cs0,rs0)
     leftRight  <- optionMaybe ( (,) <$> (symbol "left"  *> protoRule) <*> (symbol "right" *> protoRule))
-    return $ DiffProtoRule (Rule (modify preRestriction (++ rs) ri) ps cs as (newVariables ps $ cs ++ as)) leftRight
+    return $ normHomomorphicDiffProtoRule $ DiffProtoRule (Rule (modify preRestriction (++ rs) ri) ps cs as (newVariables ps $ cs ++ as)) leftRight
 
 -- | Parse a protocol rule. For the special rules 'Reveal_fresh', 'Fresh',
 -- 'Knows', and 'Learn' no rule is returned as the default theory already
@@ -122,7 +123,25 @@ protoRule = do
     (ps0,as0,cs0,rs0) <- genericRule msgvar nodevar
     let (ps,as,cs,rs) = apply subst (ps0,as0,cs0,rs0)
     variants <- option [] $ symbol "variants" *> commaSep1 protoRuleAC
-    return $ OpenProtoRule (Rule (modify preRestriction (++ rs) ri) ps cs as (newVariables ps $ cs ++ as)) variants
+    return $ normHomomorphicProtoRule $ OpenProtoRule (Rule (modify preRestriction (++ rs) ri) ps cs as (newVariables ps $ cs ++ as)) variants
+
+normHomomorphicProtoRule :: OpenProtoRule -> OpenProtoRule
+normHomomorphicProtoRule (OpenProtoRule ruleE ruleACs) = 
+    OpenProtoRule (normHomomorphicRule ruleE) (map normHomomorphicRule ruleACs)
+
+normHomomorphicDiffProtoRule :: DiffProtoRule -> DiffProtoRule
+normHomomorphicDiffProtoRule (DiffProtoRule ruleE mRule) = case mRule of
+    Just (lRule, rRule) -> DiffProtoRule (normHomomorphicRule ruleE) 
+        (Just (normHomomorphicProtoRule lRule, normHomomorphicProtoRule rRule))
+    Nothing             -> DiffProtoRule (normHomomorphicRule ruleE) 
+        Nothing
+
+normHomomorphicRule :: Rule a -> Rule a
+normHomomorphicRule (Rule rrInfo rrPRems rrConcs rrActs rrNewVars) = 
+    Rule rrInfo (map normHomomorphicFact rrPRems) (map normHomomorphicFact rrConcs) rrActs rrNewVars
+    where
+        normHomomorphicFact (Fact tag annotations terms) = 
+            Fact tag annotations (map normHomomorphic terms)
 
 -- | Parse RuleInfo
 protoRuleACInfo :: Parser ProtoRuleACInfo
