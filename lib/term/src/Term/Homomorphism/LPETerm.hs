@@ -20,6 +20,7 @@ module Term.Homomorphism.LPETerm (
 
   -- * Norm functions
   , normHomomorphic
+  , nfHomomorphic
 
   -- * Functions for debuggin Homomorphic Representations
   , findPurePPositions
@@ -32,10 +33,10 @@ module Term.Homomorphism.LPETerm (
 import Data.Bifunctor (first, second)
 
 import Term.LTerm (
-  LTerm, IsConst, Lit(..), LVar,                                     
-  TermView(Lit, FApp), TermView2(FHenc, FPair), 
-  viewTerm, viewTerm2, termViewToTerm,            
-  fAppPair, fAppHenc, isHomEnc
+  LTerm, IsConst, Lit(..), LVar,
+  TermView(Lit, FApp), TermView2(FHenc, FPair),
+  viewTerm, viewTerm2, termViewToTerm,
+  fAppPair, fAppHenc, isHomEnc, isPair
   ) 
 -- IsConst from Term.VTerm
 -- TermView(Lit, FApp), TermView2(FHenc, FPair), 
@@ -227,6 +228,13 @@ normHomomorphic' t = case viewTerm t of
     FApp funsym ts ->
       termViewToTerm (FApp funsym (map normHomomorphic' ts))
     Lit _ -> t
+
+nfHomomorphic :: (IsConst c) => LTerm c -> Bool
+nfHomomorphic t = case viewTerm t of
+  FApp _ [viewTerm2 -> FHenc _ _, _] | isPair t -> False
+  FApp _ ts                                     -> all nfHomomorphic ts
+  _                                             -> True
+
 
 {-
 -- | returns if the term is in normal form modulo HE+
