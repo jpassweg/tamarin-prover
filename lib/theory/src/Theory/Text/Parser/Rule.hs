@@ -109,7 +109,9 @@ diffRule = do
     (ps0,as0,cs0,rs0) <- genericRule msgvar nodevar
     let (ps,as,cs,rs) = apply subst (ps0,as0,cs0,rs0)
     leftRight  <- optionMaybe ( (,) <$> (symbol "left"  *> protoRule) <*> (symbol "right" *> protoRule))
-    return $ normHomomorphicDiffProtoRule $ DiffProtoRule (Rule (modify preRestriction (++ rs) ri) ps cs as (newVariables ps $ cs ++ as)) leftRight
+    isHom <- enableHom . sig  <$> getState
+    let newDiffProtoRule = DiffProtoRule (Rule (modify preRestriction (++ rs) ri) ps cs as (newVariables ps $ cs ++ as)) leftRight
+    return $ if isHom then normHomomorphicDiffProtoRule newDiffProtoRule else newDiffProtoRule
 
 -- | Parse a protocol rule. For the special rules 'Reveal_fresh', 'Fresh',
 -- 'Knows', and 'Learn' no rule is returned as the default theory already
@@ -123,7 +125,9 @@ protoRule = do
     (ps0,as0,cs0,rs0) <- genericRule msgvar nodevar
     let (ps,as,cs,rs) = apply subst (ps0,as0,cs0,rs0)
     variants <- option [] $ symbol "variants" *> commaSep1 protoRuleAC
-    return $ normHomomorphicProtoRule $ OpenProtoRule (Rule (modify preRestriction (++ rs) ri) ps cs as (newVariables ps $ cs ++ as)) variants
+    isHom <- enableHom . sig  <$> getState
+    let newProtoRule = OpenProtoRule (Rule (modify preRestriction (++ rs) ri) ps cs as (newVariables ps $ cs ++ as)) variants
+    return $ if isHom then normHomomorphicProtoRule newProtoRule else newProtoRule
 
 normHomomorphicProtoRule :: OpenProtoRule -> OpenProtoRule
 normHomomorphicProtoRule (OpenProtoRule ruleE ruleACs) = 
