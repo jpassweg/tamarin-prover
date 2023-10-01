@@ -304,6 +304,8 @@ solveChain rules (c, p) = do
         pRule <- gets $ nodeRule (nodePremNode p)
         faPrem <- gets $ nodePremFact p
         contradictoryIf (forbiddenEdge cRule pRule)
+        -- TODO: remove the ability to connect c_pair rule to !KU(henc(x,x1)) fact
+        --       using contradictoryIf
         insertEdges [(c, faConc, faPrem, p)]
         let mPrem = case kFactView faConc of
                       Just (DnK, m') -> m'
