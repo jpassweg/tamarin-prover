@@ -53,7 +53,6 @@ import           Theory.Tools.IntruderRules
 import           Theory.Text.Pretty
 
 import           Term.Rewriting.Norm            (maybeNotNfSubterms, nf')
-import Term.Homomorphism.LPETerm (nfHomomorphic)
 
 -- import           Debug.Trace
 
@@ -78,7 +77,7 @@ data Contradiction =
   | FormulasFalse                  -- ^ False in formulas
   | SuperfluousLearn LNTerm NodeId -- ^ A term is derived both before and after a learn
   | NodeAfterLast (NodeId, NodeId) -- ^ There is a node after the last node.
-  | NonHomNormalTerms
+  | NonHomNormalTerms              -- ^ Has terms that are not in normal form.
   deriving( Eq, Ord, Show, Generic, NFData, Binary )
 
 
@@ -167,12 +166,13 @@ substCreatesNonNormalTerms hnd sys fsubst =
                 subst = restrictVFresh tvars subst0
                 t'    = apply (freshToFreeAvoidingFast subst tvars) t
 
+-- errors should already get caught by hasNonNormalTerms
 hasNonHomNormalTerms :: System -> Bool
-hasNonHomNormalTerms sys = 
-  not (all nfHomomorphic terms)
-  where
-    terms = sortednub . concatMap getTerms . M.elems . L.get sNodes $ sys
-    getTerms (Rule _ ps cs as nvs) = concatMap factTerms (ps++cs++as) ++ nvs
+hasNonHomNormalTerms _ = False
+--  not (all nfHomomorphic terms)
+--  where
+--    terms = sortednub . concatMap getTerms . M.elems . L.get sNodes $ sys
+--    getTerms (Rule _ ps cs as nvs) = concatMap factTerms (ps++cs++as) ++ nvs
 
 -- | Compute all contradictions to injective fact instances.
 --
@@ -457,6 +457,7 @@ prettyContradiction contra = case contra of
     ImpossibleChain              -> text "impossible chain"
     NonInjectiveFactInstance cex -> text $ "non-injective facts " ++ show cex
     FormulasFalse                -> text "from formulas"
+    NonHomNormalTerms            -> text "non-normal homomorphic terms"
     SuperfluousLearn m v         ->
         doubleQuotes (prettyLNTerm m) <->
         text ("derived before and after") <->
