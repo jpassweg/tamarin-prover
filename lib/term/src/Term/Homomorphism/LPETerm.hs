@@ -36,7 +36,7 @@ import Term.LTerm (
   LTerm, IsConst, Lit(..), LVar,
   TermView(Lit, FApp), TermView2(FHenc, FPair),
   viewTerm, viewTerm2, termViewToTerm,
-  fAppPair, fAppHenc, isHomEnc, isPair
+  fAppPair, fAppHenc, isHomEnc
   ) 
 -- IsConst from Term.VTerm
 -- TermView(Lit, FApp), TermView2(FHenc, FPair), 
@@ -231,9 +231,9 @@ normHomomorphic' t = case viewTerm t of
 
 nfHomomorphic :: (IsConst c) => LTerm c -> Bool
 nfHomomorphic t = case viewTerm t of
-  FApp _ [viewTerm2 -> FHenc _ _, _] | isPair t -> False
-  FApp _ ts                                     -> all nfHomomorphic ts
-  _                                             -> True
+  FApp _ [viewTerm2 -> FPair _ _, _] | isHomEnc t -> False
+  FApp _ ts                                       -> all nfHomomorphic ts
+  Lit _                                           -> True
 
 
 {-
