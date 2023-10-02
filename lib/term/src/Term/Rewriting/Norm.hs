@@ -42,7 +42,7 @@ import Term.Homomorphism.LPETerm (normHomomorphic, nfHomomorphic)
 norm :: (IsConst c)
      => (c -> LSort) -> LTerm c -> WithMaude (LTerm c)
 norm _      t@(viewTerm -> Lit _) = return t
-norm sortOf t         = reader $ \hnd -> normHomomorphic $ unsafePerformIO $ normViaMaude hnd sortOf (normHomomorphic t)
+norm sortOf t         = reader $ \hnd -> error "this not good" -- normHomomorphic $ unsafePerformIO $ normViaMaude hnd sortOf t
 
 -- | @norm' t@ normalizes the term @t@ using Maude.
 norm' :: LNTerm -> WithMaude LNTerm
@@ -90,10 +90,9 @@ nfViaHaskell t0 = reader $ \hnd -> nfHomomorphic t0 && check hnd
             -- bilinear map
             FEMap _                         (viewTerm2 -> FPMult _ _) -> False
             FEMap (viewTerm2 -> FPMult _ _) _                         -> False
-            -- homomorphic encryption
-            FHdec t1 t2            -> go t1 && go t2
-            FHenc t1 _ | isPair t1 -> False
-            FHenc t1 t2            -> go t1 && go t2
+            -- homomorphic encryption -- gets caught by nfHomomorphic
+            FHdec t1 t2 -> go t1 && go t2
+            FHenc t1 t2 -> go t1 && go t2
             -- topmost position not reducible, check subterms
             FExp       t1 t2 -> go t1 && go t2
             FPMult     t1 t2 -> go t1 && go t2
@@ -168,6 +167,7 @@ maybeNotNfSubterms :: MaudeSig -> LNTerm -> [LNTerm]
 maybeNotNfSubterms msig t0 = go t0
   where irreducible = irreducibleFunSyms msig
         go t = case viewTerm t of
-            Lit (Con _)                            -> []
-            (FApp o as) | o `S.member` irreducible -> concatMap go as
-            _                                      -> [t]
+            Lit (Con _)                                       -> []
+            (FApp _ [viewTerm2 -> FPair _ _, _]) | isHomEnc t -> [t]
+            (FApp o as) | o `S.member` irreducible            -> concatMap go as
+            _                                                 -> [t]
