@@ -42,7 +42,7 @@ import Term.Homomorphism.LPETerm (normHomomorphic, nfHomomorphic)
 norm :: (IsConst c)
      => (c -> LSort) -> LTerm c -> WithMaude (LTerm c)
 norm _      t@(viewTerm -> Lit _) = return t
-norm sortOf t         = reader $ \hnd -> error "this not good" -- normHomomorphic $ unsafePerformIO $ normViaMaude hnd sortOf t
+norm sortOf t         = error "this not good" -- reader $ \hnd -> normHomomorphic $ unsafePerformIO $ normViaMaude hnd sortOf t
 
 -- | @norm' t@ normalizes the term @t@ using Maude.
 norm' :: LNTerm -> WithMaude LNTerm
@@ -168,6 +168,6 @@ maybeNotNfSubterms msig t0 = go t0
   where irreducible = irreducibleFunSyms msig
         go t = case viewTerm t of
             Lit (Con _)                                       -> []
-            (FApp _ [viewTerm2 -> FPair _ _, _]) | isHomEnc t -> [t]
+            --(FApp _ [viewTerm2 -> FPair _ _, _]) | isHomEnc t -> [t]
             (FApp o as) | o `S.member` irreducible            -> concatMap go as
             _                                                 -> [t]
