@@ -53,6 +53,7 @@ import           Theory.Tools.IntruderRules
 import           Theory.Text.Pretty
 
 import           Term.Rewriting.Norm            (maybeNotNfSubterms, nf')
+import Term.Homomorphism.LPETerm (nfHomomorphic)
 
 -- import           Debug.Trace
 
@@ -77,6 +78,7 @@ data Contradiction =
   | FormulasFalse                  -- ^ False in formulas
   | SuperfluousLearn LNTerm NodeId -- ^ A term is derived both before and after a learn
   | NodeAfterLast (NodeId, NodeId) -- ^ There is a node after the last node.
+  | NonHomNormalTerms
   deriving( Eq, Ord, Show, Generic, NFData, Binary )
 
 
@@ -110,6 +112,8 @@ contradictions ctxt sys = F.asum
     , guard (eqsIsFalse $ L.get sEqStore sys)                      *> pure IncompatibleEqs
     -- CR-rules *S_⟂*, *S_{¬,last,1}*, *S_{¬,≐}*, *S_{¬,≈}*
     , guard (S.member gfalse $ L.get sFormulas sys)                *> pure FormulasFalse
+    -- FIXME: add CR-rule
+    , guard (enableHom msig && hasNonHomNormalTerms sys)           *> pure NonHomNormalTerms
     ]
     ++
     -- This rule is not yet documented. It removes constraint systems that
@@ -163,6 +167,12 @@ substCreatesNonNormalTerms hnd sys fsubst =
                 subst = restrictVFresh tvars subst0
                 t'    = apply (freshToFreeAvoidingFast subst tvars) t
 
+hasNonHomNormalTerms :: System -> Bool
+hasNonHomNormalTerms sys = 
+  not (all nfHomomorphic terms)
+  where
+    terms = sortednub . concatMap getTerms . M.elems . L.get sNodes $ sys
+    getTerms (Rule _ ps cs as nvs) = concatMap factTerms (ps++cs++as) ++ nvs
 
 -- | Compute all contradictions to injective fact instances.
 --

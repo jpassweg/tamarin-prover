@@ -1,0 +1,22 @@
+/*
+ *  Author: John Doe
+ *  Model Name: DiffieHellmanExample.spthy
+ *  Status: DEVELOPMENTAL
+ *
+ *  Comments:
+ */
+
+theory DiffieHellmanExample
+begin 
+
+builtins: diffie-hellman
+
+rule NotInNormalForm:
+  [ Fr(~x0), Fr(~x1), Fr(~x2) ]
+  --[Tada(~x1)]->
+  [ Out((~x0^~x1)^1) ]
+
+lemma wewantatract: 
+  exists-trace "Ex x0 #i. Tada(x0) @i"
+
+end
