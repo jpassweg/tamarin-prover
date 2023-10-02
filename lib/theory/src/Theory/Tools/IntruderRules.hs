@@ -275,7 +275,7 @@ variantsIntruder hnd minimizeVariants applyFilters ru = go [] $ reverse $ do
                               (get rPrems ru++get rConcs ru++get rActs ru)
     fsigma <- minimizeVariants $ computeVariants (fAppList ruleTerms) `runReader` hnd
     let sigma     = freshToFree fsigma `evalFreshAvoiding` ruleTerms
-        ruvariant = normRule' (apply sigma ru) `runReader` hnd
+        ruvariant = normRule (apply sigma ru) `runReader` hnd
     guard (not applyFilters || frees (get rConcs ruvariant) /= [] &&
            -- ground terms are already deducible by applying construction rules
            (not applyFilters || ruvariant /= ru) &&
@@ -296,13 +296,6 @@ variantsIntruder hnd minimizeVariants applyFilters ru = go [] $ reverse $ do
                           (checked++unchecked)
                    then checked
                    else r:checked
-
--- | @normRule irule@ computes the normal form of @irule@
-normRule' :: IntrRuleAC -> WithMaude IntrRuleAC
-normRule' (Rule i ps cs as nvs) = reader $ \hnd ->
-    let normFactTerms = map (fmap (\t -> norm' t `runReader` hnd)) in
-    let normTerms     = map (\t -> norm' t `runReader` hnd) in
-    Rule i (normFactTerms ps) (normFactTerms cs) (normFactTerms as) (normTerms nvs)
 
 ------------------------------------------------------------------------------
 -- Multiset intruder rules
