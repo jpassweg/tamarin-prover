@@ -219,14 +219,14 @@ fromERepresentation e = if length e == 1 then head e
 -- | @normHomomorphic t@ normalizes the term @t@ modulo the homomorphic rule 
 -- henc(<x1,x2>,k) -> <henc(x1,k),henc(x2,k)>
 normHomomorphic :: (IsConst c) => LTerm c -> LTerm c
-normHomomorphic t = let tN = normHomomorphic' t in if t == tN then t else normHomomorphic tN
-
-normHomomorphic' :: (IsConst c) => LTerm c -> LTerm c
-normHomomorphic' t = case viewTerm t of
-    FApp _ [viewTerm2 -> FPair t11 t12, t2] | isHomEnc t ->
-      fAppPair (fAppHenc (t11, t2), fAppHenc (t12, t2))
-    FApp funsym ts ->
-      termViewToTerm (FApp funsym (map normHomomorphic' ts))
+normHomomorphic t = case viewTerm t of
+    FApp _ [t1, t2] | isHomEnc t -> let 
+      t1N = normHomomorphic t1 
+      t2N = normHomomorphic t2
+      in case viewTerm2 t1N of
+        FPair t11N t12N -> fAppPair (normHomomorphic $ fAppHenc (t11N, t2N), normHomomorphic $ fAppHenc (t12N, t2N))
+        _               -> fAppHenc (t1N, t2N)
+    FApp funsym ts -> termViewToTerm (FApp funsym (map normHomomorphic ts))
     Lit _ -> t
 
 nfHomomorphic :: (IsConst c) => LTerm c -> Bool
@@ -234,7 +234,6 @@ nfHomomorphic t = case viewTerm t of
   FApp _ [viewTerm2 -> FPair _ _, _] | isHomEnc t -> False
   FApp _ ts                                       -> all nfHomomorphic ts
   Lit _                                           -> True
-
 
 {-
 -- | returns if the term is in normal form modulo HE+

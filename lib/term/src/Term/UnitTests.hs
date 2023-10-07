@@ -255,7 +255,7 @@ testsUnifyHomomorphic mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH"
     , ("norm 4",    True,   henc( pair (x0,x0), x0),                                        pair (henc (x1,x2), henc (x2,x4))                                             )
     , ("norm 5",    True,   henc( pair (x0,x1), x2),                                        henc(x3,x4)                                                                   )
     , ("norm 6",    True,   henc( henc (pair(x0,x1),x2),x3),pair(henc(henc(x0,x2),x3),      henc(henc(x1,x2),x3))                                                         )
-    , ("norm 7",    True,   henc( pair (henc(pair(x0,x1),x2), pair(henc(x3,x4),x5)), x6),   normHomomorphic (henc( pair(henc(pair(x0,x1),x2), pair(henc(x3,x4),x5)), x6)) )
+    , ("norm 7",    True,   henc( pair (henc(pair(x0,x1),x2), pair(henc(x3,x4),x5)), x6),   henc( pair(henc(pair(x0,x1),x2), pair(henc(x3,x4),x5)), x6)                   )
     -- cases with different sorts
     , ("public 1",  True,   x0,           px0           )
     , ("public 2",  True,   px0,          x0            )
@@ -296,17 +296,17 @@ testsUnifyHomomorphic mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH"
 testUnifyWithPrint :: MaudeHandle -> MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
 testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
   TestLabel caseName $ TestList [
-      -- test if unification works as expected
+    -- test if unification works as expected
       testTrue printText (caseOutcome == substHUnifies)
-      -- normed terms equal after unification
+    -- normed terms equal after unification
     , testTrue "n equal" (caseOutcome == (t1NSubstH == t2NSubstH))
-      -- freeToAvoid does not change the outcome
+    -- freeToAvoid does not change the outcome
     , testTrue "freeAvoid" (caseOutcome == (t1NSubstHFreeAvoid == t2NSubstHFreeAvoid)) 
-      -- if unifying without homomorphic rules works then so should it with those rules
-      -- lnUnifies implies substHUnifies
+    -- if unifying without homomorphic rules works then so should it with those rules
+    -- lnUnifies implies substHUnifies
     , testTrue "ln=>hom" (not lnUnifies || substHUnifies)          
-      -- multiples other tests if the unification was done correctly
-      -- needs to be changed if unifyHomomorphicLTerm changes
+    -- multiples other tests if the unification was done correctly
+    -- needs to be changed if unifyHomomorphicLTerm changes
     , testTrue "isCorr substForm" (isCorrectPreSubst orgVars substForm)
     , testTrue "isCorr freeAvoid" (isCorrectPreSubst orgVars substFormFreeAvoid)
     , testTrue "isCorr freeAvoid 2" (isCorrectFreeAvoidSubst orgVars substForm substFormFreeAvoid)
@@ -315,9 +315,16 @@ testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
     , testTrue "correct sort match" (isSortCorrectSubst substH sortOfName)
     -- test correct sort
     , testTrue "correct sort match" (isSortCorrectSubst substHomFreeAvoid sortOfName)
-      -- tests with second maude handle
+    -- tests with second maude handle
     , testTrue "equal mhndHom" (caseOutcome == lnUnifiesHom) 
     , testTrue "ln=>mhndHom" (not lnUnifies || lnUnifiesHom)
+    -- test norming function
+    -- norming terms beforehand should not have any influence
+    , testTrue "norm no influence 1" ((t1NSubstH == t2NSubstH) == (t1NSubstHN == t2NSubstH))
+    , testTrue "norm no influence 2" ((t1NSubstH == t2NSubstH) == (t1NSubstH == t2NSubstHN))
+    , testTrue "norm no influence 3" ((t1NSubstH == t2NSubstH) == (t1NSubstHN == t2NSubstHN))
+    , testTrue "norm 1" (t1N == t1NN)
+    , testTrue "norm 2" (t2N == t2NN)
   ]
   where
     printText = "------ TEST PRINTER ------" ++ "\n"
@@ -383,6 +390,14 @@ testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
     t2NSubstH = normHomomorphic $ applyVTerm substH t2
     t1NSubstHFreeAvoid = normHomomorphic $ applyVTerm substHFreeAvoid t1
     t2NSubstHFreeAvoid = normHomomorphic $ applyVTerm substHFreeAvoid t2
+
+    t1N = normHomomorphic t1
+    t2N = normHomomorphic t2
+    t1NSubstHN = normHomomorphic $ applyVTerm substH t1N
+    t2NSubstHN = normHomomorphic $ applyVTerm substH t2N
+
+    t1NN = normHomomorphic t1N
+    t2NN = normHomomorphic t2N
 
     safeHead s = if null s then SubstVFresh $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)] else head s
 
@@ -481,6 +496,7 @@ testsUnifyHomomorphicSf _ _ =
     , testTrue "norm5" (normHomomorphic tpaper1 == tpaper1N)
     , testTrue "norm6" (normHomomorphic tpaper2 == tpaper2N)
     , testTrue "norm7" (normHomomorphic tpaper3 == tpaper3)
+    , testTrue "norm8" (normHomomorphic normInKey == normedInKey)
     ]
   where
     t1 = henc (pair (x0,x1),x2)
@@ -534,6 +550,8 @@ testsUnifyHomomorphicSf _ _ =
       , ("2", henc (x2,x3) ) ]
     norm1 = henc(henc(pair(x0,x1),x2),x3)
     norm2 = pair(henc(henc(x0,x2),x3), henc(henc(x1,x2),x3))
+    normInKey = henc(x0,henc(pair(x1,x2),x3))
+    normedInKey = henc(x0,pair(henc(x1,x3),henc(x2,x3)))
     tH1 = henc(x0, x1)
     tP1 = pair(x0, x1)
 
