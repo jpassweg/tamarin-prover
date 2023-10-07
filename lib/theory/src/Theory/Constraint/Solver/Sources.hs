@@ -68,10 +68,13 @@ import           Control.Monad.Bind
 import           Debug.Trace
 import qualified GHC.Generics as G
 import qualified Data.Binary  as B
+import Data.Maybe (mapMaybe)
+
+import           System.IO.Unsafe     (unsafePerformIO)
 
 
 -- | Parameters
-data IntegerParameters = IntegerParameters 
+data IntegerParameters = IntegerParameters
     {
       _paramOpenChainsLimit :: Integer
     , _paramSaturationLimit :: Integer
@@ -365,14 +368,14 @@ saturateSources parameters ctxt thsInit  =
     go :: [Source] -> Integer -> [Source]
     go ths n =
         if (any or (changes `using` parList rdeepseq)) && (n <= get paramSaturationLimit parameters)
-          then trace("[Saturating Sources] Step " ++ show n ++ "/" ++ show (get paramSaturationLimit parameters)) $ go ths' (n + 1)
+          then trace ("[Saturating Sources] Step " ++ show n ++ "/" ++ show (get paramSaturationLimit parameters)) $ go ths' (n + 1)
           else if (n > get paramSaturationLimit parameters)
             then trace ("[Saturating Sources] Saturation aborted, more than " ++ (show (get paramSaturationLimit parameters)) ++ " iterations. (Limit can be change with -s=)") ths'
-            else trace("[Saturating Sources] Step " ++ show n ++ "/" ++ show (get paramSaturationLimit parameters)) ths'
+            else trace ("[Saturating Sources] Step " ++ show n ++ "/" ++ show (get paramSaturationLimit parameters)) ths'
       where
         (changes, ths') = unzip $ map (refineSource ctxt solver) ths
         goodTh th  = length (getDisj (get cdCases th)) <= 1
-        solver     = do names <- solveAllSafeGoals (filter goodTh ths) (get paramOpenChainsLimit parameters) 
+        solver     = do names <- solveAllSafeGoals (filter goodTh ths) (get paramOpenChainsLimit parameters)
                         return (not $ null names, names)
 
 -- | Precompute a saturated set of case distinctions.
@@ -389,7 +392,8 @@ precomputeSources parameters ctxt restrictions =
       . map (filter (`elem` '_' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']))
 
     rawSources =
-        (initialSource ctxt restrictions <$> (protoGoals ++ msgGoals))
+      mapMaybe (removeHomomorphicIncorrectSources . initialSource ctxt restrictions) 
+      (protoGoals ++ msgGoals)
 
     -- construct source starting from facts from non-special rules
     protoGoals = someProtoGoal <$> absProtoFacts
@@ -438,6 +442,37 @@ precomputeSources parameters ctxt restrictions =
       ]
 
     msig = mhMaudeSig . get pcMaudeHandle $ ctxt
+
+    -- | A big-step source. (Formerly known as case distinction.)
+    --  data Source = Source
+    --  { _cdGoal     :: Goal   -- start goal of source
+        -- disjunction of named sequents with premise being solved; each name
+        -- being the path of proof steps required to arrive at these cases
+    --  , _cdCases    :: Disj ([String], System)
+    --  }
+    -- | A 'Goal' denotes that a constraint reduction rule is applicable, which
+    -- might result in case splits. We either use a heuristic to decide what goal
+    -- to solve next or leave the choice to user (in case of the interactive UI).
+    -- TODO
+    removeHomomorphicIncorrectSources :: Source -> Maybe Source
+    removeHomomorphicIncorrectSources s = case _cdGoal s of
+        ActionG v f -> Just $ printAndReturn s
+        -- ^ An action that must exist in the trace.
+        ChainG nc np -> Just s
+        -- ^ A destruction chain.
+        PremiseG np f -> Just s
+        -- ^ A premise that must have an incoming direct edge.
+        SplitG id -> Just s
+        -- ^ A case split over equalities.
+        DisjG lng -> Just s
+        -- ^ A case split over a disjunction.
+        SubtermG (t1, t2) -> Just s
+        -- ^ A split of a Subterm which is in SubtermStore -> _subterms
+
+printAndReturn :: Show a => a -> a
+printAndReturn ioSource = unsafePerformIO $ do
+  print ioSource
+  return ioSource
 
 -- | Refine a set of sources by exploiting additional source
 -- assumptions.
