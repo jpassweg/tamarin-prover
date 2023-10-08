@@ -39,7 +39,6 @@ import           Utils.Misc
 
 import           Term.Maude.Signature
 import           Term.Narrowing.Variants.Compute
-import           Term.Rewriting.Norm
 import           Term.SubtermRule
 import           Term.Subsumption
 import           Term.Positions

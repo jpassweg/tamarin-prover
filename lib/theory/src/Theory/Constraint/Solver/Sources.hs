@@ -74,8 +74,6 @@ import           Debug.Trace
 import qualified GHC.Generics as G
 import qualified Data.Binary  as B
 
-import           System.IO.Unsafe     (unsafePerformIO)
-
 
 -- | Parameters
 data IntegerParameters = IntegerParameters
