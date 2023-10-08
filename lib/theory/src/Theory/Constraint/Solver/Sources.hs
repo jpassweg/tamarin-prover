@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE ViewPatterns #-}
 -- |
 -- Copyright   : (c) 2011,2012 Simon Meier
 -- License     : GPL v3 (see LICENSE)
@@ -65,10 +66,13 @@ import           Theory.Model
 
 import           Control.Monad.Bind
 
+import qualified Extension.Data.Label                 as L
+
+import Data.Maybe
+
 import           Debug.Trace
 import qualified GHC.Generics as G
 import qualified Data.Binary  as B
-import Data.Maybe (mapMaybe)
 
 import           System.IO.Unsafe     (unsafePerformIO)
 
@@ -443,36 +447,23 @@ precomputeSources parameters ctxt restrictions =
 
     msig = mhMaudeSig . get pcMaudeHandle $ ctxt
 
-    -- | A big-step source. (Formerly known as case distinction.)
-    --  data Source = Source
-    --  { _cdGoal     :: Goal   -- start goal of source
-        -- disjunction of named sequents with premise being solved; each name
-        -- being the path of proof steps required to arrive at these cases
-    --  , _cdCases    :: Disj ([String], System)
-    --  }
-    -- | A 'Goal' denotes that a constraint reduction rule is applicable, which
-    -- might result in case splits. We either use a heuristic to decide what goal
-    -- to solve next or leave the choice to user (in case of the interactive UI).
-    -- TODO
+    -- Removes sources that assume terms not in homomorphic normal form. Might not be complete.
     removeHomomorphicIncorrectSources :: Source -> Maybe Source
-    removeHomomorphicIncorrectSources s = case _cdGoal s of
-        ActionG v f -> Just $ printAndReturn s
-        -- ^ An action that must exist in the trace.
-        ChainG nc np -> Just s
-        -- ^ A destruction chain.
-        PremiseG np f -> Just s
-        -- ^ A premise that must have an incoming direct edge.
-        SplitG id -> Just s
-        -- ^ A case split over equalities.
-        DisjG lng -> Just s
-        -- ^ A case split over a disjunction.
-        SubtermG (t1, t2) -> Just s
-        -- ^ A split of a Subterm which is in SubtermStore -> _subterms
+    removeHomomorphicIncorrectSources s = case L.get cdGoal s of
+        ActionG v f -> let vM = containsSimpleHenc (factTerms f)
+          in if isKUFact f && isJust vM
+          then Just $ Source (ActionG v f) (filterSystemsNotVarToPair (fromJust vM) (L.get cdCases s))
+          else Just s
+        _ -> Just s
+    
+    containsSimpleHenc :: [LNTerm] -> Maybe (Lit Name LVar)
+    containsSimpleHenc [] = Nothing
+    containsSimpleHenc (x:xs) = case viewTerm2 x of
+      FHenc (viewTerm -> (Lit (Var v1))) _ -> if null xs then Just (Var v1) else Nothing
+      _ -> Nothing
 
-printAndReturn :: Show a => a -> a
-printAndReturn ioSource = unsafePerformIO $ do
-  print ioSource
-  return ioSource
+    filterSystemsNotVarToPair :: Lit Name LVar -> Disj ([String], System) -> Disj ([String], System)
+    filterSystemsNotVarToPair v syms = Disj $ filter (\(_,sym) -> case viewTerm2 (applyLit (L.get sSubst sym) v) of FPair _ _ -> False; _ -> True) $ getDisj syms
 
 -- | Refine a set of sources by exploiting additional source
 -- assumptions.
