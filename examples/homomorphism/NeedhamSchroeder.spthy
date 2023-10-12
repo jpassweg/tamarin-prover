@@ -69,9 +69,15 @@ restriction notEqual:
     "All a #t. NotEqual(a,a) @t ==> F"
 
 lemma forwardmessage1 [sources]:
-    "All $A1 m1 #i. Forwarded1($A1, m1) @i ==> (
-        (Ex $A2 #t. Sent1($A2, m1) & (#t < #i)) 
-        | (Ex m2 #t. K(<m1,m2>) & (#t < #i))
+    "All $A m1 #i. Forwarded1($A, m1) @i ==> (
+          (Ex #t. Sent1($A, m1) @t & (#t < #i)) 
+        | (Ex key m2 m3 m4 m5 #t. K(<<<henc(m3,key), henc(m4,key)>, henc(m5,key)>, <henc(m1,key), henc(m2,key)>>) @t & (#t < #i))
+    )"
+
+lemma forwardmessage2 [sources]:
+    "All $A m2 #i. Forwarded2($A, m2) @i ==> (
+          (Ex $A KBS #t. Sent2($A, m2) @t & m2 = henc($A, KBS) & (#t < #i)) 
+        | (Ex key m1 m3 m4 m5 #t. K(<<<henc(m3,key), henc(m4,key)>, henc(m5,key)>, <henc(m1,key), henc(m2,key)>>) @t & (#t < #i))
     )"
 
 /*
