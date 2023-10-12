@@ -1,6 +1,6 @@
 // NEEDHAM-SCHROEDER SYMMETRIC KEY PROTOCOL from the Cap Unification paper
 
-theory NeedhamSchroeder2
+theory NeedhamSchroeder
 begin
 
 builtins: homomorphic-encryption
@@ -23,13 +23,15 @@ rule S_1:
     , SCKey($S, $B, KBS)
     , In(<<$A, $B>, NA>)
     , Fr(~KAB) ]
-    --[ Sent(henc(~KAB, KBS), henc($A, KBS)) ]->
+    --[ Sent1($A, henc(~KAB, KBS)) 
+      , Sent2($A, henc($A, KBS)) ]->
     [ Out(henc(<<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS)) ]
 
 rule A_2:
     [ A_1_State($S, $A, $B, KAS, ~NA)
     , In(henc(<<<~NA, $B>, KAB>, <SBMsg1, SBMsg2>>, KAS)) ]
-    --[ Forwarded(SBMsg1, SBMsg2) ]->
+    --[ Forwarded1($A, SBMsg1)
+      , Forwarded2($A, SBMsg2) ]->
     [ Out(<SBMsg1, SBMsg2>)
     , A_2_State($S, $A, $B, KAS, KAB) ]
 
@@ -37,7 +39,8 @@ rule B_1:
     [ CSKey($B, $S, KBS)
     , In(henc(<KAB, $A>, KBS))
     , Fr(~NB) ]
-    --[ Received(henc(KAB, KBS), henc($A, KBS)) 
+    --[ Received1($A, henc(KAB, KBS))
+      , Received2($A, henc($A, KBS)) 
       , NotEqual(KAB, $A) ]->
     [ Out(henc(~NB, KAB)) 
     , B_1_State($S, $A, $B, KBS, KAB, ~NB) ]
@@ -65,9 +68,16 @@ rule B_2:
 restriction notEqual:
     "All a #t. NotEqual(a,a) @t ==> F"
 
-lemma forwardmessage [sources]:
-    "All m1 m2 #i. Forwarded(m1, m2) @i ==> (
-        (Ex #t. Sent(m1, m2) @t & (#t < #i)) 
+lemma forwardmessage1 [sources]:
+    "All $A1 m1 #i. Forwarded1($A1, m1) @i ==> (
+        (Ex $A2 #t. Sent1($A2, m1) & (#t < #i)) 
+        | (Ex m2 #t. K(<m1,m2>) & (#t < #i))
+    )"
+
+/*
+lemma forwardmessage1 [sources]:
+    "All m1 m2 #i. Forwarded1(m1) @i & Forwarded2(m2) ==> (
+        (Ex #t. Sent1(m1, m2) @t & (#t < #i)) 
         | (Ex key m3 m4 m5 #t. K(<<<henc(m3,key), henc(m4,key)>, henc(m5,key)>, <henc(m1,key), henc(m2,key)>>) @t & (#t < #i))
     )"
 
@@ -80,6 +90,7 @@ lemma receivemessage2 [sources]:
     "All m1 m2 #i. Received(m1, m2) @i ==> (
         (Ex m1F m2F #t1 #t2. Forwarded(m1, m2F) @t1 & (#t1 < #i) & Forwarded(m1F, m2) @t2 & (#t2 < #i))  
     )"
+*/
 
 lemma Executability_Lemma:
     exists-trace "Ex A B key #i #j. FinishedA(A, B, key) @i & FinishedB(B, A, key) @j & not (A = B)"
