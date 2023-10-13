@@ -23,20 +23,31 @@ rule S_1:
     , SCKey($S, $B, KBS)
     , In(<<$A, $B>, NA>)
     , Fr(~KAB) ]
-    --[ SentToForward1(henc(~KAB, KBS)) 
-      , SentToForward2(henc($A, KBS))
-      , Sent(henc(NA, KAS))
-      , Sent(henc($B, KAS))
-      , Sent(henc(~KAB, KAS))
-      , Sent(henc(henc(~KAB, KBS), KAS))
-      , Sent(henc(henc($A, KBS), KAS)) ]->
+    --[ NotEqual($A, $B)
+      , NotEqual($A, NA)
+      , NotEqual($B, NA)
+      , NotEqual($S, NA)
+      , NotEqual(KAS, NA)
+      , NotEqual(KBS, NA)
+      , SentToForward($S, $A, $B, ~KAB, henc(~KAB, KBS), henc($A, KBS))
+      , Sent($S, $A, $B, henc(NA, KAS))
+      , Sent($S, $A, $B, henc($B, KAS))
+      , Sent($S, $A, $B, henc(~KAB, KAS))
+      , Sent($S, $A, $B, henc(henc(~KAB, KBS), KAS))
+      , Sent($S, $A, $B, henc(henc($A, KBS), KAS))
+      , ServerUsedForRoleA($A) ]->
     [ Out(henc(<<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS)) ]
 
 rule A_2:
     [ A_1_State($S, $A, $B, KAS, ~NA)
     , In(henc(<<<~NA, $B>, KAB>, <SBMsg1, SBMsg2>>, KAS)) ]
-    --[ Forwarded1(KAB, SBMsg1)
-      , Forwarded2($A, SBMsg2) ]->
+    --[ NotEqual($A, $B)
+      , NotEqual(KAB, $S)
+      , NotEqual(KAB, $A) 
+      , NotEqual(KAB, $B)
+      , NotEqual(KAB, KAS)
+      , NotEqual(KAB, ~NA)
+      , Forwarded($A, SBMsg1, SBMsg2) ]->
     [ Out(<SBMsg1, SBMsg2>)
     , A_2_State($S, $A, $B, KAS, KAB) ]
 
@@ -44,18 +55,25 @@ rule B_1:
     [ CSKey($B, $S, KBS)
     , In(henc(<KAB, $A>, KBS))
     , Fr(~NB) ]
-    --[ Received1(henc(KAB, KBS))
-      , Received2(henc($A, KBS)) 
-      , NotEqual(KAB, $A) ]->
+    --[ NotEqual(KAB, $A)
+      , NotEqual($A, $B)
+      , NotEqual($A, $S)
+      , NotEqual($A, KBS)
+      , NotEqual(KAB, $B)
+      , NotEqual(KAB, $S)
+      , NotEqual(KAB, KBS)
+      , Received($B, $A, henc(KAB, KBS), henc($A, KBS)) ]->
     [ Out(henc(~NB, KAB)) 
     , B_1_State($S, $A, $B, KBS, KAB, ~NB) ]
 
 rule A_3:
     [ A_2_State($S, $A, $B, KAS, KAB)
     , In(henc(NB, KAB)) ]
-    --[ NotEqual(KAB, $A)
-      , NotEqual(KAB, $B)
-      , NotEqual(KAB, $S)
+    --[ NotEqual(NB, $A)
+      , NotEqual(NB, $B)
+      , NotEqual(NB, $S)
+      , NotEqual(NB, KAS)
+      , NotEqual(NB, KAB)
       , SecretKey($A, KAB)
       , FinishedA($A, $B, KAB) ]->
     [ Out(henc(succ(NB), KAB)) ]
@@ -63,65 +81,17 @@ rule A_3:
 rule B_2:
     [ B_1_State($S, $A, $B, KBS, KAB, ~NB)
     , In(henc(succ(~NB), KAB)) ]
-    --[ NotEqual(KAB, $A)
-      , NotEqual(KAB, $B)
-      , NotEqual(KAB, $S)
-      , SecretKey($B, KAB)
+    --[ SecretKey($B, KAB)
       , FinishedB($B, $A, KAB) ]->
     []
 
 restriction notEqual:
     "All a #t. NotEqual(a,a) @t ==> F"
 
-// I think the reason these sources are trivial formula contradiction, is that K() always happens before IN facts
-// But, without forwardmessage1 and forwardmessage2 tamarin finds only 12 instead of 18 partial deconstructions
-// The partial deconstructions however, are all the same
-lemma forwardmessage1 [sources]:
-    "All KAB m1 #i. Forwarded1(KAB, m1) @i ==> (
-          (Ex KBS #t. SentToForward1(m1) @t & m1 = henc(KAB, KBS) & (#t < #i)) 
-        | (Ex key m2 m3 m4 m5 #t. K(<<<henc(m3,key), henc(m4,key)>, henc(m5,key)>, <henc(m1,key), henc(m2,key)>>) @t & (#t < #i))
-    )"
-
-lemma forwardmessage2 [sources]:
-    "All $A m2 #i. Forwarded2($A, m2) @i ==> (
-          (Ex KBS #t. SentToForward2($A, m2) @t & m2 = henc($A, KBS) & (#t < #i)) 
-        | (Ex key m1 m3 m4 m5 #t. K(<<<henc(m3,key), henc(m4,key)>, henc(m5,key)>, <henc(m1,key), henc(m2,key)>>) @t & (#t < #i))
-    )"
-
-lemma receiveforwardedmessage1 [sources]:
-    "All KAB KBS #i. Received1(henc(KAB, KBS)) @i ==> (
-          (Ex m1 #t. Forwarded1(KAB, m1) @t & m1 = henc(KAB, KBS) & (#t < #i))
-        | (Ex m2 #t. K(<henc(KAB, KBS), m2>) @t & (#t < #i))
-    )"
-
-lemma receiveforwardedmessage2 [sources]:
-    "All $A KBS #i. Received2(henc($A, KBS)) @i ==> (
-          (Ex m2 #t. Forwarded2($A, m1) @t & m2 = henc($A, KBS) & (#t < #i))
-        | (Ex m1 #t. K(<m1, henc($A, KBS)>) @t & (#t < #i))
-    )"
-
-lemma receivemessage1 [sources]:
-    "All m1 KAB KBS #i. Received1(m1) @i & m1 = henc(KAB, KBS) ==> (
-          (Ex #t1 #t2. SentToForward1(m1) @t1 & Forwarded1(KAB, m1) @t2 & (#t1 < #t2) & (#t2 < #i))
-        | (Ex A #t1 #t2. Sent(m1) @t1 & K(<m1, henc(A, KBS)>) @t2 & (#t1 < #t2) & (#t2 < #i))
-    )"
-
-lemma receivemessage2 [sources]:
-    "All m2 $A KBS #i. Received2(m2) @i & m2 = henc($A, KBS) ==> (
-          (Ex #t1 #t2. SentToForward2(m2) @t1 & Forwarded2($A, m2) @t2 & (#t1 < #t2) & (#t2 < #i))
-        | (Ex KAB #t1 #t2. Sent(m2) @t1 & K(<henc(KAB, KBS), m2>) @t2 & (#t1 < #t2) & (#t2 < #i))
-    )"
-
-lemma receivemessage1Advanced [sources]:
-    "All m1 KAB KBS #i. Received1(m1) @i & m1 = henc(KAB, KBS) ==> (
-          (Ex #t1 #t2. SentToForward1(m1) @t1 & Forwarded1(KAB, m1) @t2 & (#t1 < #t2) & (#t2 < #i))
-        | (Ex #t1 #t2. Sent(m1) @t1 & KU(m1) @t2 & (#t1 < #t2) & (#t2 < #i))
-    )"
-
-lemma receivemessage2Advanced [sources]:
-    "All m2 $A KBS #i. Received2(m2) @i & m2 = henc($A, KBS) ==> (
-          (Ex #t1 #t2. SentToForward2(m2) @t1 & Forwarded2($A, m2) @t2 & (#t1 < #t2) & (#t2 < #i))
-        | (Ex #t1 #t2. Sent(m2) @t1 & KU(m2) @t2 & (#t1 < #t2) & (#t2 < #i))
+lemma receiveForwardedMessage [sources]:
+    "All $B $A m1 m2 #i. Received($B, $A, m1, m2) @i ==> (
+          (Ex #t. Forwarded($A, m1, m2) @t & (#t < #i))
+        | (Ex #t. ServerUsedForRoleA($B) @t & (#t < #i))
     )"
 
 lemma Executability_Lemma:
