@@ -29,12 +29,12 @@ rule S_1:
       , NotEqual($S, NA)
       , NotEqual(KAS, NA)
       , NotEqual(KBS, NA)
-      , SentToForward($S, $A, $B, ~KAB, henc(~KAB, KBS), henc($A, KBS))
-      , Sent($S, $A, $B, henc(NA, KAS))
-      , Sent($S, $A, $B, henc($B, KAS))
-      , Sent($S, $A, $B, henc(~KAB, KAS))
-      , Sent($S, $A, $B, henc(henc(~KAB, KBS), KAS))
-      , Sent($S, $A, $B, henc(henc($A, KBS), KAS))
+      , SentToForward($S, $A, $B, henc(~KAB, KBS), henc($A, KBS))
+      , Sent($S, $A, henc(NA, KAS))
+      , Sent($S, $A, henc($B, KAS))
+      , Sent($S, $A, henc(~KAB, KAS))
+      , Sent($S, $A, henc(henc(~KAB, KBS), KAS))
+      , Sent($S, $A, henc(henc($A, KBS), KAS))
       , ServerUsedForRoleA($A) ]->
     [ Out(henc(<<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS)) ]
 
@@ -47,7 +47,8 @@ rule A_2:
       , NotEqual(KAB, $B)
       , NotEqual(KAB, KAS)
       , NotEqual(KAB, ~NA)
-      , Forwarded($A, SBMsg1, SBMsg2) ]->
+      , Forwarded($S, $A, SBMsg1)
+      , Forwarded($S, $A, SBMsg2) ]->
     [ Out(<SBMsg1, SBMsg2>)
     , A_2_State($S, $A, $B, KAS, KAB) ]
 
@@ -62,7 +63,7 @@ rule B_1:
       , NotEqual(KAB, $B)
       , NotEqual(KAB, $S)
       , NotEqual(KAB, KBS)
-      , Received($B, $A, henc(KAB, KBS), henc($A, KBS)) ]->
+      , Received($S, $B, henc(KAB, KBS), henc($A, KBS)) ]->
     [ Out(henc(~NB, KAB)) 
     , B_1_State($S, $A, $B, KBS, KAB, ~NB) ]
 
@@ -89,9 +90,15 @@ restriction notEqual:
     "All a #t. NotEqual(a,a) @t ==> F"
 
 lemma receiveForwardedMessage [sources]:
-    "All $B $A m1 m2 #i. Received($B, $A, m1, m2) @i ==> (
-          (Ex #t. Forwarded($A, m1, m2) @t & (#t < #i))
-        | (Ex #t. ServerUsedForRoleA($B) @t & (#t < #i))
+    "All $S $B m1 m2 #i. Received($S, $B, m1, m2) @i ==> (
+          ( Ex #t1 #t2. SentToForward($S, $A, $B, m1, m2) @t1 
+            & Forwarded($S, $A, m1) @t2 
+            & Forwarded($S, $A, m2) @t2
+            & (#t1 < #t2)
+            & (#t2 < #i) )
+        | ( Ex #t. Sent($S, $B, m1) @t 
+            & Sent($S, $B, m2) @t 
+            & (#t < #i) )
     )"
 
 lemma Executability_Lemma:
