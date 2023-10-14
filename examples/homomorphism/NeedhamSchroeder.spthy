@@ -104,7 +104,8 @@ lemma forwardMessage [sources]:
 lemma receiveForwardedMessage [sources]:
     "All $S $B m1 m2 #i. Received($S, $B, m1, m2) @i ==> (
           ( Ex #t1 #t2. SentToForward($S, $A, $B, m1, m2) @t1 
-            & Forwarded($S, $A, m1, m2) @t2
+            & Forwarded($S, $A, m1) @t2
+            & Forwarded($S, $A, m2) @t2
             & (#t1 < #t2)
             & (#t2 < #i) )
         | ( Ex #t. Sent($S, $B, m1) @t 
