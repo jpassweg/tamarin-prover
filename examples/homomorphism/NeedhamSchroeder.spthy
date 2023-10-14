@@ -12,11 +12,10 @@ rule Client_Server_Keys:
     [ SCKey($Server, $Client, ~key), CSKey($Client, $Server, ~key) ]
 
 rule A_1:
-    [ CSKey($A, $S, KAS)
-    , Fr(~NA) ]
+    [ Fr(~NA) ]
     --[]->
     [ Out(<<$A, $B>, ~NA>)
-    , A_1_State($S, $A, $B, KAS, ~NA) ]
+    , A_1_State($A, $B, ~NA) ]
 
 rule S_1:
     [ SCKey($S, $A, KAS)
@@ -40,7 +39,8 @@ rule S_1:
     [ Out(henc(<<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS)) ]
 
 rule A_2:
-    [ A_1_State($S, $A, $B, KAS, ~NA)
+    [ A_1_State($A, $B, ~NA)
+    , CSKey($A, $S, KAS)
     , In(henc(<<<~NA, $B>, KAB>, <SBMsg1, SBMsg2>>, KAS)) ]
     --[ NotEqual($A, $B)
       , NotEqual(KAB, $S)
@@ -48,9 +48,11 @@ rule A_2:
       , NotEqual(KAB, $B)
       , NotEqual(KAB, KAS)
       , NotEqual(KAB, ~NA)
+      , MyKeyIsSecretA($A, KAS)
       , Forwarded($S, $A, SBMsg1)
-      , Forwarded($S, $A, SBMsg1)
-      , Forwarded($S, $A, SBMsg1, SBMsg2) ]->
+      , Forwarded($S, $A, SBMsg2)
+      , ForwardedBoth($S, $A, henc(SBMsg1, KAS), henc(SBMsg2, KAS))
+      , ForwardedBothUnencrypted(SBMsg1, SBMsg2) ]->
     [ Out(<SBMsg1, SBMsg2>)
     , A_2_State($S, $A, $B, KAS, KAB) ]
 
@@ -65,6 +67,7 @@ rule B_1:
       , NotEqual(KAB, $B)
       , NotEqual(KAB, $S)
       , NotEqual(KAB, KBS)
+      , MyKeyIsSecretB($B, KBS)
       , Received($S, $B, henc(KAB, KBS), henc($A, KBS)) ]->
     [ Out(henc(~NB, KAB)) 
     , B_1_State($S, $A, $B, KBS, KAB, ~NB) ]
@@ -91,13 +94,31 @@ rule B_2:
 restriction notEqual:
     "All a #t. NotEqual(a,a) @t ==> F"
 
+lemma serverKeyNeverForwarded [sources]:
+    "All SBMsg1 SBMsg2 #i. ForwardedBothUnencrypted(SBMsg1, SBMsg2) @i ==> (
+          (not ( Ex $C $S #t. CSKey($C, $S, SBMsg1) @t ))
+        & (not ( Ex $C $S #t. SCKey($S, $C, SBMsg1) @t ))
+        & (not ( Ex $C $S #t. CSKey($C, $S, SBMsg2) @t ))
+        & (not ( Ex $C $S #t. SCKey($S, $C, SBMsg2) @t ))
+    )"
+
+lemma serverKeySecretA [sources]:
+    "All $A KAS #i. MyKeyIsSecretA($A, KAS) @i ==> (
+        not ( Ex #t. K(KAS) @t )
+    )"
+
+lemma serverKeySecretB [sources]:
+    "All $B KBS #i. MyKeyIsSecretB($B, KBS) @i ==> (
+        not ( Ex #t. K(KBS) @t )
+    )"
+
 lemma forwardMessage [sources]:
-    "All $S $A m1 m2 #i. Forwarded($S, $A, m1, m2) @i ==> (
-          ( Ex KAS #t. Sent($S, $A, henc(m1, KAS)) @t
-            & Sent($S, $A, henc(m2, KAS)) @t
+    "All $S $A m1 m2 #i. ForwardedBoth($S, $A, m1, m2) @i ==> (
+          ( Ex #t. Sent($S, $A, m1) @t
+            & Sent($S, $A, m2) @t
             & (#t < #i))
-        | ( Ex KAS #t. WrongForward($S, $A, henc(m1, KAS)) @t 
-            & WrongForward($S, $A, henc(m2, KAS)) @t
+        | ( Ex #t. WrongForward($S, $A, m1) @t 
+            & WrongForward($S, $A, m2) @t
             & (#t < #i))
     )"
     
