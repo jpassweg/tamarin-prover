@@ -34,7 +34,9 @@ rule S_1:
       , Sent($S, $A, henc($B, KAS))
       , Sent($S, $A, henc(~KAB, KAS))
       , Sent($S, $A, henc(henc(~KAB, KBS), KAS))
-      , Sent($S, $A, henc(henc($A, KBS), KAS)) ]->
+      , Sent($S, $A, henc(henc($A, KBS), KAS))
+      , WrongForward($S, $B, henc(~KAB, KBS))
+      , WrongForward($S, $B, henc($A, KBS)) ]->
     [ Out(henc(<<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS)) ]
 
 rule A_2:
@@ -47,7 +49,8 @@ rule A_2:
       , NotEqual(KAB, KAS)
       , NotEqual(KAB, ~NA)
       , Forwarded($S, $A, SBMsg1)
-      , Forwarded($S, $A, SBMsg2) ]->
+      , Forwarded($S, $A, SBMsg1)
+      , Forwarded($S, $A, SBMsg1, SBMsg2) ]->
     [ Out(<SBMsg1, SBMsg2>)
     , A_2_State($S, $A, $B, KAS, KAB) ]
 
@@ -88,11 +91,20 @@ rule B_2:
 restriction notEqual:
     "All a #t. NotEqual(a,a) @t ==> F"
 
+lemma forwardMessage [sources]:
+    "All $S $A m1 m2 #i. Forwarded($S, $A, m1, m2) @i ==> (
+          ( Ex KAS #t. Sent($S, $A, henc(m1, KAS)) @t
+            & Sent($S, $A, henc(m2, KAS)) @t
+            & (#t < #i))
+        | ( Ex KAS #t. WrongForward($S, $A, henc(m1, KAS)) @t 
+            & WrongForward($S, $A, henc(m2, KAS)) @t
+            & (#t < #i))
+    )"
+    
 lemma receiveForwardedMessage [sources]:
     "All $S $B m1 m2 #i. Received($S, $B, m1, m2) @i ==> (
           ( Ex #t1 #t2. SentToForward($S, $A, $B, m1, m2) @t1 
-            & Forwarded($S, $A, m1) @t2 
-            & Forwarded($S, $A, m2) @t2
+            & Forwarded($S, $A, m1, m2) @t2
             & (#t1 < #t2)
             & (#t2 < #i) )
         | ( Ex #t. Sent($S, $B, m1) @t 
