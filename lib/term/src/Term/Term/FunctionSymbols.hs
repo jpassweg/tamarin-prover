@@ -43,6 +43,9 @@ module Term.Term.FunctionSymbols (
     , natOneSymString
     , homEncSymString
     , homDecSymString
+    , homPairSymString
+    , homFstSymString
+    , homSndSymString
 
     -- ** concrete symbols
     , diffSym
@@ -60,6 +63,9 @@ module Term.Term.FunctionSymbols (
     , natOneSym
     , homEncSym
     , homDecSym
+    , homPairSym
+    , homFstSym
+    , homSndSym
 
     -- ** concrete signatures
     , dhFunSig
@@ -133,7 +139,7 @@ type NoEqFunSig = Set NoEqSym
 -- Fixed function symbols
 ----------------------------------------------------------------------
 
-diffSymString, munSymString, expSymString, invSymString, dhNeutralSymString, oneSymString, xorSymString, multSymString, zeroSymString, fstSymString, sndSymString, homEncSymString, homDecSymString :: ByteString
+diffSymString, munSymString, expSymString, invSymString, dhNeutralSymString, oneSymString, xorSymString, multSymString, zeroSymString, fstSymString, sndSymString, homEncSymString, homDecSymString, homPairSymString, homFstSymString, homSndSymString :: ByteString
 diffSymString = "diff"
 munSymString = "mun"
 expSymString = "exp"
@@ -147,6 +153,9 @@ zeroSymString = "zero"
 xorSymString = "xor"
 homEncSymString = "henc"
 homDecSymString = "hdec"
+homPairSymString = "hpair"
+homFstSymString = "hfst"
+homSndSymString = "hsnd"
 
 natPlusSymString, natOneSymString :: ByteString
 natPlusSymString = "tplus"
@@ -159,7 +168,7 @@ emapSymString, pmultSymString :: ByteString
 emapSymString  = "em"
 pmultSymString = "pmult"
 
-pairSym, diffSym, expSym, invSym, oneSym, dhNeutralSym, fstSym, sndSym, pmultSym, zeroSym, natOneSym, homEncSym, homDecSym :: NoEqSym
+pairSym, diffSym, expSym, invSym, oneSym, dhNeutralSym, fstSym, sndSym, pmultSym, zeroSym, natOneSym, homEncSym, homDecSym, homPairSym, homFstSym, homSndSym :: NoEqSym
 -- | Pairing.
 pairSym  = ("pair",(2,Public,Constructor))
 -- | Diff.
@@ -184,6 +193,9 @@ zeroSym  = (zeroSymString,(0,Public,Constructor))
 natOneSym = (natOneSymString, (0,Public,Constructor))
 homEncSym = (homEncSymString, (2,Public,Constructor))
 homDecSym = (homDecSymString, (2,Public,Constructor))
+homPairSym = (homPairSymString, (2,Public,Constructor))
+homFstSym = (homFstSymString,(1,Public,Constructor))
+homSndSym = (homSndSymString,(1,Public,Constructor))
 
 mkDestSym :: NoEqSym -> NoEqSym
 mkDestSym (name,(k,p,_)) = (name,(k,p, Destructor))
@@ -193,6 +205,10 @@ fstDestSym, sndDestSym :: NoEqSym
 fstDestSym   = mkDestSym fstSym
 -- | Projection of second component of pair.
 sndDestSym   = mkDestSym sndSym
+
+homFstDestSym, homSndDestSym :: NoEqSym
+homFstDestSym = mkDestSym homFstSym
+homSndDestSym = mkDestSym homSndSym
 
 ----------------------------------------------------------------------
 -- Fixed signatures
@@ -221,6 +237,9 @@ msetFunSig = S.fromList [AC Union]
 -- | The signature for pairing.
 pairFunSig :: NoEqFunSig
 pairFunSig = S.fromList [ pairSym, fstSym, sndSym ]
+
+homPairFunSig :: NoEqFunSig
+homPairFunSig = S.fromList [homPairSym, homFstSym, homSndSym]
 
 -- | The signature for pairing with destructors.
 pairFunDestSig :: NoEqFunSig

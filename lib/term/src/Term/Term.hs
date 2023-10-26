@@ -29,8 +29,11 @@ module Term.Term (
     , fAppFst
     , fAppSnd
     , fAppNatOne
-    , fAppHenc
-    , fAppHdec
+    , fAppHomEnc
+    , fAppHomDec
+    , fAppHomPair
+    , fAppHomFst
+    , fAppHomSnd
 
     -- ** Destructors and classifiers
     , isPair
@@ -161,9 +164,12 @@ fAppFst a = fAppNoEq fstSym [a]
 fAppSnd a = fAppNoEq sndSym [a]
 
 -- | Smart constructor for homomorphic encryption and decryption.
-fAppHenc, fAppHdec :: (Term a, Term a) -> Term a
-fAppHenc (x, y) = fAppNoEq homEncSym [x, y]
-fAppHdec (x, y) = fAppNoEq homDecSym [x, y]
+fAppHomEnc, fAppHomDec, fAppHomPair, fAppHomFst, fAppHomSnd :: (Term a, Term a) -> Term a
+fAppHomEnc (x, y) = fAppNoEq homEncSym [x, y]
+fAppHomDec (x, y) = fAppNoEq homDecSym [x, y]
+fAppHomPair (x, y) = fAppNoEq homPairSym [x, y]
+fAppHomFst a = fAppNoEq homFstSym [a]
+fAppHomSnd a = fAppNoEq homSndSym [a]
 
 -- | @lits t@ returns all literals that occur in term @t@. List can contain duplicates.
 lits :: Term a -> [a]

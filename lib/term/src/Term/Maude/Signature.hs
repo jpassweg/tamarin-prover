@@ -32,13 +32,15 @@ module Term.Maude.Signature (
   , dhMaudeSig
   , homMaudeSig
   , pairMaudeSig
+  , homPairMaudeSig
   , asymEncMaudeSig
   , symEncMaudeSig
   , signatureMaudeSig
   , pairDestMaudeSig
+  , homPairDestMaudeSig
   , asymEncDestMaudeSig
   , symEncDestMaudeSig
-  , signatureDestMaudeSig  
+  , signatureDestMaudeSig
   , revealSignatureMaudeSig
   , locationReportMaudeSig
   , hashMaudeSig
@@ -138,11 +140,12 @@ instance Semigroup MaudeSig where
                                              S.union (st1 `S.difference` pairFunSig) st2
                                            else
                                              S.union st1 st2
-            unionExceptPairRules st1 st2 = if pairDestRules `S.isSubsetOf` st2 then
-                                         S.union (st1 `S.difference` pairRules) st2
-                                       else
-                                         S.union st1 st2
-                  
+            unionExceptPairRules st1 st2
+              | pairDestRules `S.isSubsetOf` st2 && homPairDestRules `S.isSubsetOf` st2 = S.union (st1 `S.difference` pairRules `S.difference` homPairRules) st2
+              | pairDestRules `S.isSubsetOf` st2    = S.union (st1 `S.difference` pairRules) st2
+              | homPairDestRules `S.isSubsetOf` st2 = S.union (st1 `S.difference` homPairRules) st2
+              | otherwise                           = S.union st1 st2
+
 instance Monoid MaudeSig where
     mempty = MaudeSig False False False False False False False S.empty S.empty S.empty S.empty S.empty
 
@@ -187,8 +190,9 @@ homMaudeSig  = maudeSig $ mempty {enableHom=True}
 -- | Maude signatures for the default subterm symbols.
 --pairMaudeSig :: Bool -> MaudeSig
 --pairMaudeSig flag = maudeSig $ mempty {stFunSyms=pairFunSig,stRules=pairRules,enableDiff=flag}
-pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig, locationReportMaudeSig, symEncDestMaudeSig, asymEncDestMaudeSig, signatureDestMaudeSig, pairDestMaudeSig :: MaudeSig
+pairMaudeSig, homPairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig, locationReportMaudeSig, symEncDestMaudeSig, asymEncDestMaudeSig, signatureDestMaudeSig, pairDestMaudeSig, homPairDestMaudeSig :: MaudeSig
 pairMaudeSig            = maudeSig $ mempty {stFunSyms=pairFunSig,stRules=pairRules}
+homPairMaudeSig         = maudeSig $ mempty {stFunSyms=pairFunSig,stRules=homPairRules}
 symEncMaudeSig          = maudeSig $ mempty {stFunSyms=symEncFunSig,stRules=symEncRules}
 asymEncMaudeSig         = maudeSig $ mempty {stFunSyms=asymEncFunSig,stRules=asymEncRules}
 signatureMaudeSig       = maudeSig $ mempty {stFunSyms=signatureFunSig,stRules=signatureRules}
@@ -199,7 +203,7 @@ symEncDestMaudeSig          = maudeSig $ mempty {stFunSyms=symEncFunDestSig,stRu
 asymEncDestMaudeSig         = maudeSig $ mempty {stFunSyms=asymEncFunDestSig,stRules=asymEncDestRules}
 signatureDestMaudeSig       = maudeSig $ mempty {stFunSyms=signatureFunDestSig,stRules=signatureDestRules}
 pairDestMaudeSig            = maudeSig $ mempty {stFunSyms=pairFunDestSig,stRules=pairDestRules}
-
+homPairDestMaudeSig         = maudeSig $ mempty {stFunSyms=pairFunDestSig,stRules=homPairDestRules}
 
 
 -- | The minimal maude signature.
