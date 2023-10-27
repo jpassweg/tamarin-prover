@@ -433,9 +433,9 @@ homIntruderRules diff = reader $ \hnd -> minimizeIntruderRules diff $
     constrHomDec = (ConstrRule (append (pack "_") homDecSymString))
     destrHomDec = (DestrRule (append (pack "_") homDecSymString) 0 True False) 
     kuTwoVars = [kuFact x_var_0, kuFact  x_var_1]
-    kuHomEnc = [kuFact (fAppHenc (x_var_0, x_var_1))]
-    kuHomDec = [kuFact (fAppHdec (x_var_0, x_var_1))]
-    kdHomEnc = kdFact (fAppHenc (x_var_0, x_var_1))
+    kuHomEnc = [kuFact (fAppHomEnc (x_var_0, x_var_1))]
+    kuHomDec = [kuFact (fAppHomDec (x_var_0, x_var_1))]
+    kdHomEnc = kdFact (fAppHomEnc (x_var_0, x_var_1))
 
 ------------------------------------------------------------------------------
 -- Classification functions

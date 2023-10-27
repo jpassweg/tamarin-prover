@@ -34,14 +34,14 @@ import Data.Bifunctor (first, second)
 
 import Term.LTerm (
   LTerm, IsConst, Lit(..), LVar,
-  TermView(Lit, FApp), TermView2(FHenc, FPair),
+  TermView(Lit, FApp), TermView2(FHenc, FHomPair),
   viewTerm, viewTerm2, termViewToTerm,
-  fAppPair, fAppHenc, isHomEnc
+  fAppHomPair, fAppHomEnc, isHomEnc
   ) 
 -- IsConst from Term.VTerm
--- TermView(Lit, FApp), TermView2(FHenc, FPair), 
+-- TermView(Lit, FApp), TermView2(FHenc, FHomPair), 
 -- viewTerm, viewTerm2, termViewToTerm from Term.Term.Raw
--- fAppPair, fAppHenc, isHomEnc from Term.Term
+-- fAppHomPair, fAppHomEnc, isHomEnc from Term.Term
 
 -- New Types used for Unification modulo Homomorphic Encrpytion
 ---------------------------------------------------------------
@@ -211,7 +211,7 @@ fromPRepresentationOnly (s,p) =
 -- Assumes Term can not be empty (ERepresentation would then be empty list)
 fromERepresentation :: (IsConst c) => ERepresentation c -> LTerm c
 fromERepresentation e = if length e == 1 then head e
-  else fAppHenc (fromERepresentation (init e), last e)
+  else fAppHomEnc (fromERepresentation (init e), last e)
 
 -- Norm related functions for Homomorphic encryption
 ----------------------------------------------------
@@ -224,8 +224,8 @@ normHomomorphic t = case viewTerm t of
       t1N = normHomomorphic t1 
       t2N = normHomomorphic t2
       in case viewTerm2 t1N of
-        FPair t11N t12N -> fAppPair (normHomomorphic $ fAppHenc (t11N, t2N), normHomomorphic $ fAppHenc (t12N, t2N))
-        _               -> fAppHenc (t1N, t2N)
+        FPair t11N t12N -> fAppPair (normHomomorphic $ fAppHomEnc (t11N, t2N), normHomomorphic $ fAppHomEnc (t12N, t2N))
+        _               -> fAppHomEnc (t1N, t2N)
     FApp funsym ts -> termViewToTerm (FApp funsym (map normHomomorphic ts))
     Lit _ -> t
 
@@ -259,7 +259,7 @@ normHomomorphicHEPlus t = case viewTerm t of
     FApp _ [t1    ] | isSnd t    && isPair t1           -> nH $ getSnd t1
     FApp _ [t1, _ ] | isHomDec t && hasSameHomKey t t1  -> nH t1
     FApp _ [t1, t2] | isHomEnc t && isPair t1           ->
-      fAppPair (nH $ fAppHenc (nH $ getFst t1, nH t2), nH $ fAppHenc (nH $ getSnd t1, nH t2))
+      fAppPair (nH $ fAppHomEnc (nH $ getFst t1, nH t2), nH $ fAppHomEnc (nH $ getSnd t1, nH t2))
     FApp _ [t1, _ ] | isHomDec t && hasSameHomKeys t t1 ->
       nH $ fromPRepresentationOnly $ removeHomKeys $ buildPRepresentationOnly t1
     FApp funsym ts                                      ->
