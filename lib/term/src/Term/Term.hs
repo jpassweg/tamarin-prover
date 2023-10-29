@@ -49,6 +49,7 @@ module Term.Term (
     , isHomPair
     , isHomFst
     , isHomSnd
+    , isAnyHom
     , isUnion
     , isEMap
     , isNullaryPublicFunction
@@ -255,6 +256,9 @@ isHomFst _                                 = False
 isHomSnd :: Show a => Term a -> Bool
 isHomSnd (viewTerm -> FApp (NoEq sym) [_]) = sym == homSndSym
 isHomSnd _                                 = False
+
+isAnyHom :: Show a => Term a -> Bool
+isAnyHom t = isHomEnc t || isHomDec t || isHomPair t || isHomFst t || isHomSnd t
 
 -- | 'True' iff the term is a well-formed emap.
 isEMap :: Show a => Term a -> Bool

@@ -7,6 +7,11 @@ module Term.Homomorphism.Unification (
   -- * Matching modulo EpsilonH for Homomorphic Encryption
   , matchHomomorphicLTerm
 
+  -- * Helper functions
+  , eqsToTerms
+  , foldVars
+  , getNewSimilarVar
+
   -- * For debugging
   , debugHomomorphicRule
   , HomomorphicRuleReturn(..)

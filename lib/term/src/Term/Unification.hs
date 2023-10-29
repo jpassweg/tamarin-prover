@@ -7,8 +7,10 @@
 --
 -- AC unification based on maude and free unification.
 module Term.Unification (
+  unifyUnionDisjointTheories
+
   -- * Unification modulo AC
-    unifyLTerm
+  , unifyLTerm
   , unifyLNTerm
   , unifiableLNTerms
 
@@ -89,7 +91,7 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import qualified Data.Map as M
 import           Data.Map (Map)
-import           Data.Maybe (maybeToList)
+import           Data.Maybe (maybeToList, mapMaybe)
 
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -101,7 +103,7 @@ import qualified Term.Maude.Process as UM
 import           Term.Maude.Process
                    (MaudeHandle, WithMaude, startMaude, getMaudeStats, mhMaudeSig, mhFilePath)
 import           Term.Maude.Signature
-import           Term.Homomorphism.Unification (unifyHomomorphicLTerm, matchHomomorphicLTerm)
+import           Term.Homomorphism.Unification
 import           Debug.Trace.Ignore
 
 -- Unification modulo AC
@@ -125,6 +127,53 @@ unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unify
         Just (m, [])   -> (substFromMap m, [emptySubstVFresh])
         Just (m, leqs) -> (substFromMap m, unsafePerformIO (UM.unifyViaMaude h sortOf $ map (applyVTerm (substFromMap m) <$>) leqs))
 
+unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> Maybe (LSubst c, LSubstVFresh c)
+unifyUnionDisjointTheories sortOf eqs = let
+  allVars = foldVars $ eqsToTerms eqs
+  (absVarEqs, allVarsAbsVar) = abstractVariablesEqs sortOf (eqs, allVars) 
+  (splittEqs, allVarsSplitt) = splitEqs (absVarEqs, allVarsAbsVar)
+  in Just (emptySubst, emptySubstVFresh)
+
+abstractVariablesEqs :: (IsConst c) => (c -> LSort) -> ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], [LVar])
+abstractVariablesEqs _ ([], allVars) = ([], allVars)
+abstractVariablesEqs sortOf (e:es, allVars) = case findAlienSubTerm e of
+  Just (alienSubterm, applyToOneSide) -> let 
+    newVar = getNewSimilarVar (LVar "abstractVar" (sortOfLTerm sortOf alienSubterm) 0) allVars
+    newE = applyToOneSide (substituteTermWithVar alienSubterm newVar) e
+    in abstractVariablesEqs sortOf (Equal alienSubterm (varTerm newVar) : newE : es, newVar : allVars)
+  Nothing -> let (newEs, totVars) = abstractVariablesEqs sortOf (es, allVars)
+    in (e : newEs, totVars)
+
+findAlienSubTerm :: (IsConst c) => Equal (LTerm c) -> Maybe (LTerm c, (LTerm c -> LTerm c) -> Equal (LTerm c) -> Equal (LTerm c))
+findAlienSubTerm eq = case 
+    (findAlienSubTerm' (isAnyHom (eqLHS eq)) (eqLHS eq), 
+     findAlienSubTerm' (isAnyHom (eqRHS eq)) (eqRHS eq)) of
+  (Just alienTerm, _) -> Just (alienTerm, \f e -> Equal (f (eqLHS e)) (eqRHS e))
+  (_, Just alienTerm) -> Just (alienTerm, \f e -> Equal (eqLHS e) (f (eqRHS e)))
+  _                   -> Nothing
+
+findAlienSubTerm' :: (IsConst c) => Bool -> LTerm c -> Maybe (LTerm c)
+findAlienSubTerm' b t = case viewTerm t of
+  Lit (Var _) -> Nothing
+  Lit (Con _) -> if isAnyHom t /= b then Just t else Nothing
+  FApp _ args -> if isAnyHom t /= b then Just t else case mapMaybe (findAlienSubTerm' b) args of
+    []    -> Nothing
+    (e:_) -> Just e
+
+substituteTermWithVar :: (IsConst c) => LTerm c -> LVar -> LTerm c -> LTerm c
+substituteTermWithVar tToSub newV t = if tToSub == t then varTerm newV else case viewTerm t of
+  Lit (Var _)      -> t
+  Lit (Con _)      -> t
+  FApp funsym args -> termViewToTerm (FApp funsym (map (substituteTermWithVar tToSub newV) args))
+
+splitEqs :: (IsConst c) => ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], [LVar])
+splitEqs ([], allVars) = ([], allVars)
+splitEqs (e:es, allVars) = if isVar (eqLHS e) || isVar (eqRHS e) || isAnyHom (eqLHS e) == isAnyHom (eqRHS e)
+  then let (newEs, newVars) = splitEqs (es, allVars) in (e : newEs, newVars)
+  else let 
+    newVar = getNewSimilarVar (LVar "splitVar" LSortMsg 0) allVars
+    (newEs, newVars) = splitEqs (es, newVar : allVars)
+  in (Equal (varTerm newVar) (eqLHS e) : Equal (varTerm newVar) (eqRHS e) : newEs, newVars)
 
 -- | @unifyLTerm sortOf eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLNTermFactored :: [Equal LNTerm]
