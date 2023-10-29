@@ -88,27 +88,30 @@ rule B_2:
 restriction notEqual:
     "All a #t. NotEqual(a,a) @t ==> F"
 
-lemma Secret_Server_Key [sources]:
+lemma All_Received_From_Server [sources]:
     "(All $A m1 m2 #i. Received1($A, m1) @i & Received2($A, m2) @i ==>
-        (Ex KAS #t1 #tIntr1 #tIntr2 #t2. 
-            Sent($A, m1) @t1 & Sent($A, m2) @t1 
-            & K(henc(m1,KAS)) @tIntr1 & K(henc(m2,KAS)) @tIntr2
-            & SecretServerKey($A, KAS) @t2
-            & (#t1 < #tIntr1) & (#t1 < #tIntr2) & (#t1 < #i)
-            & (#tIntr1 < #i) & (#tIntr2 < #i) )
-            & (#t2 < #t1) & (#t2 < #i)
-        | (Ex KAS #t1 #tIntr1 #tIntr2. // KAS KBS $B #t1 #tIntr1 #tIntr2 #tIntr3 #tIntr4 #t2 #t3. 
-            SentB($A, m1) @t1 & SentB($A, m2) @t1
-            & K(henc(m1, KAS)) @tIntr1 & K(henc(m2, KAS)) @tIntr2)
-            //& SecretServerKey($A, KAS) @t2
-            //& K(henc(henc(m1, KAS), KBS)) @tIntr3 & K(henc(henc(m2, KAS), KBS)) @tIntr4
-            //& SecretServerKey($B, KBS) @t3
-            //& Sent($B, henc(m1, KAS)) @t1 & Sent($B, henc(m2, KAS)) @t1
-            & (#t1 < #tIntr1) & (#t1 < #tIntr2) // & (#t1 < #tIntr3) & (#t1 < #tIntr4)
-            & (#t1 < #i) 
-            // & (#t2 < #i) & (#t2 < #t1)
-            // & (#t3 < #i) & (#t3 < #t1)
-            & (#tIntr1 < #i) & (#tIntr2 < #i) // & (#tIntr3 < #i) & (#tIntr4 < #i)
+        (
+            Ex KAS #t1 #tIntr1 #tIntr2 #t2. 
+                Sent($A, m1) @t1 & Sent($A, m2) @t1 
+                & KU(henc(m1, KAS)) @tIntr1 & KU(henc(m2, KAS)) @tIntr2
+                & SecretServerKey($A, KAS) @t2
+                & (#t1 < #tIntr1) & (#t1 < #tIntr2) & (#t1 < #i)
+                & (#tIntr1 < #i) & (#tIntr2 < #i)
+                & (#t2 < #t1) & (#t2 < #i) 
+            )
+        | (
+            Ex KAS KBS $B #t1 #tIntr1 #tIntr2 #tIntr3 #tIntr4 #t2 #t3. 
+                SentB($A, m1) @t1 & SentB($A, m2) @t1
+                & KU(henc(m1, KAS)) @tIntr1 & KU(henc(m2, KAS)) @tIntr2
+                & SecretServerKey($A, KAS) @t2
+                & KU(henc(henc(m1, KAS), KBS)) @tIntr3 & KU(henc(henc(m2, KAS), KBS)) @tIntr4
+                & SecretServerKey($B, KBS) @t3
+                & Sent($B, henc(m1, KAS)) @t1 & Sent($B, henc(m2, KAS)) @t1
+                & (#t1 < #tIntr1) & (#t1 < #tIntr2) & (#t1 < #i) & (#t1 < #tIntr3) & (#t1 < #tIntr4)
+                & (#tIntr1 < #i) & (#tIntr2 < #i) & (#tIntr3 < #i) & (#tIntr4 < #i)
+                & (#t2 < #i) & (#t2 < #t1)
+                & (#t3 < #i) & (#t3 < #t1) 
+            )
         )"
 
 lemma Executability_Lemma:
