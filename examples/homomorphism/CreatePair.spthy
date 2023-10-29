@@ -5,7 +5,7 @@ builtins: homomorphic-encryption
 
 functions: createpair/1
 
-equations: createpair(x) = <x,x>
+equations: createpair(x) = hpair(x,x)
 
 rule GetVars:
   [ Fr(~x0) ]
@@ -20,11 +20,11 @@ rule GetKey:
 rule A:
   [ !Vars(x0), !Key(x2) ]
   --[ Send(x0, x2) ]->
-  [ S1Out( henc(<createpair(x0)>, x2) ) ]
+  [ S1Out( henc(createpair(x0), x2) )]
 
 rule B:
   [ !Vars(x0), !Key(x2)
-  , S1Out( < henc(x0,x2), henc(x0,x2) > ) ]
+  , S1Out( hpair( henc(x0,x2), henc(x0,x2) ) ) ]
   --[ Receive(x0, x2) ]->
   []
 

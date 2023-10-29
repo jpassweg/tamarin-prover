@@ -16,7 +16,7 @@ rule A:
 
 rule B:
   [ !Key(k)
-  , In(<henc(x0, k), henc(x1, k)>) ]
+  , In(hpair(henc(x0, k), henc(x1, k))) ]
   --[ Received(k) ]->
   []
 

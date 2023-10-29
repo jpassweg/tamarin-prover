@@ -15,18 +15,18 @@ rule A_1:
   [ Fr(~NA)
   , Init($A, $B, key) ]
   --[]->
-  [ Out(henc(<$A, ~NA>, key))
+  [ Out(henc(hpair($A, ~NA), key))
   , A_1_State($A, $B, key, ~NA) ]
 
 rule B_1:
   [ Resp($B, $A, key) 
-  , In(henc(<$A, NA>, key)) ]
+  , In(henc(hpair($A, NA), key)) ]
   --[ SecretKey($B, NA) ]->
-  [ Out(henc(<$B, succ(NA)>, key)) ]
+  [ Out(henc(hpair($B, succ(NA)), key)) ]
 
 rule A_2:
   [ A_1_State($A, $B, key, ~NA)
-  , In(henc(<$B, succ(~NA)>, key)) ]
+  , In(henc(hpair($B, succ(~NA)), key)) ]
   --[ SecretKey($A, ~NA) ]->
   []
 

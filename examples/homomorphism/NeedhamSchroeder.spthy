@@ -14,13 +14,13 @@ rule Client_Server_Keys:
 rule A_1:
     [ Fr(~NA) ]
     --[]->
-    [ Out(<<$A, $B>, ~NA>)
+    [ Out(hpair(hpair($A, $B), ~NA))
     , A_1_State($A, $B, ~NA) ]
 
 rule S_1:
     [ SCKey($S, $A, KAS)
     , SCKey($S, $B, KBS)
-    , In(<<$A, $B>, NA>)
+    , In(hpair(hpair($A, $B), NA))
     , Fr(~KAB) ]
     --[ NotEqual($A, $B)
       , NotEqual($A, NA)
@@ -36,12 +36,12 @@ rule S_1:
       , Sent($S, $A, henc(henc($A, KBS), KAS))
       , WrongForward($S, $B, henc(~KAB, KBS))
       , WrongForward($S, $B, henc($A, KBS)) ]->
-    [ Out(henc(<<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS)) ]
+    [ Out(henc(hpair(hpair(hpair(NA, $B), ~KAB), henc(hpair(~KAB, $A), KBS)), KAS)) ]
 
 rule A_2:
     [ A_1_State($A, $B, ~NA)
     , CSKey($A, $S, KAS)
-    , In(henc(<<<~NA, $B>, KAB>, <SBMsg1, SBMsg2>>, KAS)) ]
+    , In(henc(hpair(hpair(hpair(~NA, $B), KAB), hpair(SBMsg1, SBMsg2)), KAS)) ]
     --[ NotEqual($A, $B)
       , NotEqual(KAB, $S)
       , NotEqual(KAB, $A) 
@@ -53,12 +53,12 @@ rule A_2:
       , Forwarded($S, $A, SBMsg2)
       , ForwardedBoth($S, $A, henc(SBMsg1, KAS), henc(SBMsg2, KAS))
       , ForwardedBothUnencrypted(SBMsg1, SBMsg2) ]->
-    [ Out(<SBMsg1, SBMsg2>)
+    [ Out(hpair(SBMsg1, SBMsg2))
     , A_2_State($S, $A, $B, KAS, KAB) ]
 
 rule B_1:
     [ CSKey($B, $S, KBS)
-    , In(henc(<KAB, $A>, KBS))
+    , In(henc(hpair(KAB, $A), KBS))
     , Fr(~NB) ]
     --[ NotEqual(KAB, $A)
       , NotEqual($A, $B)

@@ -24,27 +24,27 @@ rule A_1:
     [ CSKey($A, $S, KAS)
     , Fr(~NA) ]
     --[]->
-    [ Out(<<$A, $B>, ~NA>)
+    [ Out(hpair(hpair($A, $B), ~NA))
     , A_1_State($S, $A, $B, KAS, ~NA) ]
 
 rule S_1:
     [ SCKey($S, $A, KAS)
     , SCKey($S, $B, KBS)
-    , In(<<$A, $B>, NA>)
+    , In(hpair(hpair($A, $B), NA))
     , Fr(~KAB) ]
     --[]->
-    [ Out(henc(<<NA, $B>, ~KAB>, KAS))
-    , Out(henc(<~KAB, $A>, KBS)) ]
+    [ Out(henc(hpair(hpair(NA, $B), ~KAB), KAS))
+    , Out(henc(hpair(~KAB, $A), KBS)) ]
 
 rule A_2:
     [ A_1_State($S, $A, $B, KAS, ~NA)
-    , In(henc(<<~NA, $B>, KAB>, KAS)) ]
+    , In(henc(hpair(hpair(~NA, $B), KAB), KAS)) ]
     --[]->
     [ A_2_State($S, $A, $B, KAS, KAB) ]
 
 rule B_1:
     [ CSKey($B, $S, KBS)
-    , In(henc(<KAB, $A>, KBS))
+    , In(henc(hpair(KAB, $A), KBS))
     , Fr(~NB) ]
     --[]->
     [ Out(henc(~NB, KAB)) 

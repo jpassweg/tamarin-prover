@@ -16,11 +16,11 @@ rule GetKey:
 rule A:
   [ !Vars(x0,x1), !Key(x2) ]
   --[ Send(x0, x1, x2) ]->
-  [ S1Out( senc(<x0, x1>, x2) ) ]
+  [ S1Out( senc(hpair(x0, x1), x2) ) ]
 
 rule B:
   [ !Vars(x0,x1), !Key(x2)
-  , S1Out( < senc(x0,x2), senc(x1,x2) > ) ]
+  , S1Out( hpair( senc(x0,x2), senc(x1,x2) ) ) ]
   --[ Receive(x0, x1, x2) ]->
   []
 
