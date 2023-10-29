@@ -8,7 +8,7 @@ functions: succ/1
 
 rule Client_Server_Keys:
     [ Fr(~key) ]
-    --[]->
+    --[ SecretServerKey($Client, ~key) ]->
     [ SCKey($Server, $Client, ~key), CSKey($Client, $Server, ~key) ]
 
 rule A_1:
@@ -28,14 +28,13 @@ rule S_1:
       , NotEqual($S, NA)
       , NotEqual(KAS, NA)
       , NotEqual(KBS, NA)
-      , SentToForward($S, $A, $B, henc(~KAB, KBS), henc($A, KBS))
-      , Sent($S, $A, henc(NA, KAS))
-      , Sent($S, $A, henc($B, KAS))
-      , Sent($S, $A, henc(~KAB, KAS))
-      , Sent($S, $A, henc(henc(~KAB, KBS), KAS))
-      , Sent($S, $A, henc(henc($A, KBS), KAS))
-      , WrongForward($S, $B, henc(~KAB, KBS))
-      , WrongForward($S, $B, henc($A, KBS)) ]->
+      , Sent($A, NA)
+      , Sent($A, $B)
+      , Sent($A, ~KAB)
+      , Sent($A, henc(~KAB, KBS))
+      , Sent($A, henc($A, KBS))
+      , SentB($B, ~KAB)
+      , SentB($B, $A) ]->
     [ Out(henc(hpair(hpair(hpair(NA, $B), ~KAB), henc(hpair(~KAB, $A), KBS)), KAS)) ]
 
 rule A_2:
@@ -48,11 +47,8 @@ rule A_2:
       , NotEqual(KAB, $B)
       , NotEqual(KAB, KAS)
       , NotEqual(KAB, ~NA)
-      , MyKeyIsSecretA($A, KAS)
-      , Forwarded($S, $A, SBMsg1)
-      , Forwarded($S, $A, SBMsg2)
-      , ForwardedBoth($S, $A, henc(SBMsg1, KAS), henc(SBMsg2, KAS))
-      , ForwardedBothUnencrypted(SBMsg1, SBMsg2) ]->
+      , Received1($A, SBMsg1)
+      , Received2($A, SBMsg2) ]->
     [ Out(hpair(SBMsg1, SBMsg2))
     , A_2_State($S, $A, $B, KAS, KAB) ]
 
@@ -66,9 +62,7 @@ rule B_1:
       , NotEqual($A, KBS)
       , NotEqual(KAB, $B)
       , NotEqual(KAB, $S)
-      , NotEqual(KAB, KBS)
-      , MyKeyIsSecretB($B, KBS)
-      , Received($S, $B, henc(KAB, KBS), henc($A, KBS)) ]->
+      , NotEqual(KAB, KBS) ]->
     [ Out(henc(~NB, KAB)) 
     , B_1_State($S, $A, $B, KBS, KAB, ~NB) ]
 
@@ -94,45 +88,28 @@ rule B_2:
 restriction notEqual:
     "All a #t. NotEqual(a,a) @t ==> F"
 
-lemma serverKeyNeverForwarded [sources]:
-    "All SBMsg1 SBMsg2 #i. ForwardedBothUnencrypted(SBMsg1, SBMsg2) @i ==> (
-          (not ( Ex $C $S #t. CSKey($C, $S, SBMsg1) @t ))
-        & (not ( Ex $C $S #t. SCKey($S, $C, SBMsg1) @t ))
-        & (not ( Ex $C $S #t. CSKey($C, $S, SBMsg2) @t ))
-        & (not ( Ex $C $S #t. SCKey($S, $C, SBMsg2) @t ))
-    )"
-
-lemma serverKeySecretA [sources]:
-    "All $A KAS #i. MyKeyIsSecretA($A, KAS) @i ==> (
-        not ( Ex #t. K(KAS) @t )
-    )"
-
-lemma serverKeySecretB [sources]:
-    "All $B KBS #i. MyKeyIsSecretB($B, KBS) @i ==> (
-        not ( Ex #t. K(KBS) @t )
-    )"
-
-lemma forwardMessage [sources]:
-    "All $S $A m1 m2 #i. ForwardedBoth($S, $A, m1, m2) @i ==> (
-          ( Ex #t. Sent($S, $A, m1) @t
-            & Sent($S, $A, m2) @t
-            & (#t < #i))
-        | ( Ex #t. WrongForward($S, $A, m1) @t 
-            & WrongForward($S, $A, m2) @t
-            & (#t < #i))
-    )"
-    
-lemma receiveForwardedMessage [sources]:
-    "All $S $B m1 m2 #i. Received($S, $B, m1, m2) @i ==> (
-          ( Ex #t1 #t2. SentToForward($S, $A, $B, m1, m2) @t1 
-            & Forwarded($S, $A, m1) @t2
-            & Forwarded($S, $A, m2) @t2
-            & (#t1 < #t2)
-            & (#t2 < #i) )
-        | ( Ex #t. Sent($S, $B, m1) @t 
-            & Sent($S, $B, m2) @t 
-            & (#t < #i) )
-    )"
+lemma Secret_Server_Key [sources]:
+    "(All $A m1 m2 #i. Received1($A, m1) @i & Received2($A, m2) @i ==>
+        (Ex KAS #t1 #tIntr1 #tIntr2 #t2. 
+            Sent($A, m1) @t1 & Sent($A, m2) @t1 
+            & K(henc(m1,KAS)) @tIntr1 & K(henc(m2,KAS)) @tIntr2
+            & SecretServerKey($A, KAS) @t2
+            & (#t1 < #tIntr1) & (#t1 < #tIntr2) & (#t1 < #i)
+            & (#tIntr1 < #i) & (#tIntr2 < #i) )
+            & (#t2 < #t1) & (#t2 < #i)
+        | (Ex KAS #t1 #tIntr1 #tIntr2. // KAS KBS $B #t1 #tIntr1 #tIntr2 #tIntr3 #tIntr4 #t2 #t3. 
+            SentB($A, m1) @t1 & SentB($A, m2) @t1
+            & K(henc(m1, KAS)) @tIntr1 & K(henc(m2, KAS)) @tIntr2)
+            //& SecretServerKey($A, KAS) @t2
+            //& K(henc(henc(m1, KAS), KBS)) @tIntr3 & K(henc(henc(m2, KAS), KBS)) @tIntr4
+            //& SecretServerKey($B, KBS) @t3
+            //& Sent($B, henc(m1, KAS)) @t1 & Sent($B, henc(m2, KAS)) @t1
+            & (#t1 < #tIntr1) & (#t1 < #tIntr2) // & (#t1 < #tIntr3) & (#t1 < #tIntr4)
+            & (#t1 < #i) 
+            // & (#t2 < #i) & (#t2 < #t1)
+            // & (#t3 < #i) & (#t3 < #t1)
+            & (#tIntr1 < #i) & (#tIntr2 < #i) // & (#tIntr3 < #i) & (#tIntr4 < #i)
+        )"
 
 lemma Executability_Lemma:
     exists-trace "Ex A B key #i #j. FinishedA(A, B, key) @i & FinishedB(B, A, key) @j & not (A = B)"
