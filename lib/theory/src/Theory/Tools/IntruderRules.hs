@@ -423,19 +423,29 @@ homIntruderRules :: Bool -> WithMaude [IntrRuleAC]
 homIntruderRules diff = reader $ \hnd -> minimizeIntruderRules diff $
   [ Rule constrHomEnc kuTwoVars kuHomEnc kuHomEnc []
   , Rule constrHomDec kuTwoVars kuHomDec kuHomDec []
+  , Rule constrHomPair kuTwoVars kuHomPair kuHomPair []
   ] 
   ++
-  (variantsIntruder hnd id True (Rule destrHomDec [kdHomEnc, kuFact x_var_1] [kdFact x_var_0] [] []))
+  variantsIntruder hnd id True (Rule destrHomDec [kdHomEnc, kuFact x_var_1] [kdFact x_var_0] [] [])
+  ++
+  variantsIntruder hnd id True (Rule destrHomFst [kdHomPair] [kdFact x_var_0] [] [])
+  ++
+  variantsIntruder hnd id True (Rule destrHomSnd [kdHomPair] [kdFact x_var_1] [] [])
   where
     x_var_0 = varTerm (LVar "x" LSortMsg 0)
     x_var_1 = varTerm (LVar "x" LSortMsg 1)
-    constrHomEnc = (ConstrRule (append (pack "_") homEncSymString))
-    constrHomDec = (ConstrRule (append (pack "_") homDecSymString))
-    destrHomDec = (DestrRule (append (pack "_") homDecSymString) 0 True False) 
+    constrHomEnc = ConstrRule (append (pack "_") homEncSymString)
+    constrHomDec = ConstrRule (append (pack "_") homDecSymString)
+    constrHomPair = ConstrRule (append (pack "_") homPairSymString)
+    destrHomDec = DestrRule (append (pack "_") homDecSymString) 0 True False
+    destrHomFst = DestrRule (append (pack "_") homFstSymString) 0 True False
+    destrHomSnd = DestrRule (append (pack "_") homSndSymString) 0 True False
     kuTwoVars = [kuFact x_var_0, kuFact  x_var_1]
     kuHomEnc = [kuFact (fAppHomEnc (x_var_0, x_var_1))]
     kuHomDec = [kuFact (fAppHomDec (x_var_0, x_var_1))]
+    kuHomPair = [kuFact (fAppHomPair (x_var_0, x_var_1))]
     kdHomEnc = kdFact (fAppHomEnc (x_var_0, x_var_1))
+    kdHomPair = kdFact (fAppHomPair (x_var_0, x_var_1))
 
 ------------------------------------------------------------------------------
 -- Classification functions

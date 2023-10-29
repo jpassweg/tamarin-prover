@@ -6,3 +6,12 @@ rule (modulo AC) c_henc:
 
 rule (modulo AC) d_hdec:
    [ !KD( henc(x.1, x.2) ), !KU( x.2 ) ] --> [ !KD( x.1 ) ]
+
+rule (modulo AC) c_hpair:
+   [ !KU( x ), !KU( x.1 ) ] --[ !KU( hpair(x, x.1) ) ]-> [ !KU( hpair(x, x.1) ) ]
+
+rule (modulo AC) d_hfst:
+   [ !KD( hpair(x.1, x.2) ) ] --> [ !KD( x.1 ) ]
+
+rule (modulo AC) d_hsnd:
+   [ !KD( hpair(x.1, x.2) ) ] --> [ !KD( x.2 ) ]

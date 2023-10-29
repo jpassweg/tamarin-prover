@@ -5,7 +5,7 @@ builtins: homomorphic-encryption
 
 functions: createpair/1
 
-equations: createpair(x) = hpair(x,x)
+equations: createpair(x) = <x,x>
 
 rule GetVars:
   [ Fr(~x0) ]

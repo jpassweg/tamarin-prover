@@ -90,6 +90,9 @@ module Term.Term (
     , xorSymString
     , homEncSymString
     , homDecSymString
+    , homPairSymString
+    , homFstSymString
+    , homSndSymString
 
     -- ** Function symbols
     , diffSym

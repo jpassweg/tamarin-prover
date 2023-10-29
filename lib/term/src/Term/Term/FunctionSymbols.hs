@@ -43,6 +43,7 @@ module Term.Term.FunctionSymbols (
     , natOneSymString
     , homEncSymString
     , homDecSymString
+    , homPairSymString
     , homFstSymString
     , homSndSymString
 
