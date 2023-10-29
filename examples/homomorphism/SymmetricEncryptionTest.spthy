@@ -1,7 +1,7 @@
 theory SymmetricEncryptionTest
 begin
 
-builtins: symmetric-encryption
+builtins: symmetric-encryption, homomorphic-encryption
 
 rule GetVars:
   [ Fr(~x0), Fr(~x1) ]
