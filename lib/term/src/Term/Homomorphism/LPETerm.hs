@@ -101,18 +101,18 @@ pPosition :: (IsConst c) => String -> LTerm c -> String
 pPosition [] _ = ""
 pPosition (i:q) t = let ind = read [i] - 1 in case viewTerm2 t of
   _ | ind >= 2 -> "N"
-  FPair t1 t2  -> i : pPosition q ([t1,t2] !! ind)
-  FHenc t1 t2  ->     pPosition q ([t1,t2] !! ind)
-  _            -> "N"
+  FHomPair t1 t2  -> i : pPosition q ([t1,t2] !! ind)
+  FHenc t1 t2     ->     pPosition q ([t1,t2] !! ind)
+  _               -> "N"
 
 -- | Returns the eposition used for Homomorphic Pattern rules
 ePosition :: (IsConst c) => String -> LTerm c -> String
 ePosition [] _ = ""
 ePosition (i:q) t = let ind = read [i] - 1 in case viewTerm2 t of
   _ | ind >= 2 -> "N"
-  FHenc t1 t2  -> i : ePosition q ([t1,t2] !! ind)
-  FPair t1 t2  ->     ePosition q ([t1,t2] !! ind)
-  _            -> "N"
+  FHenc t1 t2     -> i : ePosition q ([t1,t2] !! ind)
+  FHomPair t1 t2  ->     ePosition q ([t1,t2] !! ind)
+  _               -> "N"
 
 -- | Returns if two positions are incompatible
 positionsIncompatible :: (IsConst c) => String -> LTerm c -> String -> LTerm c -> Bool
@@ -183,7 +183,7 @@ fromPRepresentation :: (IsConst c) => PRepresentation c -> LTerm c
 fromPRepresentation p =
   if eRepsString p == [""]
   then fromERepresentation $ head $ eRepsTerms p
-  else fAppPair (fRep takeWhile, fRep dropWhile )
+  else fAppHomPair (fRep takeWhile, fRep dropWhile )
   where
     fRep fWhile = fromPRepresentation $ uncurry PRep $ unzip 
       $ map (first (\s -> if s == "" then "" else tail s)) 
@@ -195,7 +195,7 @@ fromPRepresentationOnly :: (IsConst c) => ([String],[LTerm c]) -> LTerm c
 fromPRepresentationOnly (s,p) =
   if s == [""]
   then head p
-  else fAppPair (
+  else fAppHomPair (
       fromPRepresentationOnly $ sRep takeWhile
     , fromPRepresentationOnly $ sRep dropWhile )
   where
@@ -224,16 +224,16 @@ normHomomorphic t = case viewTerm t of
       t1N = normHomomorphic t1 
       t2N = normHomomorphic t2
       in case viewTerm2 t1N of
-        FPair t11N t12N -> fAppPair (normHomomorphic $ fAppHomEnc (t11N, t2N), normHomomorphic $ fAppHomEnc (t12N, t2N))
+        FHomPair t11N t12N -> fAppHomPair (normHomomorphic $ fAppHomEnc (t11N, t2N), normHomomorphic $ fAppHomEnc (t12N, t2N))
         _               -> fAppHomEnc (t1N, t2N)
     FApp funsym ts -> termViewToTerm (FApp funsym (map normHomomorphic ts))
     Lit _ -> t
 
 nfHomomorphic :: (IsConst c) => LTerm c -> Bool
 nfHomomorphic t = case viewTerm t of
-  FApp _ [viewTerm2 -> FPair _ _, _] | isHomEnc t -> False
-  FApp _ ts                                       -> all nfHomomorphic ts
-  Lit _                                           -> True
+  FApp _ [viewTerm2 -> FHomPair _ _, _] | isHomEnc t -> False
+  FApp _ ts                                          -> all nfHomomorphic ts
+  Lit _                                              -> True
 
 {-
 -- | returns if the term is in normal form modulo HE+

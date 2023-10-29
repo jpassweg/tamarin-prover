@@ -43,7 +43,6 @@ module Term.Term.FunctionSymbols (
     , natOneSymString
     , homEncSymString
     , homDecSymString
-    , homPairSymString
     , homFstSymString
     , homSndSymString
 
@@ -66,6 +65,8 @@ module Term.Term.FunctionSymbols (
     , homPairSym
     , homFstSym
     , homSndSym
+    , homFstDestSym
+    , homSndDestSym
 
     -- ** concrete signatures
     , dhFunSig
@@ -79,6 +80,9 @@ module Term.Term.FunctionSymbols (
     , bpReducibleFunSig
     , xorReducibleFunSig
     , homReducibleFunSig
+    , homPairFunSig
+    , homPairNoEqFunSig
+    , homPairFunDestSig
     , implicitFunSig
     , natFunSig
     ) where
@@ -238,12 +242,18 @@ msetFunSig = S.fromList [AC Union]
 pairFunSig :: NoEqFunSig
 pairFunSig = S.fromList [ pairSym, fstSym, sndSym ]
 
-homPairFunSig :: NoEqFunSig
-homPairFunSig = S.fromList [homPairSym, homFstSym, homSndSym]
+homPairFunSig :: FunSig
+homPairFunSig = S.map NoEq homPairNoEqFunSig
+
+homPairNoEqFunSig :: NoEqFunSig
+homPairNoEqFunSig = S.fromList [homPairSym, homFstSym, homSndSym]
 
 -- | The signature for pairing with destructors.
 pairFunDestSig :: NoEqFunSig
 pairFunDestSig = S.fromList [ pairSym, fstDestSym, sndDestSym ]
+
+homPairFunDestSig :: NoEqFunSig
+homPairFunDestSig = S.fromList [ homPairSym, homFstDestSym, homSndDestSym ]
 
 -- | Reducible function symbols for DH.
 dhReducibleFunSig :: FunSig

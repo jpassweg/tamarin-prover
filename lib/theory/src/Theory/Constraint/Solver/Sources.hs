@@ -461,7 +461,7 @@ precomputeSources parameters ctxt restrictions =
       _ -> Nothing
 
     filterSystemsNotVarToPair :: Lit Name LVar -> Disj ([String], System) -> Disj ([String], System)
-    filterSystemsNotVarToPair v syms = Disj $ filter (\(_,sym) -> case viewTerm2 (applyLit (L.get sSubst sym) v) of FPair _ _ -> False; _ -> True) $ getDisj syms
+    filterSystemsNotVarToPair v syms = Disj $ filter (\(_,sym) -> case viewTerm2 (applyLit (L.get sSubst sym) v) of FPair _ _ -> False; FHomPair _ _ -> False; _ -> True) $ getDisj syms
 
 -- | Refine a set of sources by exploiting additional source
 -- assumptions.

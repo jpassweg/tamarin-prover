@@ -14,7 +14,7 @@ import Data.Data ( Data )
 
 import Term.LTerm (LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..), viewTerm, termViewToTerm)
 -- Lit(Var, Con), IsConst, isVar, varTerm, termVar, varsVTerm, occursVTerm come from Term.VTerm
--- isPair, isHomEnc come from Term.Term
+-- isHomEnc come from Term.Term
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
 
 -- Const type used by matching algorithm

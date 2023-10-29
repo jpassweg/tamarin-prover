@@ -24,9 +24,9 @@ import Term.Homomorphism.MConst
 import Term.LTerm (
   LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..),
   isVar, varTerm, occursVTerm, varsVTerm, viewTerm,
-  isPair, isHomEnc, sortCompare, sortOfLTerm)
+  isHomPair, isHomEnc, sortCompare, sortOfLTerm)
 -- Lit(Var, Con), IsConst, isVar, varTerm, termVar, varsVTerm, occursVTerm come from Term.VTerm
--- isPair, isHomEnc come from Term.Term
+-- isHomPair, isHomEnc come from Term.Term
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
 
 import Term.Rewriting.Definitions (Equal(..))
@@ -308,7 +308,7 @@ variableSubstitutionHomomorphicRule (Equal eL eR) sortOf (eqs,_) = let tR = lTer
 clashHomomorphicRule :: IsConst c => HomomorphicRule c
 clashHomomorphicRule (Equal eL eR) _ _ = let tL = lTerm eL; tR = lTerm eR
   in case (viewTermPE eL, viewTermPE eR) of
-    (FApp lfsym _, FApp rfsym _) | lfsym /= rfsym && not (isPair tL && isHomEnc tR) && not (isHomEnc tL && isPair tR)
+    (FApp lfsym _, FApp rfsym _) | lfsym /= rfsym && not (isHomPair tL && isHomEnc tR) && not (isHomEnc tL && isHomPair tR)
       -> HFail
     _ -> HNothing
 

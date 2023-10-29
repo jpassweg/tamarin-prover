@@ -212,6 +212,9 @@ ppTheory msig = BC.unlines $
       then
       [ theoryOpEq "henc : Msg Msg -> Msg"
       , theoryOpEq "hdec : Msg Msg -> Msg"
+      , theoryOpEq "hpair : Msg Msg -> Msg"
+      , theoryOpEq "hfst : Msg -> Msg"
+      , theoryOpEq "hsnd : Msg -> Msg"
       ]
       else [])
     ++  

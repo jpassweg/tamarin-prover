@@ -57,7 +57,6 @@ module Term.Unification (
   , xorMaudeSig
   , msetMaudeSig
   , pairMaudeSig
-  , homPairMaudeSig
   , symEncMaudeSig
   , asymEncMaudeSig
   , signatureMaudeSig

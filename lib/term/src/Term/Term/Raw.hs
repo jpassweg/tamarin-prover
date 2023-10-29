@@ -189,7 +189,7 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
     _                           -> FAppNoEq o ts
   where
     -- special symbols
-    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym, homEncSym, homDecSym ]
+    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym, homEncSym, homDecSym, homPairSym ]
 
 ----------------------------------------------------------------------
 -- Instances

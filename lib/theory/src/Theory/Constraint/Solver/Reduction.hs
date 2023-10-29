@@ -317,6 +317,25 @@ insertAction i fa@(Fact _ ann _) = do
                           insertGoal goal False
                           requiresKU m1 *> requiresKU m2 *> return Changed
 
+                Just (UpK, viewTerm2 -> FHomPair m1 m2) -> do
+                -- In the diff case, add pair rule instead of goal
+                    if isdiff
+                       then do
+                          -- if the node is already present in the graph, do not insert it again. (This can be caused by substitutions applying and changing a goal.)
+                          if not nodePresent
+                             then do
+                               modM sNodes (M.insert i (Rule (IntrInfo (ConstrRule $ BC.pack "_homPair")) ([(kuFactAnn ann m1),(kuFactAnn ann m2)]) ([fa]) ([fa]) []))
+                               insertGoal goal False
+                               markGoalAsSolved "pair" goal
+                               requiresKU m1 *> requiresKU m2 *> return Changed
+                             else do
+                               insertGoal goal False
+                               markGoalAsSolved "exists" goal
+                               return Changed
+                       else do
+                          insertGoal goal False
+                          requiresKU m1 *> requiresKU m2 *> return Changed
+
                 Just (UpK, viewTerm2 -> FInv m) -> do
                 -- In the diff case, add inv rule instead of goal
                     if isdiff

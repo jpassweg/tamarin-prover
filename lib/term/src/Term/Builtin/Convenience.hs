@@ -24,7 +24,7 @@ b +: e = fAppAC Xor [b,e]
 (++:) :: Ord a => Term a -> Term a -> Term a
 b ++: e = fAppAC NatPlus [b,e]
 
-adec, aenc, sdec, senc, sign, revealSign, rep, check_rep, henc, hdec, hpair, hfst, hsnd:: (Term a,Term a) -> Term a
+adec, aenc, sdec, senc, sign, revealSign, rep, check_rep, henc, hdec, hpair :: (Term a,Term a) -> Term a
 adec (a,b)       = fAppNoEq adecSym [a,b]
 aenc (a,b)       = fAppNoEq aencSym [a,b]
 sdec (a,b)       = fAppNoEq sdecSym [a,b]
@@ -36,6 +36,8 @@ check_rep (a,b)        = fAppNoEq checkRepSym [a,b]
 henc (a,b)       = fAppHomEnc (a,b)
 hdec (a,b)       = fAppHomDec (a,b)
 hpair (a,b)      = fAppHomPair (a,b)
+
+hfst, hsnd :: Term a -> Term a
 hfst             = fAppHomFst
 hsnd             = fAppHomSnd
 

@@ -1766,6 +1766,8 @@ prettyGoals solved sys = vsep $ do
 
     toplevelTerms t@(viewTerm2 -> FPair t1 t2) =
         t : toplevelTerms t1 ++ toplevelTerms t2
+    toplevelTerms t@(viewTerm2 -> FHomPair t1 t2) =
+        t : toplevelTerms t1 ++ toplevelTerms t2
     toplevelTerms t@(viewTerm2 -> FInv t1) = t : toplevelTerms t1
     toplevelTerms t = [t]
 

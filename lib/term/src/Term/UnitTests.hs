@@ -927,7 +927,7 @@ allMaudeSig = mconcat
 -- with enableHom=True
 allMaudeSigPlusHomomorphic :: MaudeSig
 allMaudeSigPlusHomomorphic = mconcat
-    [ bpMaudeSig, msetMaudeSig, homMaudeSig, homPairMaudeSig
+    [ bpMaudeSig, msetMaudeSig, homMaudeSig
     , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
 
 

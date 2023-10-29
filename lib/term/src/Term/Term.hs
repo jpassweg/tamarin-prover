@@ -46,6 +46,9 @@ module Term.Term (
     , isHomEnc
     , isHomDec
     , hasSameHomKey
+    , isHomPair
+    , isHomFst
+    , isHomSnd
     , isUnion
     , isEMap
     , isNullaryPublicFunction
@@ -110,6 +113,9 @@ module Term.Term (
     , bpReducibleFunSig
     , xorReducibleFunSig
     , homReducibleFunSig
+    , homPairFunSig
+    , homPairNoEqFunSig
+    , homPairFunDestSig
     , implicitFunSig
 
     , module Term.Term.Classes
@@ -158,18 +164,18 @@ fAppEMap  (x,y) = fAppC    EMap     [x, y]
 fAppUnion (x,y) = fAppAC    Union     [x, y]
 
 -- | Smart constructors for inv, fst, and snd.
-fAppInv, fAppFst, fAppSnd :: Term a -> Term a
+fAppInv, fAppFst, fAppSnd, fAppHomFst, fAppHomSnd :: Term a -> Term a
 fAppInv e = fAppNoEq invSym [e]
 fAppFst a = fAppNoEq fstSym [a]
 fAppSnd a = fAppNoEq sndSym [a]
+fAppHomFst a = fAppNoEq homFstSym [a]
+fAppHomSnd a = fAppNoEq homSndSym [a]
 
 -- | Smart constructor for homomorphic encryption and decryption.
-fAppHomEnc, fAppHomDec, fAppHomPair, fAppHomFst, fAppHomSnd :: (Term a, Term a) -> Term a
+fAppHomEnc, fAppHomDec, fAppHomPair :: (Term a, Term a) -> Term a
 fAppHomEnc (x, y) = fAppNoEq homEncSym [x, y]
 fAppHomDec (x, y) = fAppNoEq homDecSym [x, y]
 fAppHomPair (x, y) = fAppNoEq homPairSym [x, y]
-fAppHomFst a = fAppNoEq homFstSym [a]
-fAppHomSnd a = fAppNoEq homSndSym [a]
 
 -- | @lits t@ returns all literals that occur in term @t@. List can contain duplicates.
 lits :: Term a -> [a]
@@ -232,6 +238,21 @@ hasSameHomKey t1 t2 = case (viewTerm2 t1, viewTerm2 t2) of
   (FHdec _ k1, FHdec _ k2) -> k1 == k2
   (_, _) -> False
 
+-- | 'True' iff the term is a well-formed homomorphic pair.
+isHomPair :: Show a => Term a -> Bool
+isHomPair (viewTerm2 -> FHomPair _ _) = True
+isHomPair _                           = False
+
+-- | 'True' iff the term is a homomorphic fst function.
+isHomFst :: Show a => Term a -> Bool
+isHomFst (viewTerm -> FApp (NoEq sym) [_]) = sym == homFstSym
+isHomFst _                                 = False
+
+-- | 'True' iff the term is a homomorphic snd function.
+isHomSnd :: Show a => Term a -> Bool
+isHomSnd (viewTerm -> FApp (NoEq sym) [_]) = sym == homSndSym
+isHomSnd _                                 = False
+
 -- | 'True' iff the term is a well-formed emap.
 isEMap :: Show a => Term a -> Bool
 isEMap (viewTerm2 -> FEMap _ _) = True
@@ -284,7 +305,7 @@ getRightTerm t = getSide DiffRight t
 -- | Given a term, compute all protected subterms, i.e. all terms
 -- which top symbol is a function, but not a pair, nor an AC symbol
 allProtSubterms :: Show a => Term a -> [Term a]
-allProtSubterms t@(viewTerm -> FApp _ as) | isPair t || isAC t
+allProtSubterms t@(viewTerm -> FApp _ as) | isPair t || isHomPair t || isAC t
         = concatMap allProtSubterms as
 allProtSubterms t@(viewTerm -> FApp _ as) | otherwise
         = t:concatMap allProtSubterms as
