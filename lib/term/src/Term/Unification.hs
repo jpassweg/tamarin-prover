@@ -155,7 +155,7 @@ findAlienSubTerm eq = case
 findAlienSubTerm' :: (IsConst c) => Bool -> LTerm c -> Maybe (LTerm c)
 findAlienSubTerm' b t = case viewTerm t of
   Lit (Var _) -> Nothing
-  Lit (Con _) -> if isAnyHom t /= b then Just t else Nothing
+  Lit (Con _) -> Nothing -- if isAnyHom t /= b then Just t else Nothing
   FApp _ args -> if isAnyHom t /= b then Just t else case mapMaybe (findAlienSubTerm' b) args of
     []    -> Nothing
     (e:_) -> Just e
@@ -168,7 +168,7 @@ substituteTermWithVar tToSub newV t = if tToSub == t then varTerm newV else case
 
 splitEqs :: (IsConst c) => ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], [LVar])
 splitEqs ([], allVars) = ([], allVars)
-splitEqs (e:es, allVars) = if isVar (eqLHS e) || isVar (eqRHS e) || isAnyHom (eqLHS e) == isAnyHom (eqRHS e)
+splitEqs (e:es, allVars) = if isLit (eqLHS e) || isLit (eqRHS e) || isAnyHom (eqLHS e) == isAnyHom (eqRHS e)
   then let (newEs, newVars) = splitEqs (es, allVars) in (e : newEs, newVars)
   else let 
     newVar = getNewSimilarVar (LVar "splitVar" LSortMsg 0) allVars
