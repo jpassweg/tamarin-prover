@@ -3,6 +3,7 @@
 module Term.Homomorphism.Unification (
   -- * Unification modulo EpsilonH for Homomorphic Encryption
     unifyHomomorphicLTerm
+  , unifyHomomorphicLTermWrapper
 
   -- * Matching modulo EpsilonH for Homomorphic Encryption
   , matchHomomorphicLTerm
@@ -11,6 +12,9 @@ module Term.Homomorphism.Unification (
   , eqsToTerms
   , foldVars
   , getNewSimilarVar
+
+  -- * Failure rule Wrapper
+  , failureHomomorphicRuleWrapper
 
   -- * For debugging
   , debugHomomorphicRule
@@ -61,6 +65,11 @@ matchHomomorphicLTerm sortOf ms = let
 
 -- Unification Algorithm Wrapper
 --------------------------------
+
+unifyHomomorphicLTermWrapper :: IsConst c =>  (c -> LSort) -> [Equal (LTerm c)] -> [LSubstVFresh c]
+unifyHomomorphicLTermWrapper sortOf eqs = case unifyHomomorphicLTerm sortOf eqs of
+    Just (_, hSF) -> [hSF]
+    Nothing       -> []
 
 unifyHomomorphicLTerm :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> Maybe (LSubst c, LSubstVFresh c)
 unifyHomomorphicLTerm sortOf eqs = let
@@ -396,6 +405,16 @@ failureTwoHomomorphicRule (Equal eL eR) _ _ = let eRepsLHS = eRepsTerms $ pRep e
   if any (\e -> not (isVar $ head e) && (length e < length (eRep eR))) eRepsLHS && length eRepsLHS > 1 
   then HFail
   else HNothing
+
+failureHomomorphicRuleWrapper :: IsConst c => LTerm c -> LTerm c -> Bool
+failureHomomorphicRuleWrapper l r = let
+    lPE = toLPETerm l
+    rPE = toLPETerm r
+  in case ( failureOneHomomorphicRule (Equal lPE rPE) (const LSortMsg) ([], []),
+            failureTwoHomomorphicRule (Equal lPE rPE) (const LSortMsg) ([], [])
+          ) of
+    (HNothing, HNothing) -> True
+    _ -> False
 
 parsingHomomorphicRule :: IsConst c => HomomorphicRule c
 parsingHomomorphicRule (Equal eL eR) _ _ = let

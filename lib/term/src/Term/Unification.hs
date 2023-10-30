@@ -119,9 +119,10 @@ unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unify
   where
     unif = sequence [ unifyRaw t p | Equal t p <- eqs ]
     solve h subst = if enableHom $ mhMaudeSig h
-      then case unifyHomomorphicLTerm sortOf eqs of
+      then case subst of
         Nothing        -> (emptySubst, [])
-        Just (_, hSF)  -> (emptySubst, [hSF])
+        Just (m, [])   -> (substFromMap m, [emptySubstVFresh])
+        Just (m, leqs) -> (substFromMap m, unifyHomomorphicLTermWrapper sortOf leqs)
       else case subst of
         Nothing        -> (emptySubst, [])
         Just (m, [])   -> (substFromMap m, [emptySubstVFresh])
@@ -261,15 +262,13 @@ solveMatchLTerm sortOf matchProblem =
       (unlines $ ["matchLTerm: "++ show matchProblem, "result = "++  show res])
       res
 
-    matchTermChoose ms hnd = trace' $ if enableHom $ mhMaudeSig hnd
-      then maybeToList (matchHomomorphicLTerm sortOf ms)
-      else matchTerms ms hnd
-
-    matchTerms ms hnd =
+    matchTermChoose ms hnd = trace' $
       case runState (runExceptT match) M.empty of
           (Left NoMatcher, _)  -> []
           (Left ACProblem, _)  ->
               unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
+          (Left HomomorphicProblem, _) -> 
+              maybeToList (matchHomomorphicLTerm sortOf ms)
           (Right (), mappings) -> [substFromMap mappings]
       where
         match = forM_ ms $ \(t, p) -> matchRaw sortOf t p
@@ -313,6 +312,11 @@ unifyRaw l0 r0 = do
           guard (lfsym == natOneSym) >> tell [Equal l r]
        (FApp (AC NatPlus) _, FApp (NoEq rfsym) []) ->
           guard (rfsym == natOneSym) >> tell [Equal l r]
+       -- Homomorphic cases (need to be handled here since next is the general case with guard)
+       (FApp (NoEq lfsym) _, FApp (NoEq rfsym) _) | lfsym /= rfsym ->
+           -- chech failure rules
+           guard (((isHomPair l && isHomEnc r) || (isHomEnc l && isHomPair r)) && failureHomomorphicRuleWrapper l r)
+           >> tell [Equal l r]
        -- General cases / function application
        (FApp (NoEq lfsym) largs, FApp (NoEq rfsym) rargs) ->
            guard (lfsym == rfsym && length largs == length rargs)
@@ -339,7 +343,7 @@ unifyRaw l0 r0 = do
           modify (M.insert v t . M.map (applyVTerm (substFromList [(v,t)])))
 
 
-data MatchFailure = NoMatcher | ACProblem
+data MatchFailure = NoMatcher | ACProblem | HomomorphicProblem
 
 instance Semigroup MatchFailure where
   _ <> _ = NoMatcher
@@ -368,6 +372,9 @@ matchRaw sortOf t p = do
                       | otherwise -> throwError NoMatcher
 
       (Lit (Con ct),  Lit (Con cp)) -> guard (ct == cp)
+      (FApp (NoEq tfsym) _, FApp (NoEq pfsym) _) | tfsym /= pfsym ->
+           guard ((isHomPair t && isHomEnc p) || (isHomEnc t && isHomPair p))
+           >> throwError HomomorphicProblem
       (FApp (NoEq tfsym) targs, FApp (NoEq pfsym) pargs) ->
            guard (tfsym == pfsym && length targs == length pargs)
            >> sequence_ (zipWith (matchRaw sortOf) targs pargs)
