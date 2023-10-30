@@ -231,6 +231,12 @@ xorFunSig = S.fromList [ AC Xor, NoEq zeroSym ]
 homFunSig :: FunSig
 homFunSig = S.fromList [NoEq homEncSym, NoEq homDecSym]
 
+homPairFunSig :: FunSig
+homPairFunSig = S.map NoEq homPairNoEqFunSig
+
+homPairNoEqFunSig :: NoEqFunSig
+homPairNoEqFunSig = S.fromList [homPairSym, homFstSym, homSndSym]
+
 -- | The signature for the bilinear pairing function symbols.
 bpFunSig :: FunSig
 bpFunSig = S.fromList [ NoEq pmultSym, C EMap ]
@@ -242,12 +248,6 @@ msetFunSig = S.fromList [AC Union]
 -- | The signature for pairing.
 pairFunSig :: NoEqFunSig
 pairFunSig = S.fromList [ pairSym, fstSym, sndSym ]
-
-homPairFunSig :: FunSig
-homPairFunSig = S.map NoEq homPairNoEqFunSig
-
-homPairNoEqFunSig :: NoEqFunSig
-homPairNoEqFunSig = S.fromList [homPairSym, homFstSym, homSndSym]
 
 -- | The signature for pairing with destructors.
 pairFunDestSig :: NoEqFunSig
@@ -267,7 +267,8 @@ bpReducibleFunSig = S.fromList [ NoEq pmultSym, C EMap ]
 -- | Reducible function symbols for Homomorphic Encryption
  -- TODO: Maybe add NoEq homEncSym -> for symmetric encryption sdec is reducible but senc seems to not be
 homReducibleFunSig :: FunSig
-homReducibleFunSig = S.fromList [ NoEq homDecSym, NoEq homEncSym ]
+homReducibleFunSig = S.fromList [ NoEq homDecSym, NoEq homEncSym, 
+  NoEq homFstSym, NoEq homSndSym ]
 
 -- | Reducible function symbols for XOR.
 xorReducibleFunSig :: FunSig
