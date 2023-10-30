@@ -442,9 +442,6 @@ noOrgVarsRight orgVars subst = let rightVars = foldVars (map snd subst) in all (
 onlyOrgVarsRight :: [LVar] -> [(LVar, LTerm c)] -> Bool
 onlyOrgVarsRight orgVars subst = let rightVars = foldVars (map snd subst) in all (`elem` orgVars) rightVars
 
-foldVars :: [LTerm c] -> [LVar]
-foldVars = sortednub . concatMap varsVTerm
-
 -- *****************************************************************************
 -- Tests for Subfunctions of the Unification Algorithm modulo EpsilonH
 -- *****************************************************************************
