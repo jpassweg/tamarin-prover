@@ -70,8 +70,11 @@ dhRules = S.fromList
 --   the only rule stated is the same behaviour as symmetric encryption
 --   and the rest is offloaded to the unification and matching algorithm.  
 homRules :: Set (RRule LNTerm)
-homRules = S.fromList 
-  [ hdec(henc(x1, x2), x2) `RRule` x1 ]
+homRules = S.fromList $
+  hdec(henc(x1, x2), x2) `RRule` x1 : homPairRules'
+
+homPairRules' :: [RRule LNTerm]
+homPairRules' = map ctxtStRuleToRRule (S.toList homPairRules)
 
 -- | The rewriting rules for bilinear pairing. These rules extend the
 --   the rules for Diffie-Hellman.

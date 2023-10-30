@@ -1,0 +1,45 @@
+theory HomFunctionTests
+begin
+
+builtins: homomorphic-encryption
+
+rule KeyGeneration:
+  [ Fr(~key) ]
+  --[ SendKey(~key) ]->
+  [ !Key(~key) ]
+
+rule CreatePair:
+  [ Fr(~msg1)
+  , Fr(~msg2) ]
+  --[ SentHPair(~msg1, ~msg2) ]->
+  [ TransmitHPair(hpair(~msg1, ~msg2)) ]
+
+rule ReceiveHPair:
+    let
+      m1 = hfst(msg)
+      m2 = hsnd(msg)
+    in
+  [ TransmitHPair(msg) ]
+  --[ ReceivedHPair(m1, m2) ]->
+  []
+
+rule CreateHEnc:
+  [ Fr(~msg3)
+  , !Key(k) ]
+  --[ SentHEnc(~msg3) ]->
+  [ TransmitHEnc(henc(~msg3, k)) ]
+
+rule ReceiveHEnc:
+    let m = hdec(msg, k) in
+  [ !Key(k)
+  , TransmitHEnc(msg) ]
+  --[ ReceivedHenc(m) ]->
+  []
+
+lemma Receives_HPair: exists-trace
+  "Ex m1 m2 #i #t. ReceivedHPair(m1, m2) @i & SentHPair(m1, m2) @t & (#t < #i) "
+
+lemma Receives_HEnc: exists-trace
+  "Ex m #i #t. ReceivedHenc(m) @i & SentHEnc(m) @t & (#t < #i) "
+
+end
