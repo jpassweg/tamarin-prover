@@ -129,24 +129,30 @@ unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unify
         Just (m, [])   -> (substFromMap m, [emptySubstVFresh])
         Just (m, leqs) -> (substFromMap m, unsafePerformIO (UM.unifyViaMaude h sortOf $ map (applyVTerm (substFromMap m) <$>) leqs))
 
-unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> Maybe (LSubst c, LSubstVFresh c)
-unifyUnionDisjointTheories sortOf eqs = let
+unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> MaudeHandle -> [Equal (LTerm c)] -> [LSubstVFresh c]
+unifyUnionDisjointTheories sortOf mhnd eqs = let
   allVars = foldVars $ eqsToTerms eqs
-  (absVarEqs, allVarsAbsVar) = abstractVariablesEqs sortOf (eqs, allVars) 
-  (splittEqs, allVarsSplitt) = splitEqs (absVarEqs, allVarsAbsVar)
-  variablePartitions = getAllPartitions allVarsSplitt
-  variableOrderings = permutations allVarsSplitt
-  variableIndexes = getAll01Maps allVarsSplitt
-  in Just (emptySubst, emptySubstVFresh)
+  (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars) 
+  (acSystem, homSystem) = splitSystem (isAnyHom . eqLHS) absEqs
+  -- allVarPermutations = permutations absAllVars
+  -- allVarIndexes = getAll01Maps absAllVars
+  solvedSystems = solveDisjointSystems sortOf (acSystem, homSystem) (acUnifier, homUnifier) (getAllPartitions absAllVars)
+  solvedSystem = combineDisjointSystems solvedSystems
+  in solvedSystem
+  -- removed map (applyVTerm (substFromMap m) <$>)
+  where 
+    acUnifier = unsafePerformIO . UM.unifyViaMaude mhnd sortOf
+    homUnifier = unifyHomomorphicLTermWrapper sortOf
 
-abstractVariablesEqs :: (IsConst c) => (c -> LSort) -> ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], [LVar])
-abstractVariablesEqs _ ([], allVars) = ([], allVars)
-abstractVariablesEqs sortOf (e:es, allVars) = case findAlienSubTerm e of
+abstractVars :: (IsConst c) => ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], [LVar])
+abstractVars ([], allVars) = ([], allVars)
+abstractVars (e:es, allVars) = case findAlienSubTerm e of
   Just (alienSubterm, applyToOneSide) -> let 
-    newVar = getNewSimilarVar (LVar "abstractVar" (sortOfLTerm sortOf alienSubterm) 0) allVars
+    -- TODO: can be improved to LSortMsg or LSortNat but algorithm would then need to be adapted
+    newVar = getNewSimilarVar (LVar "abstractVar" LSortMsg 0) allVars
     newE = applyToOneSide (substituteTermWithVar alienSubterm newVar) e
-    in abstractVariablesEqs sortOf (Equal alienSubterm (varTerm newVar) : newE : es, newVar : allVars)
-  Nothing -> let (newEs, totVars) = abstractVariablesEqs sortOf (es, allVars)
+    in abstractVars (Equal alienSubterm (varTerm newVar) : newE : es, newVar : allVars)
+  Nothing -> let (newEs, totVars) = abstractVars (es, allVars)
     in (e : newEs, totVars)
 
 findAlienSubTerm :: (IsConst c) => Equal (LTerm c) -> Maybe (LTerm c, (LTerm c -> LTerm c) -> Equal (LTerm c) -> Equal (LTerm c))
@@ -171,25 +177,55 @@ substituteTermWithVar tToSub newV t = if tToSub == t then varTerm newV else case
   Lit (Con _)      -> t
   FApp funsym args -> termViewToTerm (FApp funsym (map (substituteTermWithVar tToSub newV) args))
 
-splitEqs :: (IsConst c) => ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], [LVar])
-splitEqs ([], allVars) = ([], allVars)
-splitEqs (e:es, allVars) = if isLit (eqLHS e) || isLit (eqRHS e) || isAnyHom (eqLHS e) == isAnyHom (eqRHS e)
-  then let (newEs, newVars) = splitEqs (es, allVars) in (e : newEs, newVars)
+abstractEqs :: (IsConst c) => ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], [LVar])
+abstractEqs ([], allVars) = ([], allVars)
+abstractEqs (e:es, allVars) = if isLit (eqLHS e) || isLit (eqRHS e) || isAnyHom (eqLHS e) == isAnyHom (eqRHS e)
+  then let (newEs, newVars) = abstractEqs (es, allVars) in (e : newEs, newVars)
   else let 
     newVar = getNewSimilarVar (LVar "splitVar" LSortMsg 0) allVars
-    (newEs, newVars) = splitEqs (es, newVar : allVars)
+    (newEs, newVars) = abstractEqs (es, newVar : allVars)
   in (Equal (varTerm newVar) (eqLHS e) : Equal (varTerm newVar) (eqRHS e) : newEs, newVars)
 
 getAllPartitions :: [a] -> [[[a]]]
 getAllPartitions [] = [[]]
-getAllPartitions (x:xs) = concatMap (insert x) (getAllPartitions xs)
+getAllPartitions (x : xs) = concatMap (insert x) (getAllPartitions xs)
   where
     insert :: a -> [[a]] -> [[[a]]]
     insert x' [] = [[[x']]]
-    insert x' (ys:yss) = ((x':ys):yss) : map (ys:) (insert x' yss)
+    insert x' (ys : yss) = ((x' : ys) : yss) : map (ys : ) (insert x' yss)
+
+splitSystem :: IsConst c => (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> ([Equal (LTerm c)], [Equal (LTerm c)])
+splitSystem fBool = foldr (\eq (eqL, eqR) -> if fBool eq then (eqL, eq:eqR) else (eq:eqL, eqR)) ([],[]) 
+
+-- TODO
+solveDisjointSystems :: IsConst c => (c -> LSort) 
+  -> ([Equal (LTerm c)], [Equal (LTerm c)]) 
+  -> ([Equal (LTerm c)] -> [LSubstVFresh c], [Equal (LTerm c)] -> [LSubstVFresh c]) 
+  -> [[[LVar]]] -> ([LSubstVFresh c], [LSubstVFresh c])
+solveDisjointSystems _ _ _ [] = ([], [])
+solveDisjointSystems sortOf sys unifiers (vP:varPartitions) = let 
+    sys' = applyVarPartition vP sys
+  in case solveDisjointSystemsWithPartition sortOf sys' unifiers (map head vP) of
+    Just substs -> substs
+    Nothing     -> solveDisjointSystems sortOf sys unifiers varPartitions
+  where
+    -- TODO
+    applyVarPartition vP sys = sys
+
+-- TODO
+solveDisjointSystemsWithPartition :: IsConst c => (c -> LSort) 
+  -> ([Equal (LTerm c)], [Equal (LTerm c)]) 
+  -> ([Equal (LTerm c)] -> [LSubstVFresh c], [Equal (LTerm c)] -> [LSubstVFresh c]) 
+  -> [LVar]
+  -> Maybe ([LSubstVFresh c], [LSubstVFresh c])
+solveDisjointSystemsWithPartition sortOf sys unifiers vars = Just ([], [])
 
 getAll01Maps :: [a] -> [[(a, Int)]]
 getAll01Maps = mapM (\x -> [(x, 0), (x, 1)])
+
+-- TODO
+combineDisjointSystems :: IsConst c => ([LSubstVFresh c], [LSubstVFresh c]) -> [LSubstVFresh c]
+combineDisjointSystems sys = [emptySubstVFresh]
 
 -- | @unifyLTerm sortOf eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLNTermFactored :: [Equal LNTerm]
