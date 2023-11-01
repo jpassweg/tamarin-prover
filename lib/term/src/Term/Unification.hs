@@ -232,7 +232,10 @@ solveDisjointSystemsWithPartition sortOf sys unifiers vars (vIndex:varIndexes) =
   in if not (null solvedSysL) && not (null solvedSysR)
     -- && NOTE find out if I need to check for sorts because vor new variables etc.
     && anyPermutationValid vars (solvedSysL, solvedSysR)
-  then Just ((map. fmap) fromMConst solvedSysL, map (substFromList . map . second fromMConst . substToList) solvedSysR)
+  then let
+    substL = map (substFromListVFresh . map (second fromMConst) . substToListVFresh) solvedSysL
+    substR = map (substFromListVFresh . map (second fromMConst) . substToListVFresh) solvedSysR
+    in Just (substL, substR) 
   else solveDisjointSystemsWithPartition sortOf sys unifiers vars varIndexes
   where
     applyVarConstToSys :: IsConst c => [(LVar, Int)]
