@@ -105,6 +105,7 @@ import           Term.Maude.Process
 import           Term.Maude.Signature
 import           Term.Homomorphism.Unification
 import           Debug.Trace.Ignore
+import Data.List (permutations)
 
 -- Unification modulo AC
 ----------------------------------------------------------------------
@@ -133,6 +134,9 @@ unifyUnionDisjointTheories sortOf eqs = let
   allVars = foldVars $ eqsToTerms eqs
   (absVarEqs, allVarsAbsVar) = abstractVariablesEqs sortOf (eqs, allVars) 
   (splittEqs, allVarsSplitt) = splitEqs (absVarEqs, allVarsAbsVar)
+  variablePartitions = getAllPartitions allVarsSplitt
+  variableOrderings = permutations allVarsSplitt
+  variableIndexes = getAll01Maps allVarsSplitt
   in Just (emptySubst, emptySubstVFresh)
 
 abstractVariablesEqs :: (IsConst c) => (c -> LSort) -> ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], [LVar])
@@ -175,6 +179,17 @@ splitEqs (e:es, allVars) = if isLit (eqLHS e) || isLit (eqRHS e) || isAnyHom (eq
     newVar = getNewSimilarVar (LVar "splitVar" LSortMsg 0) allVars
     (newEs, newVars) = splitEqs (es, newVar : allVars)
   in (Equal (varTerm newVar) (eqLHS e) : Equal (varTerm newVar) (eqRHS e) : newEs, newVars)
+
+getAllPartitions :: [a] -> [[[a]]]
+getAllPartitions [] = [[]]
+getAllPartitions (x:xs) = concatMap (insert x) (getAllPartitions xs)
+  where
+    insert :: a -> [[a]] -> [[[a]]]
+    insert x' [] = [[[x']]]
+    insert x' (ys:yss) = ((x':ys):yss) : map (ys:) (insert x' yss)
+
+getAll01Maps :: [a] -> [[(a, Int)]]
+getAll01Maps = mapM (\x -> [(x, 0), (x, 1)])
 
 -- | @unifyLTerm sortOf eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLNTermFactored :: [Equal LNTerm]
