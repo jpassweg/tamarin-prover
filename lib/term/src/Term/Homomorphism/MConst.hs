@@ -4,6 +4,7 @@ module Term.Homomorphism.MConst (
     MConst(..)
   , toMConstA
   , toMConstC
+  , toMConstVarList
   , fromMConst
   , sortOfMConst
 ) where
@@ -34,6 +35,14 @@ toMConstC t = case viewTerm t of
   (FApp funsym args) -> termViewToTerm (FApp funsym $ map toMConstC args)
   (Lit (Var v))      -> termViewToTerm (Lit (Var v))
   (Lit (Con c))      -> termViewToTerm (Lit (Con (MCon c)))
+
+toMConstVarList :: IsConst c => [LVar] -> LTerm c -> LTerm (MConst c)
+toMConstVarList vars t = case viewTerm t of
+  (FApp funsym args) -> termViewToTerm (FApp funsym $ map toMConstC args)
+  (Lit (Var v))      -> if v `elem ` vars 
+                        then termViewToTerm (Lit (Con (MVar v)))
+                        else termViewToTerm (Lit (Var v))
+  (Lit (Con c))      -> termViewToTerm (Lit (Con (MCon c)))  
 
 fromMConst :: IsConst c => LTerm (MConst c) -> LTerm c
 fromMConst t = case viewTerm t of

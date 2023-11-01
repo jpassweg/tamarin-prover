@@ -22,6 +22,13 @@ module Term.Homomorphism.Unification (
   , unifyHomomorphicLTermWithVars
   , toSubstForm
   , toFreeAvoid
+
+  , MConst(..)
+  , toMConstA
+  , toMConstC
+  , toMConstVarList
+  , fromMConst
+  , sortOfMConst
 ) where
 
 import Data.Maybe     (isJust, isNothing, mapMaybe, fromMaybe)

@@ -105,7 +105,7 @@ import           Term.Maude.Process
 import           Term.Maude.Signature
 import           Term.Homomorphism.Unification
 import           Debug.Trace.Ignore
-import Data.List (permutations)
+import Control.Arrow (Arrow(second))
 
 -- Unification modulo AC
 ----------------------------------------------------------------------
@@ -132,22 +132,20 @@ unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unify
 unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> MaudeHandle -> [Equal (LTerm c)] -> [LSubstVFresh c]
 unifyUnionDisjointTheories sortOf mhnd eqs = let
   allVars = foldVars $ eqsToTerms eqs
-  (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars) 
+  (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars)
   (acSystem, homSystem) = splitSystem (isAnyHom . eqLHS) absEqs
-  -- allVarPermutations = permutations absAllVars
-  -- allVarIndexes = getAll01Maps absAllVars
   solvedSystems = solveDisjointSystems sortOf (acSystem, homSystem) (acUnifier, homUnifier) (getAllPartitions absAllVars)
   solvedSystem = combineDisjointSystems solvedSystems
   in solvedSystem
   -- removed map (applyVTerm (substFromMap m) <$>)
-  where 
+  where
     acUnifier = unsafePerformIO . UM.unifyViaMaude mhnd sortOf
     homUnifier = unifyHomomorphicLTermWrapper sortOf
 
 abstractVars :: (IsConst c) => ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], [LVar])
 abstractVars ([], allVars) = ([], allVars)
 abstractVars (e:es, allVars) = case findAlienSubTerm e of
-  Just (alienSubterm, applyToOneSide) -> let 
+  Just (alienSubterm, applyToOneSide) -> let
     -- TODO: can be improved to LSortMsg or LSortNat but algorithm would then need to be adapted
     newVar = getNewSimilarVar (LVar "abstractVar" LSortMsg 0) allVars
     newE = applyToOneSide (substituteTermWithVar alienSubterm newVar) e
@@ -156,8 +154,8 @@ abstractVars (e:es, allVars) = case findAlienSubTerm e of
     in (e : newEs, totVars)
 
 findAlienSubTerm :: (IsConst c) => Equal (LTerm c) -> Maybe (LTerm c, (LTerm c -> LTerm c) -> Equal (LTerm c) -> Equal (LTerm c))
-findAlienSubTerm eq = case 
-    (findAlienSubTerm' (isAnyHom (eqLHS eq)) (eqLHS eq), 
+findAlienSubTerm eq = case
+    (findAlienSubTerm' (isAnyHom (eqLHS eq)) (eqLHS eq),
      findAlienSubTerm' (isAnyHom (eqRHS eq)) (eqRHS eq)) of
   (Just alienTerm, _) -> Just (alienTerm, \f e -> Equal (f (eqLHS e)) (eqRHS e))
   (_, Just alienTerm) -> Just (alienTerm, \f e -> Equal (eqLHS e) (f (eqRHS e)))
@@ -181,7 +179,7 @@ abstractEqs :: (IsConst c) => ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)],
 abstractEqs ([], allVars) = ([], allVars)
 abstractEqs (e:es, allVars) = if isLit (eqLHS e) || isLit (eqRHS e) || isAnyHom (eqLHS e) == isAnyHom (eqRHS e)
   then let (newEs, newVars) = abstractEqs (es, allVars) in (e : newEs, newVars)
-  else let 
+  else let
     newVar = getNewSimilarVar (LVar "splitVar" LSortMsg 0) allVars
     (newEs, newVars) = abstractEqs (es, newVar : allVars)
   in (Equal (varTerm newVar) (eqLHS e) : Equal (varTerm newVar) (eqRHS e) : newEs, newVars)
@@ -195,30 +193,67 @@ getAllPartitions (x : xs) = concatMap (insert x) (getAllPartitions xs)
     insert x' (ys : yss) = ((x' : ys) : yss) : map (ys : ) (insert x' yss)
 
 splitSystem :: IsConst c => (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> ([Equal (LTerm c)], [Equal (LTerm c)])
-splitSystem fBool = foldr (\eq (eqL, eqR) -> if fBool eq then (eqL, eq:eqR) else (eq:eqL, eqR)) ([],[]) 
+splitSystem fBool = foldr (\eq (eqL, eqR) -> if fBool eq then (eqL, eq:eqR) else (eq:eqL, eqR)) ([],[])
 
--- TODO
-solveDisjointSystems :: IsConst c => (c -> LSort) 
-  -> ([Equal (LTerm c)], [Equal (LTerm c)]) 
-  -> ([Equal (LTerm c)] -> [LSubstVFresh c], [Equal (LTerm c)] -> [LSubstVFresh c]) 
+solveDisjointSystems :: IsConst c => (c -> LSort)
+  -> ([Equal (LTerm c)], [Equal (LTerm c)])
+  -> ([Equal (LTerm c)] -> [LSubstVFresh c], [Equal (LTerm c)] -> [LSubstVFresh c])
   -> [[[LVar]]] -> ([LSubstVFresh c], [LSubstVFresh c])
 solveDisjointSystems _ _ _ [] = ([], [])
-solveDisjointSystems sortOf sys unifiers (vP:varPartitions) = let 
+solveDisjointSystems sortOf sys unifiers (vP:varPartitions) = let
     sys' = applyVarPartition vP sys
-  in case solveDisjointSystemsWithPartition sortOf sys' unifiers (map head vP) of
+    partitionVars = map head vP
+    varIndexes = getAll01Maps partitionVars
+  in case solveDisjointSystemsWithPartition sortOf sys' unifiers partitionVars varIndexes of
     Just substs -> substs
     Nothing     -> solveDisjointSystems sortOf sys unifiers varPartitions
   where
-    -- TODO
-    applyVarPartition vP sys = sys
+    applyVarPartition :: IsConst c => [[LVar]] -> ([Equal (LTerm c)], [Equal (LTerm c)]) -> ([Equal (LTerm c)], [Equal (LTerm c)])
+    applyVarPartition [] newSys = newSys
+    applyVarPartition (vClass:vClasses) newSys = if length vClass == 1
+      then applyVarPartition vClasses newSys
+      else applyVarPartition vClasses (applyToSystem (vClassSubst vClass) newSys)
+    vClassSubst :: IsConst c => [LVar] -> Subst c LVar
+    vClassSubst vClass = substFromList $ map (\v -> (v, varTerm $ head vClass)) (tail vClass)
+    applyToSystem :: IsConst c => Subst c LVar -> ([Equal (LTerm c)], [Equal (LTerm c)]) -> ([Equal (LTerm c)], [Equal (LTerm c)])
+    applyToSystem subst (sysL, sysR) = ((map . fmap) (applyVTerm subst) sysL,
+                                        (map . fmap) (applyVTerm subst) sysR)
 
--- TODO
-solveDisjointSystemsWithPartition :: IsConst c => (c -> LSort) 
-  -> ([Equal (LTerm c)], [Equal (LTerm c)]) 
-  -> ([Equal (LTerm c)] -> [LSubstVFresh c], [Equal (LTerm c)] -> [LSubstVFresh c]) 
+solveDisjointSystemsWithPartition :: (IsConst c, IsConst d) => (c -> LSort)
+  -> ([Equal (LTerm c)], [Equal (LTerm c)])
+  -> ([Equal (LTerm d)] -> [LSubstVFresh d], [Equal (LTerm d)] -> [LSubstVFresh d])
   -> [LVar]
+  -> [[(LVar, Int)]]
   -> Maybe ([LSubstVFresh c], [LSubstVFresh c])
-solveDisjointSystemsWithPartition sortOf sys unifiers vars = Just ([], [])
+solveDisjointSystemsWithPartition _ _ _ _ [] = Nothing
+solveDisjointSystemsWithPartition sortOf sys unifiers vars (vIndex:varIndexes) = let
+    sysWithVarIndex = applyVarConstToSys vIndex sys
+    (solvedSysL, solvedSysR) = solveDisjoint sortOf sysWithVarIndex unifiers
+  in if not (null solvedSysL) && not (null solvedSysR)
+    -- && NOTE find out if I need to check for sorts because vor new variables etc.
+    && anyPermutationValid vars (solvedSysL, solvedSysR)
+  then Just ((map. fmap) fromMConst solvedSysL, map (substFromList . map . second fromMConst . substToList) solvedSysR)
+  else solveDisjointSystemsWithPartition sortOf sys unifiers vars varIndexes
+  where
+    applyVarConstToSys :: IsConst c => [(LVar, Int)]
+      -> ([Equal (LTerm c)], [Equal (LTerm c)])
+      -> ([Equal (LTerm (MConst c))], [Equal (LTerm (MConst c))])
+    applyVarConstToSys varIndex (sysL, sysR) = let
+      vars0 = map fst $ filter (\ind -> snd ind == 0) varIndex
+      vars1 = map fst $ filter (\ind -> snd ind == 1) varIndex
+      in ((map . fmap) (toMConstVarList vars0) sysL,
+          (map . fmap) (toMConstVarList vars1) sysR)
+    -- TODO
+    solveDisjoint :: (IsConst c, IsConst d) => (c -> LSort)
+      -> ([Equal (LTerm (MConst c))], [Equal (LTerm (MConst c))])
+      -> ([Equal (LTerm d)] -> [LSubstVFresh d], [Equal (LTerm d)] -> [LSubstVFresh d])
+      -> ([LSubstVFresh (MConst c)], [LSubstVFresh (MConst c)])
+    solveDisjoint sortOf sys unifiers = ([], [])
+    -- TODO
+    anyPermutationValid :: IsConst c => [LVar] -> ([LSubstVFresh c], [LSubstVFresh c]) -> Bool
+    anyPermutationValid vars substs = True
+    -- (permutations vars)
+
 
 getAll01Maps :: [a] -> [[(a, Int)]]
 getAll01Maps = mapM (\x -> [(x, 0), (x, 1)])
@@ -318,7 +353,7 @@ solveMatchLTerm sortOf matchProblem =
           (Left NoMatcher, _)  -> []
           (Left ACProblem, _)  ->
               unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
-          (Left HomomorphicProblem, _) -> 
+          (Left HomomorphicProblem, _) ->
               maybeToList (matchHomomorphicLTerm sortOf ms)
           (Right (), mappings) -> [substFromMap mappings]
       where
