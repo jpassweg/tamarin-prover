@@ -130,15 +130,15 @@ unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unify
         Just (m, [])   -> (substFromMap m, [emptySubstVFresh])
         Just (m, leqs) -> (substFromMap m, unsafePerformIO (UM.unifyViaMaude h sortOf $ map (applyVTerm (substFromMap m) <$>) leqs))
 
+-- TODO: removed map (applyVTerm (substFromMap m) <$>)
+-- unifyRaw return must be applied to eqs before adding them here
 unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> MaudeHandle -> [Equal (LTerm c)] -> [LSubstVFresh c]
 unifyUnionDisjointTheories sortOf mhnd eqs = let
   allVars = foldVars $ eqsToTerms eqs
   (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars)
   (acSystem, homSystem) = splitSystem (isAnyHom . eqLHS) absEqs
   solvedSystems = solveDisjointSystems sortOf (acSystem, homSystem) (acUnifier, homUnifier) (getAllPartitions absAllVars)
-  solvedSystem = combineDisjointSystems solvedSystems
-  in solvedSystem
-  -- removed map (applyVTerm (substFromMap m) <$>)
+  in combineDisjointSystems solvedSystems
   where
     acUnifier es = unsafePerformIO $ UM.unifyViaMaude mhnd (sortOfMConst sortOf) es
     homUnifier = unifyHomomorphicLTermWrapper (sortOfMConst sortOf)
@@ -197,12 +197,12 @@ getAllPartitions (x : xs) = concatMap (insert x) (getAllPartitions xs)
 splitSystem :: IsConst c => (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> ([Equal (LTerm c)], [Equal (LTerm c)])
 splitSystem fBool = foldr (\eq (eqL, eqR) -> if fBool eq then (eqL, eq:eqR) else (eq:eqL, eqR)) ([],[])
 
-type SortUnifierPair c = ([Equal (LTerm (MConst c))] -> [LSubstVFresh (MConst c)]
+type MConstUnifierPair c = ([Equal (LTerm (MConst c))] -> [LSubstVFresh (MConst c)]
                          ,[Equal (LTerm (MConst c))] -> [LSubstVFresh (MConst c)]) 
 
 solveDisjointSystems :: IsConst c => (c -> LSort)
   -> ([Equal (LTerm c)], [Equal (LTerm c)])
-  -> SortUnifierPair c
+  -> MConstUnifierPair c
   -> [[[LVar]]] -> ([LSubstVFresh c], [LSubstVFresh c])
 solveDisjointSystems _ _ _ [] = ([], [])
 solveDisjointSystems sortOf sys unifiers (vP:varPartitions) = let
@@ -228,7 +228,7 @@ solveDisjointSystems sortOf sys unifiers (vP:varPartitions) = let
 
 solveDisjointSystemsWithPartition :: IsConst c => (c -> LSort)
   -> ([Equal (LTerm c)], [Equal (LTerm c)])
-  -> SortUnifierPair c
+  -> MConstUnifierPair c
   -> [LVar]
   -> [[(LVar, Int)]]
   -> Maybe ([LSubstVFresh c], [LSubstVFresh c])
@@ -265,9 +265,11 @@ solveDisjointSystemsWithPartition sortOf sys (unifierL, unifierR) vars (vIndex:v
       in if not (null substsL') && not (null substsR')
       then (substsL', substsR')
       else getFirstNonEmptyPermutation ps (substsL,substsR)
-    -- TODO
     linearRestriction :: IsConst c => [LVar] -> [[(LVar, LTerm c)]] -> [[(LVar, LTerm c)]]
-    linearRestriction p substs = substs
+    linearRestriction p = filter (linearRestriction' p)
+    -- TODO
+    linearRestriction' :: IsConst c => [LVar] -> [(LVar, LTerm c)] -> Bool
+    linearRestriction' p = all (\x -> True)
 
 getAll01Maps :: [a] -> [[(a, Int)]]
 getAll01Maps = mapM (\x -> [(x, 0), (x, 1)])
