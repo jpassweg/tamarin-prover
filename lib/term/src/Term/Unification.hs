@@ -178,7 +178,7 @@ substituteTermWithVar tToSub newV t = if tToSub == t then varTerm newV else case
 
 abstractEqs :: IsConst c => ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], [LVar])
 abstractEqs ([], allVars) = ([], allVars)
-abstractEqs (e:es, allVars) = if isLit (eqLHS e) || isLit (eqRHS e) 
+abstractEqs (e:es, allVars) = if isLit (eqLHS e) || isLit (eqRHS e)
     || isAnyHom (eqLHS e) == isAnyHom (eqRHS e)
   then let (newEs, newVars) = abstractEqs (es, allVars) in (e : newEs, newVars)
   else let
@@ -198,7 +198,7 @@ splitSystem :: IsConst c => (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> ([
 splitSystem fBool = foldr (\eq (eqL, eqR) -> if fBool eq then (eqL, eq:eqR) else (eq:eqL, eqR)) ([],[])
 
 type MConstUnifierPair c = ([Equal (LTerm (MConst c))] -> [LSubstVFresh (MConst c)]
-                         ,[Equal (LTerm (MConst c))] -> [LSubstVFresh (MConst c)]) 
+                         ,[Equal (LTerm (MConst c))] -> [LSubstVFresh (MConst c)])
 
 solveDisjointSystems :: IsConst c => (c -> LSort)
   -> ([Equal (LTerm c)], [Equal (LTerm c)])
@@ -213,7 +213,7 @@ solveDisjointSystems sortOf sys unifiers (vP:varPartitions) = let
     Just substs -> substs
     Nothing     -> solveDisjointSystems sortOf sys unifiers varPartitions
   where
-    applyVarPartition :: IsConst c => [[LVar]] -> ([Equal (LTerm c)], [Equal (LTerm c)]) 
+    applyVarPartition :: IsConst c => [[LVar]] -> ([Equal (LTerm c)], [Equal (LTerm c)])
       -> ([Equal (LTerm c)], [Equal (LTerm c)])
     applyVarPartition [] newSys = newSys
     applyVarPartition (vClass:vClasses) newSys = if length vClass == 1
@@ -221,7 +221,7 @@ solveDisjointSystems sortOf sys unifiers (vP:varPartitions) = let
       else applyVarPartition vClasses (applyToSystem (vClassSubst vClass) newSys)
     vClassSubst :: IsConst c => [LVar] -> Subst c LVar
     vClassSubst vClass = substFromList $ map (\v -> (v, varTerm $ head vClass)) (tail vClass)
-    applyToSystem :: IsConst c => Subst c LVar -> ([Equal (LTerm c)], [Equal (LTerm c)]) 
+    applyToSystem :: IsConst c => Subst c LVar -> ([Equal (LTerm c)], [Equal (LTerm c)])
       -> ([Equal (LTerm c)], [Equal (LTerm c)])
     applyToSystem subst (sysL, sysR) = ((map . fmap) (applyVTerm subst) sysL,
                                         (map . fmap) (applyVTerm subst) sysR)
@@ -238,12 +238,12 @@ solveDisjointSystemsWithPartition sortOf sys (unifierL, unifierR) vars (vIndex:v
     (solvedSysL, solvedSysR) = (unifierL sysWithVarIndexL, unifierR sysWithVarIndexR)
     solvedSysL' = map (map (second fromMConst) . substToListVFresh) solvedSysL
     solvedSysR' = map (map (second fromMConst) . substToListVFresh) solvedSysR
-    (solvedSysL'', solvedSysR'') = 
+    (solvedSysL'', solvedSysR'') =
       getFirstNonEmptyPermutation (permutations vars) (solvedSysL', solvedSysR')
+  -- NOTE: Maybe need to check for sorts because vor new variables etc.
   in if not (null solvedSysL)   && not (null solvedSysR)
      && not (null solvedSysL'') && not (null solvedSysR'')
-     -- NOTE: Maybe need to check for sorts because vor new variables etc.
-  then Just (map substFromListVFresh solvedSysL'', map substFromListVFresh solvedSysR'') 
+  then Just (map substFromListVFresh solvedSysL'', map substFromListVFresh solvedSysR'')
   else solveDisjointSystemsWithPartition sortOf sys (unifierL, unifierR) vars varIndexes
   where
     applyVarConstToSys :: IsConst c => [(LVar, Int)]
@@ -254,8 +254,9 @@ solveDisjointSystemsWithPartition sortOf sys (unifierL, unifierR) vars (vIndex:v
       vars1 = map fst $ filter (\ind -> snd ind == 1) varIndex
       in ((map . fmap) (toMConstVarList vars0) sysL,
           (map . fmap) (toMConstVarList vars1) sysR)
-    -- NOTE: can probably be done more efficiently
-    getFirstNonEmptyPermutation :: IsConst c => [[LVar]] 
+    -- NOTE: can be implemented more efficiently by checking that combined substitution 
+    -- is circle free when looking at variabes.
+    getFirstNonEmptyPermutation :: IsConst c => [[LVar]]
       -> ([[(LVar, LTerm c)]], [[(LVar, LTerm c)]])
       -> ([[(LVar, LTerm c)]], [[(LVar, LTerm c)]])
     getFirstNonEmptyPermutation [] (_, _) = ([],[])
@@ -267,9 +268,8 @@ solveDisjointSystemsWithPartition sortOf sys (unifierL, unifierR) vars (vIndex:v
       else getFirstNonEmptyPermutation ps (substsL,substsR)
     linearRestriction :: IsConst c => [LVar] -> [[(LVar, LTerm c)]] -> [[(LVar, LTerm c)]]
     linearRestriction p = filter (linearRestriction' p)
-    -- TODO
     linearRestriction' :: IsConst c => [LVar] -> [(LVar, LTerm c)] -> Bool
-    linearRestriction' p = all (\x -> True)
+    linearRestriction' p = all (\(varL, termR) -> all (\v -> v `notElem` varsVTerm termR) (takeWhile (/= varL) p))
 
 getAll01Maps :: [a] -> [[(a, Int)]]
 getAll01Maps = mapM (\x -> [(x, 0), (x, 1)])
