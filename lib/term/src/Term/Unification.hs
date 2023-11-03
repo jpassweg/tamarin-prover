@@ -203,8 +203,8 @@ type MConstUnifierPair c = ([Equal (LTerm (MConst c))] -> [LSubstVFresh (MConst 
 solveDisjointSystems :: IsConst c => (c -> LSort)
   -> ([Equal (LTerm c)], [Equal (LTerm c)])
   -> MConstUnifierPair c
-  -> [[[LVar]]] -> ([LSubstVFresh c], [LSubstVFresh c])
-solveDisjointSystems _ _ _ [] = ([], [])
+  -> [[[LVar]]] -> ([LVar], [LSubstVFresh c], [LSubstVFresh c])
+solveDisjointSystems _ _ _ [] = ([], [], [])
 solveDisjointSystems sortOf sys unifiers (vP:varPartitions) = let
     sys' = applyVarPartition vP sys
     partitionVars = map head vP
@@ -231,19 +231,19 @@ solveDisjointSystemsWithPartition :: IsConst c => (c -> LSort)
   -> MConstUnifierPair c
   -> [LVar]
   -> [[(LVar, Int)]]
-  -> Maybe ([LSubstVFresh c], [LSubstVFresh c])
+  -> Maybe ([LVar], [LSubstVFresh c], [LSubstVFresh c])
 solveDisjointSystemsWithPartition _ _ _ _ [] = Nothing
 solveDisjointSystemsWithPartition sortOf sys (unifierL, unifierR) vars (vIndex:varIndexes) = let
     (sysWithVarIndexL, sysWithVarIndexR) = applyVarConstToSys vIndex sys
     (solvedSysL, solvedSysR) = (unifierL sysWithVarIndexL, unifierR sysWithVarIndexR)
     solvedSysL' = map (map (second fromMConst) . substToListVFresh) solvedSysL
     solvedSysR' = map (map (second fromMConst) . substToListVFresh) solvedSysR
-    (solvedSysL'', solvedSysR'') =
+    (corrP, solvedSysL'', solvedSysR'') =
       getFirstNonEmptyPermutation (permutations vars) (solvedSysL', solvedSysR')
   -- NOTE: Maybe need to check for sorts because vor new variables etc.
   in if not (null solvedSysL)   && not (null solvedSysR)
      && not (null solvedSysL'') && not (null solvedSysR'')
-  then Just (map substFromListVFresh solvedSysL'', map substFromListVFresh solvedSysR'')
+  then Just (corrP, map substFromListVFresh solvedSysL'', map substFromListVFresh solvedSysR'')
   else solveDisjointSystemsWithPartition sortOf sys (unifierL, unifierR) vars varIndexes
   where
     applyVarConstToSys :: IsConst c => [(LVar, Int)]
@@ -258,13 +258,14 @@ solveDisjointSystemsWithPartition sortOf sys (unifierL, unifierR) vars (vIndex:v
     -- is circle free when looking at variabes.
     getFirstNonEmptyPermutation :: IsConst c => [[LVar]]
       -> ([[(LVar, LTerm c)]], [[(LVar, LTerm c)]])
-      -> ([[(LVar, LTerm c)]], [[(LVar, LTerm c)]])
-    getFirstNonEmptyPermutation [] (_, _) = ([],[])
+      -> ([LVar], [[(LVar, LTerm c)]], [[(LVar, LTerm c)]])
+    getFirstNonEmptyPermutation [] (_, _) = ([], [],[])
     getFirstNonEmptyPermutation (p:ps) (substsL,substsR) = let
         substsL' = linearRestriction p substsL
         substsR' = linearRestriction p substsR
       in if not (null substsL') && not (null substsR')
-      then (substsL', substsR')
+      -- NOTE: we reverse p as we look at linear restrictions in reverse order
+      then (reverse p, substsL', substsR')
       else getFirstNonEmptyPermutation ps (substsL,substsR)
     linearRestriction :: IsConst c => [LVar] -> [[(LVar, LTerm c)]] -> [[(LVar, LTerm c)]]
     linearRestriction p = filter (linearRestriction' p)
@@ -275,7 +276,7 @@ getAll01Maps :: [a] -> [[(a, Int)]]
 getAll01Maps = mapM (\x -> [(x, 0), (x, 1)])
 
 -- TODO
-combineDisjointSystems :: IsConst c => ([LSubstVFresh c], [LSubstVFresh c]) -> [LSubstVFresh c]
+combineDisjointSystems :: IsConst c => ([LVar], [LSubstVFresh c], [LSubstVFresh c]) -> [LSubstVFresh c]
 combineDisjointSystems sys = [emptySubstVFresh]
 
 -- | @unifyLTerm sortOf eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
