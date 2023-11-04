@@ -73,6 +73,7 @@ matchHomomorphicLTerm sortOf ms = let
 -- Unification Algorithm Wrapper
 --------------------------------
 
+-- TODO: Make sure your algorithm still works with more than one input equation since we never tested
 unifyHomomorphicLTermWrapper :: IsConst c =>  (c -> LSort) -> [Equal (LTerm c)] -> [LSubstVFresh c]
 unifyHomomorphicLTermWrapper sortOf eqs = case unifyHomomorphicLTerm sortOf eqs of
     Just (_, hSF) -> [hSF]
