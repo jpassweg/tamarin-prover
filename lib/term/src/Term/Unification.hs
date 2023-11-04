@@ -194,16 +194,18 @@ getAllPartitions (x : xs) = concatMap (insert x) (getAllPartitions xs)
     insert x' [] = [[[x']]]
     insert x' (ys : yss) = ((x' : ys) : yss) : map (ys : ) (insert x' yss)
 
-splitSystem :: IsConst c => (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> ([Equal (LTerm c)], [Equal (LTerm c)])
+splitSystem :: IsConst c => (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> EquationPair c
 splitSystem fBool = foldr (\eq (eqL, eqR) -> if fBool eq then (eqL, eq:eqR) else (eq:eqL, eqR)) ([],[])
 
-type MConstUnifierPair c = ([Equal (LTerm (MConst c))] -> [LSubstVFresh (MConst c)]
-                         ,[Equal (LTerm (MConst c))] -> [LSubstVFresh (MConst c)])
+type EquationPair c = ([Equal (LTerm c)], [Equal (LTerm c)])
 
-solveDisjointSystems :: IsConst c => (c -> LSort)
-  -> ([Equal (LTerm c)], [Equal (LTerm c)])
-  -> MConstUnifierPair c
-  -> [[[LVar]]] -> ([LVar], [LSubstVFresh c], [LSubstVFresh c])
+type MConstUnifierPair c = ([Equal (LTerm (MConst c))] -> [LSubstVFresh (MConst c)]
+                          , [Equal (LTerm (MConst c))] -> [LSubstVFresh (MConst c)])
+
+type VarOrdUnifierPair c = ([LVar], [LSubstVFresh c], [LSubstVFresh c])
+
+solveDisjointSystems :: IsConst c => (c -> LSort) -> EquationPair c -> MConstUnifierPair c
+  -> [[[LVar]]] -> VarOrdUnifierPair c
 solveDisjointSystems _ _ _ [] = ([], [], [])
 solveDisjointSystems sortOf sys unifiers (vP:varPartitions) = let
     sys' = applyVarPartition vP sys
@@ -213,25 +215,21 @@ solveDisjointSystems sortOf sys unifiers (vP:varPartitions) = let
     Just substs -> substs
     Nothing     -> solveDisjointSystems sortOf sys unifiers varPartitions
   where
-    applyVarPartition :: IsConst c => [[LVar]] -> ([Equal (LTerm c)], [Equal (LTerm c)])
-      -> ([Equal (LTerm c)], [Equal (LTerm c)])
+    applyVarPartition :: IsConst c => [[LVar]] -> EquationPair c -> EquationPair c
     applyVarPartition [] newSys = newSys
     applyVarPartition (vClass:vClasses) newSys = if length vClass == 1
       then applyVarPartition vClasses newSys
       else applyVarPartition vClasses (applyToSystem (vClassSubst vClass) newSys)
     vClassSubst :: IsConst c => [LVar] -> Subst c LVar
     vClassSubst vClass = substFromList $ map (\v -> (v, varTerm $ head vClass)) (tail vClass)
-    applyToSystem :: IsConst c => Subst c LVar -> ([Equal (LTerm c)], [Equal (LTerm c)])
-      -> ([Equal (LTerm c)], [Equal (LTerm c)])
+    applyToSystem :: IsConst c => Subst c LVar -> EquationPair c -> EquationPair c
     applyToSystem subst (sysL, sysR) = ((map . fmap) (applyVTerm subst) sysL,
                                         (map . fmap) (applyVTerm subst) sysR)
+    getAll01Maps :: [a] -> [[(a, Int)]]
+    getAll01Maps = mapM (\x -> [(x, 0), (x, 1)])
 
-solveDisjointSystemsWithPartition :: IsConst c => (c -> LSort)
-  -> ([Equal (LTerm c)], [Equal (LTerm c)])
-  -> MConstUnifierPair c
-  -> [LVar]
-  -> [[(LVar, Int)]]
-  -> Maybe ([LVar], [LSubstVFresh c], [LSubstVFresh c])
+solveDisjointSystemsWithPartition :: IsConst c => (c -> LSort) -> EquationPair c -> MConstUnifierPair c 
+  -> [LVar] -> [[(LVar, Int)]] -> Maybe (VarOrdUnifierPair c)
 solveDisjointSystemsWithPartition _ _ _ _ [] = Nothing
 solveDisjointSystemsWithPartition sortOf sys (unifierL, unifierR) vars (vIndex:varIndexes) = let
     (sysWithVarIndexL, sysWithVarIndexR) = applyVarConstToSys vIndex sys
@@ -246,9 +244,7 @@ solveDisjointSystemsWithPartition sortOf sys (unifierL, unifierR) vars (vIndex:v
   then Just (corrP, map substFromListVFresh solvedSysL'', map substFromListVFresh solvedSysR'')
   else solveDisjointSystemsWithPartition sortOf sys (unifierL, unifierR) vars varIndexes
   where
-    applyVarConstToSys :: IsConst c => [(LVar, Int)]
-      -> ([Equal (LTerm c)], [Equal (LTerm c)])
-      -> ([Equal (LTerm (MConst c))], [Equal (LTerm (MConst c))])
+    applyVarConstToSys :: IsConst c => [(LVar, Int)] -> EquationPair c -> EquationPair (MConst c)
     applyVarConstToSys varIndex (sysL, sysR) = let
       vars0 = map fst $ filter (\ind -> snd ind == 0) varIndex
       vars1 = map fst $ filter (\ind -> snd ind == 1) varIndex
@@ -272,11 +268,8 @@ solveDisjointSystemsWithPartition sortOf sys (unifierL, unifierR) vars (vIndex:v
     linearRestriction' :: IsConst c => [LVar] -> [(LVar, LTerm c)] -> Bool
     linearRestriction' p = all (\(varL, termR) -> all (\v -> v `notElem` varsVTerm termR) (takeWhile (/= varL) p))
 
-getAll01Maps :: [a] -> [[(a, Int)]]
-getAll01Maps = mapM (\x -> [(x, 0), (x, 1)])
-
 -- TODO
-combineDisjointSystems :: IsConst c => ([LVar], [LSubstVFresh c], [LSubstVFresh c]) -> [LSubstVFresh c]
+combineDisjointSystems :: IsConst c => VarOrdUnifierPair c -> [LSubstVFresh c]
 combineDisjointSystems sys = [emptySubstVFresh]
 
 -- | @unifyLTerm sortOf eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
