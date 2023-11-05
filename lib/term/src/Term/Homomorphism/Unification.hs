@@ -7,6 +7,7 @@ module Term.Homomorphism.Unification (
 
   -- * Matching modulo EpsilonH for Homomorphic Encryption
   , matchHomomorphicLTerm
+  , matchHomomorphicLTermWrapper
 
   -- * Helper functions
   , eqsToTerms
@@ -31,7 +32,7 @@ module Term.Homomorphism.Unification (
   , sortOfMConst
 ) where
 
-import Data.Maybe     (isJust, isNothing, mapMaybe, fromMaybe)
+import Data.Maybe     (isJust, isNothing, mapMaybe, fromMaybe, maybeToList)
 import Data.Bifunctor (first, second)
 
 import Term.Homomorphism.LPETerm
@@ -45,7 +46,7 @@ import Term.LTerm (
 -- isHomPair, isHomEnc come from Term.Term
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
 
-import Term.Rewriting.Definitions (Equal(..))
+import Term.Rewriting.Definitions (Equal(..), Match, flattenMatch)
 import Term.Substitution.SubstVFree (LSubst, substFromList, applyVTerm)
 import Term.Substitution.SubstVFresh (LSubstVFresh, substFromListVFresh)
 
@@ -53,6 +54,11 @@ import Extension.Prelude (sortednub)
 
 -- Matching Algorithm using the Unification Algorithm
 -----------------------------------------------------
+
+matchHomomorphicLTermWrapper :: IsConst c => (c -> LSort) -> Match (LTerm c) -> [LSubst c]
+matchHomomorphicLTermWrapper sortOf matchProblem = case flattenMatch matchProblem of
+  Nothing -> []
+  Just ms -> maybeToList $ matchHomomorphicLTerm sortOf ms
 
 -- | matchHomomorphicLTerm
 -- NOTE: Tamarin does allow matching pair(x0,x1) with pair(x1,x0) even though the substitution

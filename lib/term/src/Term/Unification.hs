@@ -414,23 +414,45 @@ solveMatchLTerm :: (IsConst c)
 solveMatchLTerm sortOf matchProblem =
     case flattenMatch matchProblem of
       Nothing -> pure []
-      Just ms -> reader $ matchTermChoose ms
+      Just ms -> reader $ matchTerm ms 
   where
     trace' res = trace
       (unlines $ ["matchLTerm: "++ show matchProblem, "result = "++  show res])
       res
 
-    matchTermChoose ms hnd = trace' $
+    matchTerm ms hnd = trace' $
       case runState (runExceptT match) M.empty of
           (Left NoMatcher, _)  -> []
-          (Left ACProblem, _)  ->
+          (Left ACProblem, _) | not $ enableHom $ mhMaudeSig hnd ->
               unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
+          (Left ACProblem, _) ->
+              matchUnionDisjointTheories hnd sortOf matchProblem
+          (Left HomomorphicProblem, _) | all (\m -> hasNoAC (fst m) && hasNoAC (snd m)) ms ->
+              matchHomomorphicLTermWrapper sortOf matchProblem
           (Left HomomorphicProblem, _) ->
-              maybeToList (matchHomomorphicLTerm sortOf ms)
+              matchUnionDisjointTheories hnd sortOf matchProblem
           (Right (), mappings) -> [substFromMap mappings]
       where
         match = forM_ ms $ \(t, p) -> matchRaw sortOf t p
+        hasNoAC t = case viewTerm t of
+          Lit _              -> True
+          FApp (C _) _       -> False
+          FApp (AC _) _      -> False
+          FApp (NoEq _) args -> all hasNoAC args
+          FApp List args     -> all hasNoAC args
 
+-- TODO
+matchUnionDisjointTheories :: IsConst c => MaudeHandle -> (c -> LSort) -> Match (LTerm c) -> [LSubst c]
+matchUnionDisjointTheories hnd sortOf ms = []
+{-
+let
+  sO = sortOfMConst sortOf
+  eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
+  orgVars = foldVars $ foldr (\(t,p) vs -> t:p:vs) [] ms
+  orgLVars = foldVars $ map snd ms
+  unifier = unifyHomomorphicLTermWithVars sO (eqs, orgVars)
+  in toSingleSubst =<< substFromMConst =<< toSubstForm sO orgLVars =<< unifier
+-}
 
 -- | @solveMatchLNTerm eqs@ returns a complete set of matchers for @eqs@
 -- modulo AC.
