@@ -16,7 +16,10 @@ rule NotInNormalForm:
   --[Tada(~x1)]->
   [ Out((~x0^~x1)^1) ]
 
-lemma wewantatract: 
+lemma Wewantatract: 
   exists-trace "Ex x0 #i. Tada(x0) @i"
+
+lemma Nonnormalterm:
+  exists-trace "Ex x0 x1 #i. K((x0^x1)^1) @i"
 
 end
