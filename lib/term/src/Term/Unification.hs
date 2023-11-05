@@ -129,13 +129,14 @@ unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unify
 
 unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> MaudeHandle -> [Equal (LTerm c)] -> [LSubstVFresh c]
 unifyUnionDisjointTheories sortOf mhnd eqs = let
-    noAC = all (\(Equal l r) -> hasNoAC l && hasNoAC r) eqs
+    noAC  = all (\(Equal l r) -> hasNoAC  l && hasNoAC  r) eqs
     noHom = all (\(Equal l r) -> hasNoHom l && hasNoHom r) eqs
-  in case (noHom, noAC) of
-    (True,  False) -> unsafePerformIO (UM.unifyViaMaude mhnd sortOf eqs)
-    (False, True)  -> unifyHomomorphicLTermWrapper sortOf eqs
-    (False, False) -> unifyUnionDisjointTheories' sortOf mhnd eqs
-    (True,  True)  -> [emptySubstVFresh]
+  in case (enableHom $ mhMaudeSig mhnd, noHom, noAC) of
+    (False, _,     _)     -> unsafePerformIO (UM.unifyViaMaude mhnd sortOf eqs)
+    (True,  True,  False) -> unsafePerformIO (UM.unifyViaMaude mhnd sortOf eqs)
+    (True,  False, True)  -> unifyHomomorphicLTermWrapper sortOf eqs
+    (True,  False, False) -> unifyUnionDisjointTheories' sortOf mhnd eqs
+    (_,     True,  True)  -> [emptySubstVFresh] -- NOTE: should not happen
   where
     hasNoAC :: IsConst c => LTerm c -> Bool
     hasNoAC t = case viewTerm t of
