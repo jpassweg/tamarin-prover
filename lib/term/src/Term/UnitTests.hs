@@ -94,13 +94,13 @@ propUnifySound hnd t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
 -- *****************************************************************************
 
 testAllHomomorphic :: MaudeHandle -> MaudeHandle -> Test
-testAllHomomorphic mhnd mhndHom = TestLabel "All Homomorphic Tests" $
+testAllHomomorphic _ mhndHom = TestLabel "All Homomorphic Tests" $
   TestList
-    [ testsMatchingHomomorphic mhnd mhndHom
-    , testsUnifyHomomorphic mhnd mhndHom
-    , testsUnifyHomomorphicSf mhnd mhndHom
-    , testsUnifyHomomorphicRules mhnd mhndHom
-    , testPrinterHomomorphic mhnd mhndHom
+    [ testsMatchingHomomorphic mhndHom mhndHom
+    , testsUnifyHomomorphic mhndHom mhndHom
+    , testsUnifyHomomorphicSf mhndHom mhndHom
+    , testsUnifyHomomorphicRules mhndHom mhndHom
+    , testPrinterHomomorphic mhndHom mhndHom
     ]
 
 -- *****************************************************************************
@@ -115,20 +115,20 @@ testsMatchingHomomorphic mhnd mhndHom = TestLabel "Tests for Matching modulo Eps
     -- small examples
     [ ("a",                 True,   x0,           x0           )
     , ("b",                 True,   x1,           x0           )
-    , ("c",                 True,   pair(x1,x2),  x0           )
-    , ("d",                 True,   pair(x0,x2),  x0           )
-    , ("e",                 False,  x0,           pair(x0,x2)  )
-    , ("f",                 True,   pair(x0,x1),  pair(x1,x2)  )
-    , ("g",                 True,   pair(x0,x1),  pair(x1,x0)  )
-    , ("h",                 True,   pair(x1,x0),  pair(x0,x1)  )
+    , ("c",                 True,   hpair(x1,x2),  x0           )
+    , ("d",                 True,   hpair(x0,x2),  x0           )
+    , ("e",                 False,  x0,           hpair(x0,x2)  )
+    , ("f",                 True,   hpair(x0,x1),  hpair(x1,x2)  )
+    , ("g",                 True,   hpair(x0,x1),  hpair(x1,x0)  )
+    , ("h",                 True,   hpair(x1,x0),  hpair(x0,x1)  )
     -- bigger examples
-    , ("homdef 1",          True,   henc (pair (x0,x1), x2),              pair (henc (x0,x2), henc (x1,x2))   )
-    , ("homdef 2",          True,   pair (henc (x0,x2), henc (x1,x2)),    henc (pair (x0,x1), x2)             )
-    , ("homdef1diffVars 1", True,   henc (pair (x0,x0), x0),              pair (henc (x0,x2), henc (x1,x2))   )
-    , ("homdef1diffVars 2", False,  pair (henc (x0,x2), henc (x1,x2)),    henc (pair (x0,x0), x0)             )
-    , ("pair 1",            True,   pair (pair (x0,x0), x0),              pair (pair (x2,x3), x4)             )
-    , ("pair 2",            False,  pair (pair (x2,x3), x4),              pair (pair (x0,x0), x0)             )
-    , ("pair 3",            True,   pair(pair(x0,x1),pair(x2,x3)),        pair(pair(x1,x2),pair(x3,x4))       )
+    , ("homdef 1",          True,   henc (hpair (x0,x1), x2),              hpair (henc (x0,x2), henc (x1,x2))   )
+    , ("homdef 2",          True,   hpair (henc (x0,x2), henc (x1,x2)),    henc (hpair (x0,x1), x2)             )
+    , ("homdef1diffVars 1", True,   henc (hpair (x0,x0), x0),              hpair (henc (x0,x2), henc (x1,x2))   )
+    , ("homdef1diffVars 2", False,  hpair (henc (x0,x2), henc (x1,x2)),    henc (hpair (x0,x0), x0)             )
+    , ("hpair 1",            True,   hpair (hpair (x0,x0), x0),              hpair (hpair (x2,x3), x4)             )
+    , ("hpair 2",            False,  hpair (hpair (x2,x3), x4),              hpair (hpair (x0,x0), x0)             )
+    , ("hpair 3",            True,   hpair(hpair(x0,x1),hpair(x2,x3)),        hpair(hpair(x1,x2),hpair(x3,x4))       )
     -- cases with different sorts
     , ("public 1",          False,  x0,     px0     )
     , ("public 2",          True,   px0,    x0      )
@@ -231,31 +231,31 @@ testsUnifyHomomorphic mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH"
     , ("2",         True,   x0,                                                             x1                                                                            )
     , ("3",         False,  henc(x0,x1),                                                    x1                                                                            )
     , ("4",         True,   x0,                                                             henc(x1,x2)                                                                   )
-    , ("5",         True,   henc( pair (x0,x1), x2),                                        x4                                                                            )
-    , ("6",         True,   henc( henc (pair (x0,x1), x2),x0),                              henc(x5,x6)                                                                   )
-    , ("7",         True,   pair(x0,x0),                                                    pair(x1,x2)                                                                   )
-    , ("8",         True,   pair(x0,x1),                                                    henc(x2,x3)                                                                   )
-    , ("9",         True,   henc(x0,x1),                                                    pair(x2,x3)                                                                   )
-    , ("10",        True,   pair(x0,x0),                                                    henc(x2,x3)                                                                   )
-    , ("11",        True,   henc(x0,x1),                                                    pair(x2,x2)                                                                   )
-    , ("12",        False,  pair(x0,x1),                                                    henc(x1,x3)                                                                   )
-    , ("13",        False,  henc(x2,x1),                                                    pair(x2,x3)                                                                   )
-    , ("14",        True,   pair(x0,x1),                                                    henc(x2,x2)                                                                   )
-    , ("15",        True,   henc(x0,x0),                                                    pair(x2,x3)                                                                   )
-    , ("16",        False,  pair(x0,x1),                                                    henc(x2,x0)                                                                   )
-    , ("17",        False,  henc(x0,x2),                                                    pair(x2,x3)                                                                   )    
-    , ("18",        True,   pair(pair(x0,x1),pair(x2,x3)),                                  pair(pair(x1,x2),pair(x3,x4))                                                 )
-    , ("defhenc 1", True,   henc( pair (x0,x1), x2),                                        pair (henc (x0,x2), henc (x1,x2))                                             )
-    , ("defhenc 2", True,   pair( henc (x0,x2), henc (x1,x2)),                              henc (pair (x0,x1), x2)                                                       )
-    , ("defhenc 3", True,   henc( henc (pair (x0,x1), x2),x0),                              henc(henc (pair (x0,x1), x2),x0)                                              )
-    , ("symEnc 1",  False,  senc( pair (x0,x1), x2),                                        pair (senc (x0,x2), senc (x1,x2))                                             )
-    , ("norm 1",    True,   pair( pair (x0,x0), x0),                                        pair (pair (x2,x3), x4)                                                       )
-    , ("norm 2",    True,   pair( pair (x2,x3), x4),                                        pair (pair (x0,x0), x0)                                                       )
-    , ("norm 3",    True,   henc( pair (x0,x0), x0),                                        pair (henc (x1,x2), henc (x3,x4))                                             )
-    , ("norm 4",    True,   henc( pair (x0,x0), x0),                                        pair (henc (x1,x2), henc (x2,x4))                                             )
-    , ("norm 5",    True,   henc( pair (x0,x1), x2),                                        henc(x3,x4)                                                                   )
-    , ("norm 6",    True,   henc( henc (pair(x0,x1),x2),x3),pair(henc(henc(x0,x2),x3),      henc(henc(x1,x2),x3))                                                         )
-    , ("norm 7",    True,   henc( pair (henc(pair(x0,x1),x2), pair(henc(x3,x4),x5)), x6),   henc( pair(henc(pair(x0,x1),x2), pair(henc(x3,x4),x5)), x6)                   )
+    , ("5",         True,   henc( hpair (x0,x1), x2),                                        x4                                                                            )
+    , ("6",         True,   henc( henc (hpair (x0,x1), x2),x0),                              henc(x5,x6)                                                                   )
+    , ("7",         True,   hpair(x0,x0),                                                    hpair(x1,x2)                                                                   )
+    , ("8",         True,   hpair(x0,x1),                                                    henc(x2,x3)                                                                   )
+    , ("9",         True,   henc(x0,x1),                                                    hpair(x2,x3)                                                                   )
+    , ("10",        True,   hpair(x0,x0),                                                    henc(x2,x3)                                                                   )
+    , ("11",        True,   henc(x0,x1),                                                    hpair(x2,x2)                                                                   )
+    , ("12",        False,  hpair(x0,x1),                                                    henc(x1,x3)                                                                   )
+    , ("13",        False,  henc(x2,x1),                                                    hpair(x2,x3)                                                                   )
+    , ("14",        True,   hpair(x0,x1),                                                    henc(x2,x2)                                                                   )
+    , ("15",        True,   henc(x0,x0),                                                    hpair(x2,x3)                                                                   )
+    , ("16",        False,  hpair(x0,x1),                                                    henc(x2,x0)                                                                   )
+    , ("17",        False,  henc(x0,x2),                                                    hpair(x2,x3)                                                                   )    
+    , ("18",        True,   hpair(hpair(x0,x1),hpair(x2,x3)),                                  hpair(hpair(x1,x2),hpair(x3,x4))                                                 )
+    , ("defhenc 1", True,   henc( hpair (x0,x1), x2),                                        hpair (henc (x0,x2), henc (x1,x2))                                             )
+    , ("defhenc 2", True,   hpair( henc (x0,x2), henc (x1,x2)),                              henc (hpair (x0,x1), x2)                                                       )
+    , ("defhenc 3", True,   henc( henc (hpair (x0,x1), x2),x0),                              henc(henc (hpair (x0,x1), x2),x0)                                              )
+    , ("symEnc 1",  False,  senc( hpair (x0,x1), x2),                                        hpair (senc (x0,x2), senc (x1,x2))                                             )
+    , ("norm 1",    True,   hpair( hpair (x0,x0), x0),                                        hpair (hpair (x2,x3), x4)                                                       )
+    , ("norm 2",    True,   hpair( hpair (x2,x3), x4),                                        hpair (hpair (x0,x0), x0)                                                       )
+    , ("norm 3",    True,   henc( hpair (x0,x0), x0),                                        hpair (henc (x1,x2), henc (x3,x4))                                             )
+    , ("norm 4",    True,   henc( hpair (x0,x0), x0),                                        hpair (henc (x1,x2), henc (x2,x4))                                             )
+    , ("norm 5",    True,   henc( hpair (x0,x1), x2),                                        henc(x3,x4)                                                                   )
+    , ("norm 6",    True,   henc( henc (hpair(x0,x1),x2),x3),hpair(henc(henc(x0,x2),x3),      henc(henc(x1,x2),x3))                                                         )
+    , ("norm 7",    True,   henc( hpair (henc(hpair(x0,x1),x2), hpair(henc(x3,x4),x5)), x6),   henc( hpair(henc(hpair(x0,x1),x2), hpair(henc(x3,x4),x5)), x6)                   )
     -- cases with different sorts
     , ("public 1",  True,   x0,           px0           )
     , ("public 2",  True,   px0,          x0            )
@@ -269,9 +269,9 @@ testsUnifyHomomorphic mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH"
     , ("pubfr 2",   False,  fx0,          px0           )
     , ("frnat 1",   False,  fx0,          nn1           )
     , ("frnat 2",   False,  nn1,          fx0           )
-    , ("multi 1",   True,   pair(x0,x1),  pair(px0,px1) )
-    , ("multi 2",   True,   pair(x0,px0), pair(px0,x0)  )
-    , ("multi 3",   True,   pair(x0,nn1), pair(px0,x1)  )
+    , ("multi 1",   True,   hpair(x0,x1),  hpair(px0,px1) )
+    , ("multi 2",   True,   hpair(x0,px0), hpair(px0,x0)  )
+    , ("multi 3",   True,   hpair(x0,nn1), hpair(px0,x1)  )
     , ("samefr",    True,   fx0,          fx0           )
     , ("samenat",   True,   nn1,          nn1           )
     , ("samepub",   True,   px0,          px0           )
@@ -284,13 +284,13 @@ testsUnifyHomomorphic mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH"
     -- Note: lnUnfify will throw error so we don't test
     -- , ("node 3",    False,  node1,        x0            )
     -- shaping and parsing
-    , ("shapa 1",   True,   pair(x0,x1),                    henc(x2,x3))
-    , ("shapa 2",   True,   pair(x0,x1),                    henc(henc(x2,x3),x4))
-    , ("shapa 3",   True,   pair(henc(x0,x1),x2),           henc(henc(x3,x4),x5))
-    , ("shapa 4",   True,   pair(henc(henc(x0,x1),x2),x3),  henc(henc(henc(x4,x5),x6),x7))
-    , ("shapa 5",   True,   pair(henc(x0,x1),x2),           henc(x3,x4))
-    , ("shapa 6",   True,   pair(henc(henc(x0,x1),x2),x3),  henc(x4,x5))
-    , ("shapa 7",   True,   pair(henc(henc(x0,x1),x2),x3),  henc(henc(x4,x5),x6))   
+    , ("shapa 1",   True,   hpair(x0,x1),                    henc(x2,x3))
+    , ("shapa 2",   True,   hpair(x0,x1),                    henc(henc(x2,x3),x4))
+    , ("shapa 3",   True,   hpair(henc(x0,x1),x2),           henc(henc(x3,x4),x5))
+    , ("shapa 4",   True,   hpair(henc(henc(x0,x1),x2),x3),  henc(henc(henc(x4,x5),x6),x7))
+    , ("shapa 5",   True,   hpair(henc(x0,x1),x2),           henc(x3,x4))
+    , ("shapa 6",   True,   hpair(henc(henc(x0,x1),x2),x3),  henc(x4,x5))
+    , ("shapa 7",   True,   hpair(henc(henc(x0,x1),x2),x3),  henc(henc(x4,x5),x6))   
     ]
 
 testUnifyWithPrint :: MaudeHandle -> MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
@@ -471,24 +471,24 @@ testsUnifyHomomorphicSf _ _ =
     , testTrue "fromtoPRep paper1" (fromPRepresentation (buildPRepresentation tpaper1) == tpaper1)
     , testTrue "fromtoPRep paper2" (fromPRepresentation (buildPRepresentation tpaper2) == tpaper2)
     , testTrue "fromtoPRep paper3" (fromPRepresentation (buildPRepresentation tpaper3) == tpaper3)
-    , testTrue "fromtoERep pair" (fromERepresentation (buildERepresentation tP1) == tP1)
+    , testTrue "fromtoERep hpair" (fromERepresentation (buildERepresentation tP1) == tP1)
     , testTrue "fromtoERep henc" (fromERepresentation (buildERepresentation tH1) == tH1)
-    , testTrue "fromtoPRep pair" (fromPRepresentation (buildPRepresentation tP1) == tP1)
+    , testTrue "fromtoPRep hpair" (fromPRepresentation (buildPRepresentation tP1) == tP1)
     , testTrue "fromtoPRep henc" (fromPRepresentation (buildPRepresentation tH1) == tH1)
     , testTrue "norm1" (normHomomorphic x0 == x0)
-    , testTrue "norm2" (normHomomorphic (pair(x0,x1)) == pair(x0,x1))
-    , testTrue "norm3" (normHomomorphic (henc(pair(x0,x1),x2)) == pair(henc(x0,x2),henc(x1,x2)))
+    , testTrue "norm2" (normHomomorphic (hpair(x0,x1)) == hpair(x0,x1))
+    , testTrue "norm3" (normHomomorphic (henc(hpair(x0,x1),x2)) == hpair(henc(x0,x2),henc(x1,x2)))
     , testTrue "sanityCheck" (not (allLeftVarsNotRight [
-        (LVar "x0" LSortMsg 15, pair(varTerm $ LVar "x"  LSortMsg 22, varTerm $ LVar "x"  LSortMsg 23)), 
+        (LVar "x0" LSortMsg 15, hpair(varTerm $ LVar "x"  LSortMsg 22, varTerm $ LVar "x"  LSortMsg 23)), 
         (LVar "x2" LSortMsg 17, varTerm $ LVar "x2" LSortMsg 21), 
         (LVar "x"  LSortMsg 19, henc(varTerm $ LVar "x"  LSortMsg 22, varTerm $ LVar "x2" LSortMsg 21)), 
         (LVar "x"  LSortMsg 20, henc(varTerm $ LVar "x"  LSortMsg 23, varTerm $ LVar "x2" LSortMsg 21)), 
         (LVar "x"  LSortMsg 21, varTerm $ LVar "x"  LSortMsg 22),    -- x2 21 is on the right side
         (LVar "x"  LSortMsg 22, varTerm $ LVar "x"  LSortMsg 23) ])) -- x 22 is on the right side multiple times
     -- example:
-    -- henc( henc( pair(x0,x1), k0), k1) 
-    -- -> henc( pair( henc(x0,k0), henc(x1,k0) ), k1)
-    -- -> pair( henc(henc(x0,k0),k1) , henc(henc(x1,k0),k1) )
+    -- henc( henc( hpair(x0,x1), k0), k1) 
+    -- -> henc( hpair( henc(x0,k0), henc(x1,k0) ), k1)
+    -- -> hpair( henc(henc(x0,k0),k1) , henc(henc(x1,k0),k1) )
     , testTrue "norm4" (normHomomorphic norm1 == norm2)
     , testTrue "norm5" (normHomomorphic tpaper1 == tpaper1N)
     , testTrue "norm6" (normHomomorphic tpaper2 == tpaper2N)
@@ -496,36 +496,36 @@ testsUnifyHomomorphicSf _ _ =
     , testTrue "norm8" (normHomomorphic normInKey == normedInKey)
     ]
   where
-    t1 = henc (pair (x0,x1),x2)
+    t1 = henc (hpair (x0,x1),x2)
     posT1 =
-      [ ("", henc (pair (x0,x1),x2) )
-      , ("1", pair (x0,x1) )
+      [ ("", henc (hpair (x0,x1),x2) )
+      , ("1", hpair (x0,x1) )
       , ("11", x0 )
       , ("12", x1 )
       , ("2", x2 ) ]
-    t2 = pair (henc (x0,x2),henc (x1,x2))
+    t2 = hpair (henc (x0,x2),henc (x1,x2))
     posT2 =
-      [ ("", pair (henc (x0,x2),henc (x1,x2)) )
+      [ ("", hpair (henc (x0,x2),henc (x1,x2)) )
       , ("1", henc (x0,x2) )
       , ("11", x0 )
       , ("12", x2 )
       , ("2", henc (x1,x2) )
       , ("21", x1 )
       , ("22", x2 ) ]
-    tpaper1 = pair( henc( pair(x0,x2), x4), x3 )
-    tpaper1N = pair( pair(henc(x0,x4),henc(x2,x4)), x3 )
-    tpaper2 = pair( pair(x0,x1), henc(pair (x2,x3), x4))
-    tpaper2N = pair( pair(x0,x1), pair(henc(x2,x4),henc(x3,x4)) )
+    tpaper1 = hpair( henc( hpair(x0,x2), x4), x3 )
+    tpaper1N = hpair( hpair(henc(x0,x4),henc(x2,x4)), x3 )
+    tpaper2 = hpair( hpair(x0,x1), henc(hpair (x2,x3), x4))
+    tpaper2N = hpair( hpair(x0,x1), hpair(henc(x2,x4),henc(x3,x4)) )
     pPurePosTPaper2 =
       [ ("", tpaper2 )
-      , ("1", pair (x0,x1) )
+      , ("1", hpair (x0,x1) )
       , ("11", x0 )
       , ("12", x1 )
-      , ("2", henc (pair (x2,x3),x4) ) ]
+      , ("2", henc (hpair (x2,x3),x4) ) ]
     maxPPurePosTPaper2 =
       [ ("11", x0 )
       , ("12", x1 )
-      , ("2", henc (pair (x2,x3),x4) ) ]
+      , ("2", henc (hpair (x2,x3),x4) ) ]
     tpaper3 = henc (henc (x0,x1),henc (x2,x3))
     ePurePosTPaper3 =
       [ ("", tpaper3 )
@@ -545,12 +545,12 @@ testsUnifyHomomorphicSf _ _ =
       [ ("11", x0 )
       , ("12", x1 )
       , ("2", henc (x2,x3) ) ]
-    norm1 = henc(henc(pair(x0,x1),x2),x3)
-    norm2 = pair(henc(henc(x0,x2),x3), henc(henc(x1,x2),x3))
-    normInKey = henc(x0,henc(pair(x1,x2),x3))
-    normedInKey = henc(x0,pair(henc(x1,x3),henc(x2,x3)))
+    norm1 = henc(henc(hpair(x0,x1),x2),x3)
+    norm2 = hpair(henc(henc(x0,x2),x3), henc(henc(x1,x2),x3))
+    normInKey = henc(x0,henc(hpair(x1,x2),x3))
+    normedInKey = henc(x0,hpair(henc(x1,x3),henc(x2,x3)))
     tH1 = henc(x0, x1)
-    tP1 = pair(x0, x1)
+    tP1 = hpair(x0, x1)
 
 -- *****************************************************************************
 -- Tests for specific rules of the Homomorphic Unification Algorithm
@@ -616,9 +616,9 @@ testsUnifyHomomorphicRules _ _ = TestLabel "Tests for Unify module EpsilonH Rule
     tE4 = Equal (fH x1) (fH x1) 
     tFE1 = Equal (fH (henc (x0,x1))) (fH (henc (x0,x1)))
     tFE2 = Equal (fH (henc (x0,x1))) (fH (henc (x2,x3)))
-    tFE3 = Equal (fH (pair (x0,x1))) (fH (henc (x2,x3)))
+    tFE3 = Equal (fH (hpair (x0,x1))) (fH (henc (x2,x3)))
     tFE4 = Equal (fH (sdec (x0,x1))) (fH (henc (x2,x3)))
-    tFE5 = Equal (fH (pair (x0,x1))) (fH (henc (x0,x3))) -- out of phase on t5
+    tFE5 = Equal (fH (hpair (x0,x1))) (fH (henc (x0,x3))) -- out of phase on t5
     tFE6 = Equal (fH (henc (x0,x1))) (fH (henc (x0,x2)))
     tHE1 = Equal (fH x0) (fH (henc (x2,x3)))
     tHE1S = [(LVar "x" LSortMsg 0, henc (x2,x3))]
@@ -630,16 +630,16 @@ testsUnifyHomomorphicRules _ _ = TestLabel "Tests for Unify module EpsilonH Rule
     tFFE3 = Equal (fH x0) (fH (henc (x5,x3)))
     tFFE3' = Equal (fH x0) (fH (henc (x6,x3)))
     tFFE4 = Equal (fH x0) (fH (henc (henc (x2,x3),x4)))
-    tFFE5 = Equal (fH (pair (henc (pair (x0,x1),x2),x3))) (fH (henc (henc (x4,x5),x6)))
-    tFFE6 = Equal (fH (pair (henc (x0,x2),x3))) (fH (henc (henc (x4,x5),x6)))
-    tFFE7 = Equal (fH (pair (henc (pair (x0,x1),x2),x3))) (fH (henc (x4,x6)))
+    tFFE5 = Equal (fH (hpair (henc (hpair (x0,x1),x2),x3))) (fH (henc (henc (x4,x5),x6)))
+    tFFE6 = Equal (fH (hpair (henc (x0,x2),x3))) (fH (henc (henc (x4,x5),x6)))
+    tFFE7 = Equal (fH (hpair (henc (hpair (x0,x1),x2),x3))) (fH (henc (x4,x6)))
     s = sortOfName
     fH = toLPETerm
     vA = sortednub . concatMap (varsVTerm . lTerm) . concatMap (\(Equal l r) -> [l,r])
     -- shaping:  tFFE1 = Equal P [""] [[x,x.1]] E [x.2,x.3,x.4] with n = 2, m = 2
     --    Return tFFE2 = Equal P [""] [[xH.1, x.3, x.1]] E [x.2,x.3,x.4]
     --           tFFE3 = Equal x.0                       E [xH.1, x.3]
-    -- failure2: tFFE5 = Equal P ["1","2"] [[pair(x,x.1),x.2],[x.3]] 
+    -- failure2: tFFE5 = Equal P ["1","2"] [[hpair(x,x.1),x.2],[x.3]] 
     --                         E [x.4,x.5,x.6] with n = 2, m = 1
 
 testsUnifyHomomorphicShaping :: Test
@@ -652,39 +652,39 @@ testsUnifyHomomorphicShaping = TestLabel "Tests for Unify module EpsilonH Shapin
    ]
   where
     -- example 1: n = 1, m = 2
-    pairHenc1        = Equal (fH (pair(x0,x1)))                     (fH (henc(x2,x3)))
+    pairHenc1        = Equal (fH (hpair(x0,x1)))                     (fH (henc(x2,x3)))
     --                 P(E(x0),E(x1))                               E(x2,x3)
     --                 x = x0, km,..,kn = {}                        s = x2, k1' = kn' = x3
     --                 x' = sh1, k1',..,km-1' = x3
     --              -> P(..,E(sh1,x3),..)                           E(x2,x3)
-    pairHenc1Shaped1 = Equal (fH (pair(henc(sh1,x3),x1)))           (fH (henc(x2,x3)))
+    pairHenc1Shaped1 = Equal (fH (hpair(henc(sh1,x3),x1)))           (fH (henc(x2,x3)))
     --              -> x0                                           E(sh1,x3)
     pairHenc1Shaped2 = Equal (fH x0)                                (fH (henc(sh1,x3)))
     -- example 2: n = 2, m = 3
-    pairHenc2        = Equal (fH (pair(x0,x1)))                     (fH (henc(henc(x2,x3),x4)))
+    pairHenc2        = Equal (fH (hpair(x0,x1)))                     (fH (henc(henc(x2,x3),x4)))
     --                 P(E(x0),E(x1))                               E(x2,x3,x4)
     --                 x = x0, km,..,kn = {}                        s = x2, k1',..,kn' = x3,x4
     --                 x' = sh2, k1',..,km-1' = x3,x4
     --              -> P(..,E(sh2,x3,x4),..)                        E(x2,x3,x4)
-    pairHenc2Shaped1 = Equal (fH (pair(henc(henc(sh2,x3),x4),x1)))  (fH (henc(henc(x2,x3),x4)))
+    pairHenc2Shaped1 = Equal (fH (hpair(henc(henc(sh2,x3),x4),x1)))  (fH (henc(henc(x2,x3),x4)))
     --              -> x0                                           E(sh2,x3,x4)
     pairHenc2Shaped2 = Equal (fH x0)                                (fH (henc(henc(sh2,x3),x4)))
     -- example 3: n = 2, m = 2
-    pairHenc3        = Equal (fH (pair(henc(x0,x1),x2)))            (fH (henc(henc(x3,x4),x5)))
+    pairHenc3        = Equal (fH (hpair(henc(x0,x1),x2)))            (fH (henc(henc(x3,x4),x5)))
     --                 P(E(x0,x1),E(x2))                            E(x3,x4,x5)
     --                 x = x0, km,..,kn = x1                        s = x3, k1',..,kn' = x4,x5
     --                 x' = sh3, k1',..,km-1' = x4
     --              -> P(..,E(sh3,x4,x1),..)                        E(x3,x4,x5)
-    pairHenc3Shaped1 = Equal (fH (pair(henc(henc(sh3,x4),x1),x2)))  (fH (henc(henc(x3,x4),x5)))
+    pairHenc3Shaped1 = Equal (fH (hpair(henc(henc(sh3,x4),x1),x2)))  (fH (henc(henc(x3,x4),x5)))
     --              -> x0                                           E(sh3,k4)
     pairHenc3Shaped2 = Equal (fH x0)                                (fH (henc(sh3,x4)))
     -- example 4: n = 3, m = 2
-    pairHenc4        = Equal (fH (pair(henc(henc(x0,x1),x2),x3)))   (fH (henc(henc(henc(x4,x5),x6),x7)))
+    pairHenc4        = Equal (fH (hpair(henc(henc(x0,x1),x2),x3)))   (fH (henc(henc(henc(x4,x5),x6),x7)))
     --                 P(E(x0,x1,x2),E(x3))                         E(x4,x5,x6,x7)
     --                 x = x0, km,..,kn = x1,x2                     s = x4, k1',..,kn' = x5,x6,x7
     --                 x' = sh4, k1',..,km-1' = x5
     --              -> P(..,E(sh4,x5,x1,x2),..)                     E(x4,x5,x6,x7)
-    pairHenc4Shaped1 = Equal (fH (pair(henc(henc(henc(sh4,x5),x1),x2),x3)))  (fH (henc(henc(henc(x4,x5),x6),x7)))
+    pairHenc4Shaped1 = Equal (fH (hpair(henc(henc(henc(sh4,x5),x1),x2),x3)))  (fH (henc(henc(henc(x4,x5),x6),x7)))
     --              -> x0                                           E(sh4,k4)
     pairHenc4Shaped2 = Equal (fH x0)                                (fH (henc(sh4,x5)))
     -- vars
