@@ -1,0 +1,33 @@
+theory UnionDisjointTest3
+begin
+
+builtins: homomorphic-encryption, diffie-hellman
+
+rule GetVars:
+  [ Fr(~x0), Fr(~x1), Fr(~x3) ]
+  --[]->
+  [ !Vars(~x0,~x1,~x3) ]
+
+rule GetKey:
+  [ Fr(~x2) ]
+  --[]->
+  [ !Key(~x2) ]
+
+rule A:
+  [ !Vars(x0,x1,x3), !Key(x2), Fr(~x5) ]
+  --[ Send(x0, x1, x2, x3) ]->
+  [ Out( x3^hpair(henc(x0, x2), henc(x1, x2)) ) ]
+
+rule B:
+  [ !Vars(x0,x1,x3), !Key(x2)
+  , In( x3^henc(hpair(x0, x1), x2) ) ]
+  --[ Receive(x0, x1, x2, x3) ]->
+  []
+
+lemma Send_And_Received: exists-trace
+  "Ex x0 x1 x2 x3 #i #j. Send(x0, x1, x2, x3) @i & Receive(x0, x1, x2, x3) @j"
+
+restriction Only_One_Send_With_Same_Vars: 
+  "All x0 x1 x2 x3 #i #j. Send(x0, x1, x2, x3) @i & Send(x0, x1, x2, x3) @j ==> #i = #j"
+
+end
