@@ -93,7 +93,7 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import qualified Data.Map as M
 import           Data.Map (Map)
-import           Data.Maybe (maybeToList, mapMaybe)
+import           Data.Maybe (mapMaybe)
 import           Data.List (permutations)
 import           Data.Bifunctor (bimap, second)
 
@@ -425,6 +425,8 @@ solveMatchLTerm sortOf matchProblem =
           (Left NoMatcher, _)  -> []
           (Left ACProblem, _) | not $ enableHom $ mhMaudeSig hnd ->
               unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
+          (Left ACProblem, _) | all (\m -> hasNoHom (fst m) && hasNoHom (snd m)) ms ->
+              unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
           (Left ACProblem, _) ->
               matchUnionDisjointTheories hnd sortOf matchProblem
           (Left HomomorphicProblem, _) | all (\m -> hasNoAC (fst m) && hasNoAC (snd m)) ms ->
@@ -440,19 +442,32 @@ solveMatchLTerm sortOf matchProblem =
           FApp (AC _) _      -> False
           FApp (NoEq _) args -> all hasNoAC args
           FApp List args     -> all hasNoAC args
+        hasNoHom t = case viewTerm t of
+          Lit _              -> True
+          FApp (C _) args    -> all hasNoHom args
+          FApp (AC _) args   -> all hasNoHom args
+          FApp (NoEq _) args -> not (isAnyHom t) && all hasNoHom args
+          FApp List args     -> all hasNoHom args
 
--- TODO
+-- NOTE: Maybe add checks here that in the returned substitution all vars on the left
+-- are from the matched terms and all vars on the right are from the term to be matched.
 matchUnionDisjointTheories :: IsConst c => MaudeHandle -> (c -> LSort) -> Match (LTerm c) -> [LSubst c]
-matchUnionDisjointTheories hnd sortOf ms = []
-{-
-let
-  sO = sortOfMConst sortOf
-  eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
-  orgVars = foldVars $ foldr (\(t,p) vs -> t:p:vs) [] ms
-  orgLVars = foldVars $ map snd ms
-  unifier = unifyHomomorphicLTermWithVars sO (eqs, orgVars)
-  in toSingleSubst =<< substFromMConst =<< toSubstForm sO orgLVars =<< unifier
--}
+matchUnionDisjointTheories hnd sortOf matchProblem = case flattenMatch matchProblem of
+  Nothing -> []
+  Just ms -> let
+      eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
+      orgVars = foldVars $ concatMap (\(l,r) -> [l,r]) ms
+      highestIndex = foldr (max . lvarIdx) 0 orgVars
+      unifier = map substToListVFresh $ unifyUnionDisjointTheories (sortOfMConst sortOf) hnd eqs
+      newVars = filter (`notElem` orgVars) $
+        map fst (concat unifier) ++ concatMap (varsVTerm . snd) (concat unifier)
+      newVarsSubst = zipWith (\v newIdx -> (v, LVar (lvarName v) (lvarSort v) newIdx)) newVars [highestIndex+1..]
+      newVarsSubst' = substFromList $ map (second varTerm) newVarsSubst
+      unifier' = map (map (bimap (varSwap newVarsSubst) (applyVTerm newVarsSubst'))) unifier
+    in map (substFromList . map (second fromMConst)) unifier'
+    where
+      varSwap :: [(LVar,LVar)] -> LVar -> LVar
+      varSwap vS v = foldl (\v1 (v2,v3) -> if v1 == v2 then v3 else v1) v vS
 
 -- | @solveMatchLNTerm eqs@ returns a complete set of matchers for @eqs@
 -- modulo AC.
