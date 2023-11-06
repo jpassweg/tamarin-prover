@@ -164,7 +164,7 @@ unifyUnionDisjointTheories' sortOf mhnd eqs = let
   (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars)
   (acSystem, homSystem) = splitSystem (isAnyHom . eqLHS) absEqs
   solvedSystems = solveDisjointSystems sortOf
-    (acSystem, homSystem) (acUnifier, homUnifier) (getAllPartitions absAllVars)
+    (acSystem, homSystem) (acUnifier, homUnifier) (filter onlySameSortsPartitions $ getAllPartitions absAllVars)
   in combineDisjointSystems $ cleanSolvedSystem absAllVars solvedSystems
   where
     acUnifier es = unsafePerformIO $ UM.unifyViaMaude mhnd (sortOfMConst sortOf) es
@@ -218,6 +218,15 @@ getAllPartitions (x : xs) = concatMap (insert x) (getAllPartitions xs)
     insert :: a -> [[a]] -> [[[a]]]
     insert x' [] = [[[x']]]
     insert x' (ys : yss) = ((x' : ys) : yss) : map (ys : ) (insert x' yss)
+
+onlySameSortsPartitions :: [[LVar]] -> Bool
+onlySameSortsPartitions = all sameSort
+  where
+    sameSort :: [LVar] -> Bool
+    sameSort [] = True
+    sameSort (v:vs) = all (hasSort $ lvarSort v) vs
+    hasSort :: LSort -> LVar -> Bool
+    hasSort s v = s == lvarSort v
 
 splitSystem :: IsConst c => (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> EquationPair c
 splitSystem fBool = foldr (\eq (eqL, eqR) -> if fBool eq then (eqL, eq:eqR) else (eq:eqL, eqR)) ([],[])
