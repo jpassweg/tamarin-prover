@@ -174,7 +174,7 @@ abstractVars :: IsConst c => ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], 
 abstractVars ([], allVars) = ([], allVars)
 abstractVars (e:es, allVars) = case findAlienSubTerm e of
   Just (alienSubterm, applyToOneSide) -> let
-    -- NOTE: can be improved to LSortMsg or LSortNat but algorithm would then need to be adapted
+    -- NOTE: can be improved to LSortMsg or LSortNat but algorithm then needs to be adapted
     newVar = getNewSimilarVar (LVar "abstractVar" LSortMsg 0) allVars
     newE = applyToOneSide (substituteTermWithVar alienSubterm newVar) e
     in abstractVars (Equal alienSubterm (varTerm newVar) : newE : es, newVar : allVars)
