@@ -141,7 +141,7 @@ applyHomomorphicRule sortOf rule (e:es, allVars) passedEqs = let eqsSubst = (es 
     HFail                    -> MFail
   where
     applyEqsSubst :: IsConst c => [(LVar, LTerm c)] -> EqsSubst (LPETerm c) -> EqsSubst (LPETerm c)
-    applyEqsSubst subst = first (map (fmap (toLPETerm . applyVTerm (substFromList subst) . lTerm)))
+    applyEqsSubst subst = first (map (fmap (toLPETerm . normHomomorphic . applyVTerm (substFromList subst) . lTerm)))
 
 -- | To Homomorphic Solved Form (EqsSubst to PreSubst)
 ------------------------------------------------------
@@ -385,8 +385,8 @@ shapingHomomorphicRule (Equal eL eR) _ (_, allVars) = let
       lhs1NewPTerm = let (ys,zs) = splitAt qualifyingIndex eRepsLHS in
         PRep (eRepsString $ pRep eL) 
         (ys ++ [[varTerm xFresh] ++ take (m-1) (tail (eRep eR)) ++ tail qualifyingELhs] ++ tail zs)
-      lhs1 = toLPETerm $ fromPRepresentation lhs1NewPTerm
-      rhs2 = toLPETerm $ fromERepresentation $ varTerm xFresh : take (m-1) (tail (eRep eR))
+      lhs1 = toLPETerm $ normHomomorphic $ fromPRepresentation lhs1NewPTerm
+      rhs2 = toLPETerm $ normHomomorphic $ fromERepresentation $ varTerm xFresh : take (m-1) (tail (eRep eR))
       in HEqs ([Equal lhs1 eR, Equal (toLPETerm $ varTerm x) rhs2], [xFresh])
     Nothing -> HNothing
   else HNothing
@@ -422,8 +422,8 @@ failureTwoHomomorphicRule (Equal eL eR) _ _ = let eRepsLHS = eRepsTerms $ pRep e
 
 failureHomomorphicRuleWrapper :: IsConst c => LTerm c -> LTerm c -> Bool
 failureHomomorphicRuleWrapper l r = let
-    lPE = toLPETerm l
-    rPE = toLPETerm r
+    lPE = toLPETerm $ normHomomorphic l
+    rPE = toLPETerm $ normHomomorphic r
   in case ( failureOneHomomorphicRule (Equal lPE rPE) (const LSortMsg) ([], []),
             failureTwoHomomorphicRule (Equal lPE rPE) (const LSortMsg) ([], [])
           ) of
@@ -433,9 +433,9 @@ failureHomomorphicRuleWrapper l r = let
 parsingHomomorphicRule :: IsConst c => HomomorphicRule c
 parsingHomomorphicRule (Equal eL eR) _ _ = let
   eRepsLHS = eRepsTerms $ pRep eL
-  newLHS = toLPETerm $ fromPRepresentation $ PRep (eRepsString $ pRep eL) (map init eRepsLHS)
-  newRHS = toLPETerm $ fromERepresentation $ init (eRep eR)
-  allKms = map toLPETerm $ last (eRep eR) : map last eRepsLHS
+  newLHS = toLPETerm $ normHomomorphic $ fromPRepresentation $ PRep (eRepsString $ pRep eL) (map init eRepsLHS)
+  newRHS = toLPETerm $ normHomomorphic $ fromERepresentation $ init (eRep eR)
+  allKms = map (toLPETerm . normHomomorphic) $ last (eRep eR) : map last eRepsLHS
   in if all (\t -> length t >= 2) (eRepsLHS ++ [eRep eR])
   then HEqs (Equal newLHS newRHS : getAllCombinations allKms, [])
   else HNothing
