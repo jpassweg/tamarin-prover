@@ -227,6 +227,8 @@ testsUnifyHomomorphic mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH"
   TestList $ map (\(testName, testOutcome, term1, term2) -> 
     testUnifyWithPrint mhnd mhndHom testName testOutcome term1 term2)
     [ ("1",         True,   x0,                                                               x0                                                                            )
+    , ("doubleeq1", True,   pair(pair(x0,x2),pair(x2,x0)),                                    pair(pair(x2,x0),pair(x0,x2))                                                 )
+    , ("doubleeq2", True,   pair(pair(x0,x0),x3),                                             pair(pair(pair(x2,x1),pair(x2,x1)),x2)                                        )
     , ("2",         True,   x0,                                                               x1                                                                            )
     , ("3",         False,  henc(x0,x1),                                                      x1                                                                            )
     , ("4",         True,   x0,                                                               henc(x1,x2)                                                                   )
