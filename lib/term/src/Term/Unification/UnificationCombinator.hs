@@ -28,14 +28,14 @@ import Data.Maybe (mapMaybe)
 
 -- NOTE: Maybe add checks here that in the returned substitution all vars on the left
 -- are from the matched terms and all vars on the right are from the term to be matched.
-matchUnionDisjointTheories :: IsConst c => DoubleMConstUnifierPair c -> (c -> LSort) -> Match (LTerm c) -> [LSubst c]
-matchUnionDisjointTheories unifierPair sortOf matchProblem = case flattenMatch matchProblem of
+matchUnionDisjointTheories :: IsConst c => (c -> LSort) -> DoubleMConstUnifierPair c -> (Equal (LTerm (MConst c)) -> Bool) -> Match (LTerm c) -> [LSubst c]
+matchUnionDisjointTheories sortOf unifierPair isRightSystem matchProblem = case flattenMatch matchProblem of
   Nothing -> []
   Just ms -> let
       eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
       orgVars = foldVars $ concatMap (\(l,r) -> [l,r]) ms
       highestIndex = foldr (max . lvarIdx) 0 orgVars
-      unifier = map substToListVFresh $ unifyUnionDisjointTheories (sortOfMConst sortOf) unifierPair eqs
+      unifier = map substToListVFresh $ unifyUnionDisjointTheories (sortOfMConst sortOf) unifierPair isRightSystem eqs
       newVars = filter (`notElem` orgVars) $
         map fst (concat unifier) ++ concatMap (varsVTerm . snd) (concat unifier)
       newVarsSubst = zipWith (\v newIdx -> (v, LVar (lvarName v) (lvarSort v) newIdx)) newVars [highestIndex+1..]
@@ -62,11 +62,11 @@ matchUnionDisjointTheories unifierPair sortOf matchProblem = case flattenMatch m
 --   being two different variables.  
 -- - Investigate which linear orderings make sense "sort wise" and if we can remove some
 --   (probably not as it is a restriction which might never occur in the actual substitution)
-unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> MConstUnifierPair c -> [Equal (LTerm c)] -> [LSubstVFresh c]
-unifyUnionDisjointTheories sortOf unifierPair eqs = let
+unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> MConstUnifierPair c -> (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> [LSubstVFresh c]
+unifyUnionDisjointTheories sortOf unifierPair isRightSystem eqs = let
   allVars = foldVars $ eqsToTerms eqs
   (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars)
-  (acSystem, homSystem) = splitSystem (isAnyHom . eqLHS) absEqs
+  (acSystem, homSystem) = splitSystem isRightSystem absEqs
   solvedSystems = solveDisjointSystems sortOf
     (acSystem, homSystem) unifierPair (filter onlySameSortsPartitions $ getAllPartitions absAllVars)
   in combineDisjointSystems $ cleanSolvedSystem absAllVars solvedSystems

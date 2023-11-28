@@ -132,7 +132,7 @@ prepareUnifyUnionDisjointTheories sortOf mhnd eqs = let
     (False, _,     _)     -> unsafePerformIO (UM.unifyViaMaude mhnd sortOf eqs)
     (True,  True,  False) -> unsafePerformIO (UM.unifyViaMaude mhnd sortOf eqs)
     (True,  False, True)  -> unifyHomomorphicLTermWrapper sortOf eqs
-    (True,  False, False) -> unifyUnionDisjointTheories sortOf (acUnifier, homUnifier) eqs
+    (True,  False, False) -> unifyUnionDisjointTheories sortOf (acUnifier, homUnifier) (isAnyHom . eqLHS) eqs
     (_,     True,  True)  -> [emptySubstVFresh] -- NOTE: should not happen
   where
     hasNoAC :: IsConst c => LTerm c -> Bool
@@ -246,11 +246,11 @@ solveMatchLTerm sortOf matchProblem =
           (Left ACProblem, _) | all (\m -> hasNoHom (fst m) && hasNoHom (snd m)) ms ->
               unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
           (Left ACProblem, _) ->
-              matchUnionDisjointTheories (acUnifier, homUnifier) sortOf matchProblem
+              matchUnionDisjointTheories sortOf (acUnifier, homUnifier) (isAnyHom . eqLHS) matchProblem
           (Left HomomorphicProblem, _) | all (\m -> hasNoAC (fst m) && hasNoAC (snd m)) ms ->
               matchHomomorphicLTermWrapper sortOf matchProblem
           (Left HomomorphicProblem, _) ->
-              matchUnionDisjointTheories (acUnifier, homUnifier) sortOf matchProblem
+              matchUnionDisjointTheories sortOf (acUnifier, homUnifier) (isAnyHom . eqLHS) matchProblem
           (Right (), mappings) -> [substFromMap mappings]
       where
         match = forM_ ms $ \(t, p) -> matchRaw sortOf t p
