@@ -28,8 +28,8 @@ import Control.Monad.Reader
 -- import Data.Monoid
 import Data.Bifunctor (second)
 
-import Term.Homomorphism.LPETerm
-import Term.Homomorphism.Unification
+import Term.Unification.LPETerm
+import Term.Unification.HomomorphicEncryption
 
 import Extension.Prelude (sortednub)
 

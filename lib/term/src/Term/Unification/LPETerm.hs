@@ -1,6 +1,6 @@
 {-# LANGUAGE ViewPatterns       #-}
 
-module Term.Homomorphism.LPETerm (
+module Term.Unification.LPETerm (
   -- * Homomorphic Representation types
     LPETerm(..)
   , PRepresentation(..)

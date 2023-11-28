@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Term.Homomorphism.Unification (
+module Term.Unification.HomomorphicEncryption (
   -- * Unification modulo EpsilonH for Homomorphic Encryption
     unifyHomomorphicLTerm
   , unifyHomomorphicLTermWrapper
@@ -35,8 +35,8 @@ module Term.Homomorphism.Unification (
 import Data.Maybe     (isJust, isNothing, mapMaybe, fromMaybe, maybeToList)
 import Data.Bifunctor (first, second)
 
-import Term.Homomorphism.LPETerm
-import Term.Homomorphism.MConst
+import Term.Unification.LPETerm
+import Term.Unification.MConst
 
 import Term.LTerm (
   LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..),

@@ -86,9 +86,10 @@ library
       Term.Maude.Types
       Term.Maude.Parser
 
-      Term.Homomorphism.LPETerm
-      Term.Homomorphism.MConst
-      Term.Homomorphism.Unification
+      Term.Unification.LPETerm
+      Term.Unification.MConst
+      Term.Unification.HomomorphicEncryption
+      Term.Unification.UnificationCombinator
 
       Term.UnitTests
 

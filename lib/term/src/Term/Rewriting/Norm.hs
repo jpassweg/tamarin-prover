@@ -31,7 +31,7 @@ import           Term.Maude.Signature
 import           Term.Substitution
 import           Term.SubtermRule
 import           Term.Unification
-import Term.Homomorphism.LPETerm (normHomomorphic, nfHomomorphic)
+import Term.Unification.LPETerm (normHomomorphic, nfHomomorphic)
 
 ----------------------------------------------------------------------
 -- Normalization using Maude

@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module Term.Homomorphism.MConst (
+module Term.Unification.MConst (
     MConst(..)
   , toMConstA
   , toMConstC
