@@ -312,6 +312,10 @@ unifyRaw l0 r0 = do
            -- chech failure rules
            guard (((isHomPair l && isHomEnc r) || (isHomEnc l && isHomPair r)) && failureHomomorphicRuleWrapper l r)
            >> tell [Equal l r]
+       (FApp (NoEq _) _, FApp (NoEq _) _) | isAnyHom l || isAnyHom r  ->
+           -- chech failure rules
+           guard (failureHomomorphicRuleWrapper l r)
+           >> tell [Equal l r]
        -- General cases / function application
        (FApp (NoEq lfsym) largs, FApp (NoEq rfsym) rargs) ->
            guard (lfsym == rfsym && length largs == length rargs)
