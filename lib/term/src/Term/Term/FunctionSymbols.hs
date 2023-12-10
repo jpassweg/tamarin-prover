@@ -264,7 +264,8 @@ bpReducibleFunSig :: FunSig
 bpReducibleFunSig = S.fromList [ NoEq pmultSym, C EMap ]
 
 -- | Reducible function symbols for Homomorphic Encryption
- -- TODO: Maybe add NoEq homEncSym -> for symmetric encryption sdec is reducible but senc seems to not be
+-- NOTE: for symmetric encryption sdec is reducible but senc is not. 
+-- For homomorphic encryption, henc needs to be reducible for normalization. 
 homReducibleFunSig :: FunSig
 homReducibleFunSig = S.fromList [ NoEq homDecSym, NoEq homEncSym, 
   NoEq homFstSym, NoEq homSndSym ]
