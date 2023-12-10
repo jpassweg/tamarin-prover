@@ -1,0 +1,49 @@
+// Author: Sofia Giampietro
+
+theory ACHomEnc_Ex1
+begin
+
+builtins: homomorphic-encryption, diffie-hellman
+
+rule PubKey:
+    [ Fr(~x) ]
+    --[]->
+    [ Out(<$A, 'g'^~x>), State1($A, ~x) ]
+
+rule A_1:
+    [ State1($A, ~x), In(<$B, gy>) ]
+    --[NotEqual($A,$B), NotEqual(gy,DH_neutral), NotEqual(gy, 'g')]->
+    [ Key1($A, $B, gy^~x ) ]
+
+rule Send_1:
+    [ Key1($A,$B, kab)
+    , Fr(~m1), Fr(~m2) ]
+    --[ Sent($A, $B, ~m1, ~m2) ]->
+    [ Sec_Chan(henc( hpair(~m1,~m2),kab) ) ]
+
+
+rule Recv_1:
+let m= hdec(menc, kab)
+    m1= hfst(m)
+    m2=hsnd(m)
+    in
+    [ Key1($B, $A, kab)
+    , Sec_Chan(menc) ]
+    --[ Recv( $B,$A, m1, m2)]->
+    [ ]
+
+restriction notEqual:
+    "All a #t. NotEqual(a,a) @t ==> F"
+
+lemma executable: 
+exists-trace
+    "Ex a b m1 m2 #i #j. Sent(a,b,m1,m2) @i & Recv(b,a,m1,m2) @j "
+
+lemma secretA: 
+"All m #i. SecretA(m)@i ==> not (Ex #j. K(m)@j)"
+
+lemma secretB: 
+"All m #i. SecretB(m)@i ==> not (Ex #j. K(m)@j)"
+
+
+end

@@ -1,4 +1,4 @@
-theory HomomorphicProtocol1SymmetricEnryption
+theory HomomorphicProtocolSymmetricEnryption
 begin
 
 builtins: symmetric-encryption, homomorphic-encryption

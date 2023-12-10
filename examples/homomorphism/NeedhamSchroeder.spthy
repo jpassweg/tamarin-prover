@@ -1,4 +1,11 @@
-// NEEDHAM-SCHROEDER SYMMETRIC KEY PROTOCOL from the Cap Unification paper
+// NEEDHAM-SCHROEDER SYMMETRIC KEY PROTOCOL from the cap unification paper [1]
+// Implemented by Jonas Passweg
+// [1]: Siva Anantharaman, Hai Lin, Christopher Lynch, Paliath Narendran,
+//      and Michael Rusinowitch. Cap unification: Application to protocol
+//      security modulo homomorphic encryption. In Proceedings of the 5th
+//      ACM Symposium on Information, Computer and Communications Security,
+//      ASIACCS ’10, page 192–203, New York, NY, USA, 2010. Association for
+//      Computing Machinery.
 
 theory NeedhamSchroeder
 begin

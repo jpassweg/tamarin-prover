@@ -1,4 +1,4 @@
-theory HomomorphicProtocol1
+theory HomomorphicProtocol
 begin
 
 builtins: homomorphic-encryption
