@@ -1,0 +1,1271 @@
+theory NeedhamSchroeder begin
+
+// Function signature and definition of the equational theory E
+
+builtins: homomorphic-encryption
+functions: fst/1, pair/2, snd/1, succ/1
+equations: fst(<x.1, x.2>) = x.1, snd(<x.1, x.2>) = x.2
+
+rule (modulo E) Client_Server_Keys:
+   [ Fr( ~key ) ]
+  --[ IsKey( ~key ) ]->
+   [ SCKey( $Server, $Client, ~key ), CSKey( $Client, $Server, ~key )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) A_1:
+   [ Fr( ~NA ) ]
+  -->
+   [ Out( <<$A, $B>, ~NA> ), A_1_State( $A, $B, ~NA ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S_1:
+   [
+   SCKey( $S, $A, ~KAS ), SCKey( $S, $B, ~KBS ), In( <<$A, $B>, NA> ),
+   Fr( ~KAB )
+   ]
+  --[
+  NotEqual( $A, $B ), IsKey( ~KAS ), IsKey( ~KBS ),
+  NotEqual( $A, NA ), NotEqual( $B, NA ), NotEqual( $S, NA ),
+  NotEqual( ~KAS, NA ), NotEqual( ~KBS, NA ),
+  Sent( henc(~KAB, ~KBS) ), Sent( henc($A, ~KBS) ),
+  Sent( henc(NA, ~KAS) ), Sent( henc($B, ~KAS) ),
+  Sent( henc(~KAB, ~KAS) )
+  ]->
+   [ Out( henc(<<<NA, $B>, ~KAB>, henc(<~KAB, $A>, ~KBS)>, ~KAS) ) ]
+
+  /*
+  rule (modulo AC) S_1:
+     [
+     SCKey( $S, $A, ~KAS ), SCKey( $S, $B, ~KBS ), In( <<$A, $B>, NA> ),
+     Fr( ~KAB )
+     ]
+    --[
+    NotEqual( $A, $B ), IsKey( ~KAS ), IsKey( ~KBS ),
+    NotEqual( $A, NA ), NotEqual( $B, NA ), NotEqual( $S, NA ),
+    NotEqual( ~KAS, NA ), NotEqual( ~KBS, NA ),
+    Sent( henc(~KAB, ~KBS) ), Sent( henc($A, ~KBS) ),
+    Sent( henc(NA, ~KAS) ), Sent( henc($B, ~KAS) ),
+    Sent( henc(~KAB, ~KAS) )
+    ]->
+     [
+     Out( <<<henc(NA, ~KAS), henc($B, ~KAS)>, henc(~KAB, ~KAS)>, 
+           henc(henc(~KAB, ~KBS), ~KAS), henc(henc($A, ~KBS), ~KAS)>
+     )
+     ]
+  */
+
+rule (modulo E) A_2:
+   [
+   A_1_State( $A, $B, ~NA ), CSKey( $A, $S, ~KAS ),
+   In( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~KAS) )
+   ]
+  --[
+  NotEqual( $A, $B ), NotEqual( KAB, $S ), NotEqual( KAB, $A ),
+  NotEqual( KAB, $B ), NotEqual( KAB, ~KAS ), NotEqual( KAB, ~NA ),
+  IsKey( ~KAS ), Forwarded( Msg, Msg2 )
+  ]->
+   [ Out( <Msg, Msg2> ), A_2_State( $S, $A, $B, ~KAS, KAB ) ]
+
+  /*
+  rule (modulo AC) A_2:
+     [
+     A_1_State( $A, $B, ~NA ), CSKey( $A, $S, ~KAS ),
+     In( <<<henc(~NA, ~KAS), henc($B, ~KAS)>, henc(KAB, ~KAS)>, 
+          henc(Msg, ~KAS), henc(Msg2, ~KAS)>
+     )
+     ]
+    --[
+    NotEqual( $A, $B ), NotEqual( KAB, $S ), NotEqual( KAB, $A ),
+    NotEqual( KAB, $B ), NotEqual( KAB, ~KAS ), NotEqual( KAB, ~NA ),
+    IsKey( ~KAS ), Forwarded( Msg, Msg2 )
+    ]->
+     [ Out( <Msg, Msg2> ), A_2_State( $S, $A, $B, ~KAS, KAB ) ]
+  */
+
+rule (modulo E) B_1:
+   [ CSKey( $B, $S, ~KBS ), In( henc(<KAB, $A>, ~KBS) ), Fr( ~NB ) ]
+  --[
+  NotEqual( KAB, $A ), NotEqual( $A, $B ), NotEqual( $A, $S ),
+  NotEqual( $A, ~KBS ), NotEqual( KAB, $B ), NotEqual( KAB, $S ),
+  NotEqual( KAB, ~KBS ), IsKey( ~KBS ), Sent( henc(~NB, KAB) ),
+  Received( $S, $B, henc(KAB, ~KBS), henc($A, ~KBS) )
+  ]->
+   [ Out( henc(~NB, KAB) ), B_1_State( $S, $A, $B, ~KBS, KAB, ~NB ) ]
+
+  /*
+  rule (modulo AC) B_1:
+     [
+     CSKey( $B, $S, ~KBS ), In( <henc(KAB, ~KBS), henc($A, ~KBS)> ),
+     Fr( ~NB )
+     ]
+    --[
+    NotEqual( KAB, $A ), NotEqual( $A, $B ), NotEqual( $A, $S ),
+    NotEqual( $A, ~KBS ), NotEqual( KAB, $B ), NotEqual( KAB, $S ),
+    NotEqual( KAB, ~KBS ), IsKey( ~KBS ), Sent( henc(~NB, KAB) ),
+    Received( $S, $B, henc(KAB, ~KBS), henc($A, ~KBS) )
+    ]->
+     [ Out( henc(~NB, KAB) ), B_1_State( $S, $A, $B, ~KBS, KAB, ~NB ) ]
+  */
+
+rule (modulo E) A_3:
+   [ A_2_State( $S, $A, $B, KAS, KAB ), In( henc(NB, KAB) ) ]
+  --[
+  NotEqual( NB, $A ), NotEqual( NB, $B ), NotEqual( NB, $S ),
+  NotEqual( NB, KAS ), NotEqual( NB, KAB ), SecretKey( $A, KAB ),
+  FinishedA( $A, $B, KAB )
+  ]->
+   [ Out( henc(succ(NB), KAB) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) B_2:
+   [
+   B_1_State( $S, $A, $B, KBS, KAB, ~NB ), In( henc(succ(~NB), KAB) )
+   ]
+  --[ SecretKey( $B, KAB ), FinishedB( $B, $A, KAB ) ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+restriction notEqual:
+  "∀ a #t. (NotEqual( a, a ) @ #t) ⇒ (⊥)"
+  // safety formula
+
+lemma ForwardedMessage [sources]:
+  all-traces
+  "(∀ msg1 msg2 #i.
+     (Forwarded( msg1, msg2 ) @ #i) ⇒
+     (∃ #t1 #t2.
+       (((Sent( msg1 ) @ #t1) ∧ (Sent( msg2 ) @ #t2)) ∧ (#t1 < #i)) ∧
+       (#t2 < #i))) ∧
+   (∀ k #i #t1 m.
+     ((IsKey( k ) @ #i) ∧ (K( henc(m, k) ) @ #t1)) ⇒
+     ((∃ #t2. (Sent( henc(m, k) ) @ #t2) ∧ (#t2 < #t1)) ∨
+      (∃ #t2. (Sent( m ) @ #t2) ∧ (#t2 < #t1))))"
+/*
+guarded formula characterizing all counter-examples:
+"((∃ msg1 msg2 #i.
+    (Forwarded( msg1, msg2 ) @ #i)
+   ∧
+    ∀ #t1 #t2.
+     (Sent( msg1 ) @ #t1) ∧ (Sent( msg2 ) @ #t2)
+    ⇒
+     ((¬(#t1 < #i)) ∨ (¬(#t2 < #i)))) ∨
+  (∃ k #i #t1 m.
+    (IsKey( k ) @ #i) ∧ (K( henc(m, k) ) @ #t1)
+   ∧
+    (∀ #t2. (Sent( henc(m, k) ) @ #t2) ⇒ ¬(#t2 < #t1)) ∧
+    (∀ #t2. (Sent( m ) @ #t2) ⇒ ¬(#t2 < #t1))))"
+*/
+induction
+  case empty_trace
+  by contradiction /* from formulas */
+next
+  case non_empty_trace
+  simplify
+  solve( (∃ msg1 msg2 #i.
+           (Forwarded( msg1, msg2 ) @ #i)
+          ∧
+           ∀ #t1 #t2.
+            (Sent( msg1 ) @ #t1) ∧ (Sent( msg2 ) @ #t2)
+           ⇒
+            ((¬(#t1 < #i)) ∨ (¬(#t2 < #i))))  ∥
+         (∃ k #i #t1 m.
+           (IsKey( k ) @ #i) ∧ (K( henc(m, k) ) @ #t1)
+          ∧
+           (∀ #t2. (Sent( henc(m, k) ) @ #t2) ⇒ ¬(#t2 < #t1)) ∧
+           (∀ #t2. (Sent( m ) @ #t2) ⇒ ¬(#t2 < #t1))) )
+    case case_1
+    solve( (last(#i))  ∥
+           (∃ #t1 #t2.
+             (Sent( msg1 ) @ #t1) ∧ (Sent( msg2 ) @ #t2)
+            ∧
+             (¬(last(#t2))) ∧ (¬(last(#t1))) ∧ (#t1 < #i) ∧ (#t2 < #i)) )
+      case case_1
+      solve( A_1_State( $A, $B, ~NA ) ▶₀ #i )
+        case A_1
+        solve( CSKey( $A, $S, ~KAS ) ▶₁ #i )
+          case Client_Server_Keys
+          solve( (∃ #t2.
+                   (Sent( henc(<<<~NA, $B>, KAB>, msg1, msg2>, ~KAS) ) @ #t2)
+                  ∧
+                   (¬(last(#t2))) ∧ (#t2 < #vf))  ∥
+                 (∃ #t2.
+                   (Sent( <<<~NA, $B>, KAB>, msg1, msg2> ) @ #t2)
+                  ∧
+                   (¬(last(#t2))) ∧ (#t2 < #vf)) )
+            case case_1
+            by solve( Sent( henc(<<<~NA, $B>, KAB>, msg1, msg2>, ~KAS)
+                      ) @ #t2 )
+          next
+            case case_2
+            by solve( Sent( <<<~NA, $B>, KAB>, msg1, msg2> ) @ #t2 )
+          qed
+        qed
+      qed
+    next
+      case case_2
+      by contradiction /* from formulas */
+    qed
+  next
+    case case_2
+    solve( (last(#t1))  ∥ (last(#i))  ∥
+           (∃ #t2.
+             (Sent( henc(m, k) ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #t1))  ∥
+           (∃ #t2. (Sent( m ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #t1)) )
+      case case_1
+      solve( IsKey( k ) @ #i )
+        case A_2
+        solve( (∃ #t2.
+                 (Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~k) ) @ #t2)
+                ∧
+                 (¬(last(#t2))) ∧ (#t2 < #vf))  ∥
+               (∃ #t2.
+                 (Sent( <<<~NA, $B>, KAB>, Msg, Msg2> ) @ #t2)
+                ∧
+                 (¬(last(#t2))) ∧ (#t2 < #vf)) )
+          case case_1
+          solve( A_1_State( $A, $B, ~NA ) ▶₀ #i )
+            case A_1
+            solve( CSKey( $A, $S, ~k ) ▶₁ #i )
+              case Client_Server_Keys
+              solve( !KU( henc(m, ~k) ) @ #vk )
+                case A_2_case_1
+                solve( (∃ #t2.
+                         (Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg.1, Msg2.1>, ~KAS) ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.3))  ∥
+                       (∃ #t2.
+                         (Sent( <<<~NA.1, $B.1>, KAB.1>, Msg.1, Msg2.1> ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.3)) )
+                  case case_1
+                  solve( !KU( henc(~NA, ~k) ) @ #vk.4 )
+                    case A_2_case_1
+                    solve( (∃ #t2.
+                             (Sent( henc(<<<~NA.2, $B.2>, KAB.2>, Msg.2, Msg2.2>, ~KAS.1)
+                              ) @ #t2)
+                            ∧
+                             (¬(last(#t2))) ∧ (#t2 < #vf.6))  ∥
+                           (∃ #t2.
+                             (Sent( <<<~NA.2, $B.2>, KAB.2>, Msg.2, Msg2.2> ) @ #t2)
+                            ∧
+                             (¬(last(#t2))) ∧ (#t2 < #vf.6)) )
+                      case case_1
+                      solve( Sent( Msg ) @ #t1.1 )
+                        case B_1
+                        solve( (∃ #t2.
+                                 (Sent( henc(<KAB.1, $A.1>, ~KBS) ) @ #t2)
+                                ∧
+                                 (¬(last(#t2))) ∧ (#t2 < #vf.9))  ∥
+                               (∃ #t2.
+                                 (Sent( <KAB.1, $A.1> ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #vf.9)) )
+                          case case_1
+                          by solve( Sent( henc(<<<~NA, $B>, KAB>, henc(~NB, KAB.1), Msg2>,
+                                               ~k)
+                                    ) @ #t2.1 )
+                        next
+                          case case_2
+                          by solve( Sent( henc(<<<~NA, $B>, KAB>, henc(~NB, KAB.1), Msg2>,
+                                               ~k)
+                                    ) @ #t2.1 )
+                        qed
+                      next
+                        case S_1_case_1
+                        solve( SCKey( $S.1, $A.1, ~KAS ) ▶₀ #t1.1 )
+                          case Client_Server_Keys
+                          solve( SCKey( $S.3, $B.3, ~KBS ) ▶₁ #t1.1 )
+                            case Client_Server_Keys
+                            by solve( Sent( henc(<<<~NA, $B>, KAB>, henc(~KAB.1, ~KBS), Msg2>,
+                                                 ~k)
+                                      ) @ #t2.1 )
+                          qed
+                        qed
+                      next
+                        case S_1_case_2
+                        solve( SCKey( $S.1, $A.1, ~KAS ) ▶₀ #t1.1 )
+                          case Client_Server_Keys
+                          solve( SCKey( $S.3, $B.3, ~KBS ) ▶₁ #t1.1 )
+                            case Client_Server_Keys
+                            by solve( Sent( henc(<<<~NA, $B>, KAB>, henc($A.1, ~KBS), Msg2>,
+                                                 ~k)
+                                      ) @ #t2.1 )
+                          qed
+                        qed
+                      next
+                        case S_1_case_3
+                        solve( SCKey( $S.1, $A.1, ~KAS ) ▶₀ #t1.1 )
+                          case Client_Server_Keys
+                          solve( SCKey( $S.3, $B.3, ~KBS ) ▶₁ #t1.1 )
+                            case Client_Server_Keys
+                            by solve( Sent( henc(<<<~NA, $B>, KAB>, henc(NA.1, ~KAS), Msg2>,
+                                                 ~k)
+                                      ) @ #t2.1 )
+                          qed
+                        qed
+                      next
+                        case S_1_case_4
+                        solve( SCKey( $S.1, $A.1, ~KAS ) ▶₀ #t1.1 )
+                          case Client_Server_Keys
+                          solve( SCKey( $S.3, $B.1, ~KBS ) ▶₁ #t1.1 )
+                            case Client_Server_Keys
+                            by solve( Sent( henc(<<<~NA, $B>, KAB>, henc($B.1, ~KAS), Msg2>,
+                                                 ~k)
+                                      ) @ #t2.1 )
+                          qed
+                        qed
+                      next
+                        case S_1_case_5
+                        solve( SCKey( $S.1, $A.1, ~KAS ) ▶₀ #t1.1 )
+                          case Client_Server_Keys
+                          solve( SCKey( $S.3, $B.3, ~KBS ) ▶₁ #t1.1 )
+                            case Client_Server_Keys
+                            by solve( Sent( henc(<<<~NA, $B>, KAB>, henc(~KAB.1, ~KAS), Msg2>,
+                                                 ~k)
+                                      ) @ #t2.1 )
+                          qed
+                        qed
+                      qed
+                    next
+                      case case_2
+                      by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~k) ) @ #t2.1 )
+                    qed
+                  next
+                    case A_2_case_2
+                    solve( (∃ #t2.
+                             (Sent( henc(<<<~NA.2, $B.2>, KAB.2>, Msg.2, Msg2.2>, ~KAS.1)
+                              ) @ #t2)
+                            ∧
+                             (¬(last(#t2))) ∧ (#t2 < #vf.6))  ∥
+                           (∃ #t2.
+                             (Sent( <<<~NA.2, $B.2>, KAB.2>, Msg.2, Msg2.2> ) @ #t2)
+                            ∧
+                             (¬(last(#t2))) ∧ (#t2 < #vf.6)) )
+                      case case_1
+                      by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~k) ) @ #t2.1 )
+                    next
+                      case case_2
+                      by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~k) ) @ #t2.1 )
+                    qed
+                  next
+                    case S_1
+                    by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~k) ) @ #t2.1 )
+                  next
+                    case c_henc
+                    by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~k) ) @ #t2.1 )
+                  qed
+                next
+                  case case_2
+                  by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~k) ) @ #t2.1 )
+                qed
+              next
+                case A_2_case_2
+                solve( (∃ #t2.
+                         (Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg.1, Msg2.1>, ~KAS) ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.3))  ∥
+                       (∃ #t2.
+                         (Sent( <<<~NA.1, $B.1>, KAB.1>, Msg.1, Msg2.1> ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.3)) )
+                  case case_1
+                  by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~k) ) @ #t2.1 )
+                next
+                  case case_2
+                  by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~k) ) @ #t2.1 )
+                qed
+              next
+                case A_3
+                solve( (∃ #t2.
+                         (Sent( henc(NB, ~k) ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #vf.3))  ∥
+                       (∃ #t2. (Sent( NB ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #vf.3)) )
+                  case case_1
+                  solve( (∃ #t2.
+                           (Sent( henc(<<<~NA.1, $B.1>, ~k>, Msg.1, Msg2.1>, ~KAS) ) @ #t2)
+                          ∧
+                           (¬(last(#t2))) ∧ (#t2 < #vf.4))  ∥
+                         (∃ #t2.
+                           (Sent( <<<~NA.1, $B.1>, ~k>, Msg.1, Msg2.1> ) @ #t2)
+                          ∧
+                           (¬(last(#t2))) ∧ (#t2 < #vf.4)) )
+                    case case_1
+                    by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~k) ) @ #t2.1 )
+                  next
+                    case case_2
+                    by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~k) ) @ #t2.1 )
+                  qed
+                next
+                  case case_2
+                  solve( (∃ #t2.
+                           (Sent( henc(<<<~NA.1, $B.1>, ~k>, Msg.1, Msg2.1>, ~KAS) ) @ #t2)
+                          ∧
+                           (¬(last(#t2))) ∧ (#t2 < #vf.4))  ∥
+                         (∃ #t2.
+                           (Sent( <<<~NA.1, $B.1>, ~k>, Msg.1, Msg2.1> ) @ #t2)
+                          ∧
+                           (¬(last(#t2))) ∧ (#t2 < #vf.4)) )
+                    case case_1
+                    by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~k) ) @ #t2.1 )
+                  next
+                    case case_2
+                    by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~k) ) @ #t2.1 )
+                  qed
+                qed
+              next
+                case B_1
+                by contradiction /* from formulas */
+              next
+                case S_1_case_1
+                by contradiction /* from formulas */
+              next
+                case S_1_case_2
+                by contradiction /* from formulas */
+              next
+                case S_1_case_3
+                by contradiction /* from formulas */
+              next
+                case S_1_case_4
+                by contradiction /* from formulas */
+              next
+                case S_1_case_5
+                by contradiction /* from formulas */
+              next
+                case S_1_case_6
+                by contradiction /* from formulas */
+              next
+                case S_1_case_7
+                by contradiction /* from formulas */
+              next
+                case c_henc
+                by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~k) ) @ #t2.1 )
+              qed
+            qed
+          qed
+        next
+          case case_2
+          solve( CSKey( $A, $S, ~k ) ▶₁ #i )
+            case Client_Server_Keys
+            solve( A_1_State( $A, $B, ~NA ) ▶₀ #i )
+              case A_1
+              by solve( Sent( <<<~NA, $B>, KAB>, Msg, Msg2> ) @ #t2.1 )
+            qed
+          qed
+        qed
+      next
+        case B_1
+        solve( (∃ #t2.
+                 (Sent( henc(<KAB, $A>, ~k) ) @ #t2)
+                ∧
+                 (¬(last(#t2))) ∧ (#t2 < #vf))  ∥
+               (∃ #t2. (Sent( <KAB, $A> ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #vf)) )
+          case case_1
+          solve( CSKey( $B, $S, ~k ) ▶₀ #i )
+            case Client_Server_Keys
+            by solve( Sent( henc(<KAB, $A>, ~k) ) @ #t2 )
+          qed
+        next
+          case case_2
+          solve( CSKey( $B, $S, ~k ) ▶₀ #i )
+            case Client_Server_Keys
+            by solve( Sent( <KAB, $A> ) @ #t2 )
+          qed
+        qed
+      next
+        case Client_Server_Keys
+        solve( !KU( henc(m, ~k) ) @ #vk )
+          case A_2_case_1
+          solve( (∃ #t2.
+                   (Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~KAS) ) @ #t2)
+                  ∧
+                   (¬(last(#t2))) ∧ (#t2 < #vf.1))  ∥
+                 (∃ #t2.
+                   (Sent( <<<~NA, $B>, KAB>, Msg, Msg2> ) @ #t2)
+                  ∧
+                   (¬(last(#t2))) ∧ (#t2 < #vf.1)) )
+            case case_1
+            by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~KAS)
+                      ) @ #t2.1 )
+          next
+            case case_2
+            by solve( Sent( <<<~NA, $B>, KAB>, Msg, Msg2> ) @ #t2.1 )
+          qed
+        next
+          case A_2_case_2
+          solve( (∃ #t2.
+                   (Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~KAS) ) @ #t2)
+                  ∧
+                   (¬(last(#t2))) ∧ (#t2 < #vf.1))  ∥
+                 (∃ #t2.
+                   (Sent( <<<~NA, $B>, KAB>, Msg, Msg2> ) @ #t2)
+                  ∧
+                   (¬(last(#t2))) ∧ (#t2 < #vf.1)) )
+            case case_1
+            by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~KAS)
+                      ) @ #t2.1 )
+          next
+            case case_2
+            by solve( Sent( <<<~NA, $B>, KAB>, Msg, Msg2> ) @ #t2.1 )
+          qed
+        next
+          case A_3
+          solve( (∃ #t2.
+                   (Sent( henc(NB, ~k) ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #vf.1))  ∥
+                 (∃ #t2. (Sent( NB ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #vf.1)) )
+            case case_1
+            solve( (∃ #t2.
+                     (Sent( henc(<<<~NA, $B>, ~k>, Msg, Msg2>, ~KAS) ) @ #t2)
+                    ∧
+                     (¬(last(#t2))) ∧ (#t2 < #vf.2))  ∥
+                   (∃ #t2.
+                     (Sent( <<<~NA, $B>, ~k>, Msg, Msg2> ) @ #t2)
+                    ∧
+                     (¬(last(#t2))) ∧ (#t2 < #vf.2)) )
+              case case_1
+              by solve( Sent( henc(<<<~NA, $B>, ~k>, Msg, Msg2>, ~KAS)
+                        ) @ #t2.2 )
+            next
+              case case_2
+              solve( Sent( henc(NB, ~k) ) @ #t2.1 )
+                case B_1
+                solve( (∃ #t2.
+                         (Sent( henc(<~k, $A.1>, ~KBS) ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.5))  ∥
+                       (∃ #t2.
+                         (Sent( <~k, $A.1> ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #vf.5)) )
+                  case case_1
+                  solve( CSKey( $B, $S, ~KBS ) ▶₀ #t2 )
+                    case Client_Server_Keys
+                    by solve( Sent( <<<~NA, $B>, ~k>, Msg, Msg2> ) @ #t2.2 )
+                  qed
+                next
+                  case case_2
+                  solve( CSKey( $B, $S, ~KBS ) ▶₀ #t2 )
+                    case Client_Server_Keys
+                    by solve( Sent( <<<~NA, $B>, ~k>, Msg, Msg2> ) @ #t2.2 )
+                  qed
+                qed
+              next
+                case S_1_case_1
+                solve( SCKey( $S.1, $A.1, ~KAS.1 ) ▶₀ #t2 )
+                  case Client_Server_Keys
+                  solve( SCKey( $S.1, $B.1, ~k ) ▶₁ #t2 )
+                    case Client_Server_Keys
+                    by solve( Sent( <<<~NA, $B>, ~k>, Msg, Msg2> ) @ #t2.2 )
+                  qed
+                qed
+              next
+                case S_1_case_2
+                solve( SCKey( $S.1, $NB, ~KAS.1 ) ▶₀ #t2 )
+                  case Client_Server_Keys
+                  solve( SCKey( $S.1, $B.1, ~k ) ▶₁ #t2 )
+                    case Client_Server_Keys
+                    by solve( Sent( <<<~NA, $B>, ~k>, Msg, Msg2> ) @ #t2.2 )
+                  qed
+                qed
+              next
+                case S_1_case_3
+                solve( SCKey( $S.1, $A.1, ~k ) ▶₀ #t2 )
+                  case Client_Server_Keys
+                  solve( SCKey( $Server, $B.1, ~KBS ) ▶₁ #t2 )
+                    case Client_Server_Keys
+                    by solve( Sent( <<<~NA, $B>, ~k>, Msg, Msg2> ) @ #t2.2 )
+                  qed
+                qed
+              next
+                case S_1_case_4
+                solve( SCKey( $S.1, $A.1, ~k ) ▶₀ #t2 )
+                  case Client_Server_Keys
+                  solve( SCKey( $Server, $NB, ~KBS ) ▶₁ #t2 )
+                    case Client_Server_Keys
+                    by solve( Sent( <<<~NA, $B>, ~k>, Msg, Msg2> ) @ #t2.2 )
+                  qed
+                qed
+              next
+                case S_1_case_5
+                solve( SCKey( $S.1, $B.1, ~KBS ) ▶₁ #t2 )
+                  case Client_Server_Keys
+                  solve( SCKey( $S.1, $A.1, ~k ) ▶₀ #t2 )
+                    case Client_Server_Keys
+                    by solve( Sent( <<<~NA, $B>, ~k>, Msg, Msg2> ) @ #t2.2 )
+                  qed
+                qed
+              qed
+            qed
+          next
+            case case_2
+            solve( (∃ #t2.
+                     (Sent( henc(<<<~NA, $B>, ~k>, Msg, Msg2>, ~KAS) ) @ #t2)
+                    ∧
+                     (¬(last(#t2))) ∧ (#t2 < #vf.2))  ∥
+                   (∃ #t2.
+                     (Sent( <<<~NA, $B>, ~k>, Msg, Msg2> ) @ #t2)
+                    ∧
+                     (¬(last(#t2))) ∧ (#t2 < #vf.2)) )
+              case case_1
+              by solve( Sent( henc(<<<~NA, $B>, ~k>, Msg, Msg2>, ~KAS)
+                        ) @ #t2.2 )
+            next
+              case case_2
+              by solve( Sent( <<<~NA, $B>, ~k>, Msg, Msg2> ) @ #t2.2 )
+            qed
+          qed
+        next
+          case B_1
+          by contradiction /* from formulas */
+        next
+          case S_1_case_1
+          by contradiction /* from formulas */
+        next
+          case S_1_case_2
+          by contradiction /* from formulas */
+        next
+          case S_1_case_3
+          by contradiction /* from formulas */
+        next
+          case S_1_case_4
+          by contradiction /* from formulas */
+        next
+          case S_1_case_5
+          by contradiction /* from formulas */
+        next
+          case S_1_case_6
+          by contradiction /* from formulas */
+        next
+          case S_1_case_7
+          by contradiction /* from formulas */
+        next
+          case c_henc
+          solve( !KU( ~k ) @ #vk.2 )
+            case A_2_case_1
+            solve( (∃ #t2.
+                     (Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~KAS) ) @ #t2)
+                    ∧
+                     (¬(last(#t2))) ∧ (#t2 < #vf.1))  ∥
+                   (∃ #t2.
+                     (Sent( <<<~NA, $B>, KAB>, Msg, Msg2> ) @ #t2)
+                    ∧
+                     (¬(last(#t2))) ∧ (#t2 < #vf.1)) )
+              case case_1
+              by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~KAS)
+                        ) @ #t2.1 )
+            next
+              case case_2
+              by solve( Sent( <<<~NA, $B>, KAB>, Msg, Msg2> ) @ #t2.1 )
+            qed
+          next
+            case A_2_case_2
+            solve( (∃ #t2.
+                     (Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~KAS) ) @ #t2)
+                    ∧
+                     (¬(last(#t2))) ∧ (#t2 < #vf.1))  ∥
+                   (∃ #t2.
+                     (Sent( <<<~NA, $B>, KAB>, Msg, Msg2> ) @ #t2)
+                    ∧
+                     (¬(last(#t2))) ∧ (#t2 < #vf.1)) )
+              case case_1
+              by solve( Sent( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~KAS)
+                        ) @ #t2.1 )
+            next
+              case case_2
+              by solve( Sent( <<<~NA, $B>, KAB>, Msg, Msg2> ) @ #t2.1 )
+            qed
+          qed
+        qed
+      next
+        case S_1_case_1
+        solve( SCKey( $S, $A, ~k ) ▶₀ #i )
+          case Client_Server_Keys
+          solve( SCKey( $S, $B, ~KBS ) ▶₁ #i )
+            case Client_Server_Keys
+            solve( !KU( henc(m, ~k) ) @ #vk )
+              case A_2_case_1
+              solve( (∃ #t2.
+                       (Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS) ) @ #t2)
+                      ∧
+                       (¬(last(#t2))) ∧ (#t2 < #vf.4))  ∥
+                     (∃ #t2.
+                       (Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2)
+                      ∧
+                       (¬(last(#t2))) ∧ (#t2 < #vf.4)) )
+                case case_1
+                by solve( Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS)
+                          ) @ #t2.1 )
+              next
+                case case_2
+                by solve( Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2.1 )
+              qed
+            next
+              case A_2_case_2
+              solve( (∃ #t2.
+                       (Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS) ) @ #t2)
+                      ∧
+                       (¬(last(#t2))) ∧ (#t2 < #vf.4))  ∥
+                     (∃ #t2.
+                       (Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2)
+                      ∧
+                       (¬(last(#t2))) ∧ (#t2 < #vf.4)) )
+                case case_1
+                by solve( Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS)
+                          ) @ #t2.1 )
+              next
+                case case_2
+                by solve( Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2.1 )
+              qed
+            next
+              case A_3
+              solve( (∃ #t2.
+                       (Sent( henc(NB, ~k) ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #vf.4))  ∥
+                     (∃ #t2. (Sent( NB ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #vf.4)) )
+                case case_1
+                solve( (∃ #t2.
+                         (Sent( henc(<<<~NA.1, $B.1>, ~k>, Msg, Msg2>, ~KAS) ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.5))  ∥
+                       (∃ #t2.
+                         (Sent( <<<~NA.1, $B.1>, ~k>, Msg, Msg2> ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.5)) )
+                  case case_1
+                  by solve( Sent( henc(<<<~NA.1, $B.1>, ~k>, Msg, Msg2>, ~KAS)
+                            ) @ #t2.2 )
+                next
+                  case case_2
+                  solve( Sent( henc(NB, ~k) ) @ #t2.1 )
+                    case B_1
+                    solve( (∃ #t2.
+                             (Sent( henc(<~k, $A.1>, ~KBS.1) ) @ #t2)
+                            ∧
+                             (¬(last(#t2))) ∧ (#t2 < #vf.8))  ∥
+                           (∃ #t2.
+                             (Sent( <~k, $A.1> ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #vf.8)) )
+                      case case_1
+                      solve( CSKey( $B.1, $S.1, ~KBS.1 ) ▶₀ #t2 )
+                        case Client_Server_Keys
+                        by solve( Sent( <<<~NA.1, $B.1>, ~k>, Msg, Msg2> ) @ #t2.2 )
+                      qed
+                    next
+                      case case_2
+                      solve( CSKey( $B.1, $S.1, ~KBS.1 ) ▶₀ #t2 )
+                        case Client_Server_Keys
+                        by solve( Sent( <<<~NA.1, $B.1>, ~k>, Msg, Msg2> ) @ #t2.2 )
+                      qed
+                    qed
+                  next
+                    case S_1_case_1
+                    solve( SCKey( $S.1, $A.1, ~KAS ) ▶₀ #t2 )
+                      case Client_Server_Keys
+                      by solve( SCKey( $S.2, $B.2, ~k ) ▶₁ #t2 )
+                    qed
+                  next
+                    case S_1_case_2
+                    solve( SCKey( $S.1, $NB, ~KAS ) ▶₀ #t2 )
+                      case Client_Server_Keys
+                      by solve( SCKey( $S.2, $B.2, ~k ) ▶₁ #t2 )
+                    qed
+                  next
+                    case S_1_case_3
+                    solve( SCKey( $S.1, $A.1, ~k ) ▶₀ #t2 )
+                      case Client_Server_Keys
+                      by solve( Sent( <<<~NA.1, $B.1>, ~k>, Msg, Msg2> ) @ #t2.1 )
+                    qed
+                  next
+                    case S_1_case_4
+                    solve( SCKey( $S.1, $A.1, ~k ) ▶₀ #t2 )
+                      case Client_Server_Keys
+                      solve( Sent( Msg ) @ #t1.1 )
+                        case B_1
+                        solve( (∃ #t2.
+                                 (Sent( henc(<KAB.1, $A.1>, ~KBS.1) ) @ #t2)
+                                ∧
+                                 (¬(last(#t2))) ∧ (#t2 < #vf.8))  ∥
+                               (∃ #t2.
+                                 (Sent( <KAB.1, $A.1> ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #vf.8)) )
+                          case case_1
+                          solve( CSKey( $B.1, $S.1, ~KBS.1 ) ▶₀ #t1.1 )
+                            case Client_Server_Keys
+                            by solve( Sent( <<<~NA.1, $B.1>, ~k>, henc(~NB, KAB.1), Msg2>
+                                      ) @ #t2.1 )
+                          qed
+                        next
+                          case case_2
+                          by solve( Sent( <<<~NA.1, $B.2>, ~k>, henc(~NB, KAB.1), Msg2>
+                                    ) @ #t2.1 )
+                        qed
+                      next
+                        case S_1_case_1
+                        solve( SCKey( $S.1, $A.1, ~KAS ) ▶₀ #t1.1 )
+                          case Client_Server_Keys
+                          solve( SCKey( $S.2, $B.2, ~KBS.1 ) ▶₁ #t1.1 )
+                            case Client_Server_Keys
+                            by solve( Sent( <<<~NA.1, $B.1>, ~k>, henc(~KAB.1, ~KBS.1), Msg2>
+                                      ) @ #t2.1 )
+                          qed
+                        qed
+                      next
+                        case S_1_case_2
+                        solve( SCKey( $S.1, $A.1, ~KAS ) ▶₀ #t1.1 )
+                          case Client_Server_Keys
+                          solve( SCKey( $S.2, $B.2, ~KBS.1 ) ▶₁ #t1.1 )
+                            case Client_Server_Keys
+                            by solve( Sent( <<<~NA.1, $B.1>, ~k>, henc($A.2, ~KBS.1), Msg2>
+                                      ) @ #t2.1 )
+                          qed
+                        qed
+                      next
+                        case S_1_case_3
+                        solve( SCKey( $S.1, $A.1, ~KAS ) ▶₀ #t1.1 )
+                          case Client_Server_Keys
+                          solve( SCKey( $S.2, $B.2, ~KBS.1 ) ▶₁ #t1.1 )
+                            case Client_Server_Keys
+                            by solve( Sent( <<<~NA.1, $B.1>, ~k>, henc(NA.2, ~KAS.1), Msg2>
+                                      ) @ #t2.1 )
+                          qed
+                        qed
+                      next
+                        case S_1_case_4
+                        solve( SCKey( $S.1, $A.1, ~KAS ) ▶₀ #t1.1 )
+                          case Client_Server_Keys
+                          solve( SCKey( $S.2, $B.2, ~KBS.1 ) ▶₁ #t1.1 )
+                            case Client_Server_Keys
+                            by solve( Sent( <<<~NA.1, $B.1>, ~k>, henc($B.2, ~KAS.1), Msg2>
+                                      ) @ #t2.1 )
+                          qed
+                        qed
+                      next
+                        case S_1_case_5
+                        solve( SCKey( $S.1, $A.1, ~KAS ) ▶₀ #t1.1 )
+                          case Client_Server_Keys
+                          solve( SCKey( $S.2, $B.2, ~KBS.1 ) ▶₁ #t1.1 )
+                            case Client_Server_Keys
+                            by solve( Sent( <<<~NA.1, $B.1>, ~k>, henc(~KAB.1, ~KAS.1), Msg2>
+                                      ) @ #t2.1 )
+                          qed
+                        qed
+                      qed
+                    qed
+                  next
+                    case S_1_case_5
+                    solve( SCKey( $S.1, $A.1, ~k ) ▶₀ #t2 )
+                      case Client_Server_Keys
+                      by solve( Sent( <<<~NA, $B.1>, ~k>, Msg, Msg2> ) @ #t2.1 )
+                    qed
+                  qed
+                qed
+              next
+                case case_2
+                solve( (∃ #t2.
+                         (Sent( henc(<<<~NA.1, $B.1>, ~k>, Msg, Msg2>, ~KAS) ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.5))  ∥
+                       (∃ #t2.
+                         (Sent( <<<~NA.1, $B.1>, ~k>, Msg, Msg2> ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.5)) )
+                  case case_1
+                  by solve( Sent( henc(<<<~NA.1, $B.1>, ~k>, Msg, Msg2>, ~KAS)
+                            ) @ #t2.2 )
+                next
+                  case case_2
+                  by solve( Sent( <<<~NA.1, $B.1>, ~k>, Msg, Msg2> ) @ #t2.2 )
+                qed
+              qed
+            next
+              case B_1
+              by contradiction /* from formulas */
+            next
+              case S_1_case_1
+              by contradiction /* from formulas */
+            next
+              case S_1_case_2
+              by contradiction /* from formulas */
+            next
+              case S_1_case_3
+              by contradiction /* from formulas */
+            next
+              case S_1_case_4
+              by contradiction /* from formulas */
+            next
+              case S_1_case_5
+              by contradiction /* from formulas */
+            next
+              case c_henc
+              solve( !KU( ~k ) @ #vk.7 )
+                case A_2_case_1
+                solve( (∃ #t2.
+                         (Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS) ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.4))  ∥
+                       (∃ #t2.
+                         (Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.4)) )
+                  case case_1
+                  by solve( Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS)
+                            ) @ #t2.1 )
+                next
+                  case case_2
+                  by solve( Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2.1 )
+                qed
+              next
+                case A_2_case_2
+                solve( (∃ #t2.
+                         (Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS) ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.4))  ∥
+                       (∃ #t2.
+                         (Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.4)) )
+                  case case_1
+                  by solve( Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS)
+                            ) @ #t2.1 )
+                next
+                  case case_2
+                  by solve( Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2.1 )
+                qed
+              qed
+            qed
+          qed
+        qed
+      next
+        case S_1_case_2
+        solve( SCKey( $S, $A, ~KAS ) ▶₀ #i )
+          case Client_Server_Keys
+          solve( SCKey( $S, $B, ~k ) ▶₁ #i )
+            case Client_Server_Keys
+            solve( !KU( henc(m, ~k) ) @ #vk )
+              case A_2_case_1
+              solve( (∃ #t2.
+                       (Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS.1) ) @ #t2)
+                      ∧
+                       (¬(last(#t2))) ∧ (#t2 < #vf.4))  ∥
+                     (∃ #t2.
+                       (Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2)
+                      ∧
+                       (¬(last(#t2))) ∧ (#t2 < #vf.4)) )
+                case case_1
+                by solve( Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS.1)
+                          ) @ #t2.1 )
+              next
+                case case_2
+                by solve( Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2.1 )
+              qed
+            next
+              case A_2_case_2
+              solve( (∃ #t2.
+                       (Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS.1) ) @ #t2)
+                      ∧
+                       (¬(last(#t2))) ∧ (#t2 < #vf.4))  ∥
+                     (∃ #t2.
+                       (Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2)
+                      ∧
+                       (¬(last(#t2))) ∧ (#t2 < #vf.4)) )
+                case case_1
+                by solve( Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS.1)
+                          ) @ #t2.1 )
+              next
+                case case_2
+                by solve( Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2.1 )
+              qed
+            next
+              case A_3
+              solve( (∃ #t2.
+                       (Sent( henc(NB, ~k) ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #vf.4))  ∥
+                     (∃ #t2. (Sent( NB ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #vf.4)) )
+                case case_1
+                solve( (∃ #t2.
+                         (Sent( henc(<<<~NA.1, $B.1>, ~k>, Msg, Msg2>, ~KAS.1) ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.5))  ∥
+                       (∃ #t2.
+                         (Sent( <<<~NA.1, $B.1>, ~k>, Msg, Msg2> ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.5)) )
+                  case case_1
+                  by solve( Sent( henc(<<<~NA.1, $B.1>, ~k>, Msg, Msg2>, ~KAS.1)
+                            ) @ #t2.2 )
+                next
+                  case case_2
+                  by solve( Sent( <<<~NA.1, $B.1>, ~k>, Msg, Msg2> ) @ #t2.2 )
+                qed
+              next
+                case case_2
+                solve( (∃ #t2.
+                         (Sent( henc(<<<~NA.1, $B.1>, ~k>, Msg, Msg2>, ~KAS.1) ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.5))  ∥
+                       (∃ #t2.
+                         (Sent( <<<~NA.1, $B.1>, ~k>, Msg, Msg2> ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.5)) )
+                  case case_1
+                  by solve( Sent( henc(<<<~NA.1, $B.1>, ~k>, Msg, Msg2>, ~KAS.1)
+                            ) @ #t2.2 )
+                next
+                  case case_2
+                  by solve( Sent( <<<~NA.1, $B.1>, ~k>, Msg, Msg2> ) @ #t2.2 )
+                qed
+              qed
+            next
+              case B_1
+              by contradiction /* from formulas */
+            next
+              case S_1_case_1
+              by contradiction /* from formulas */
+            next
+              case S_1_case_2
+              by contradiction /* from formulas */
+            next
+              case c_henc
+              solve( !KU( ~k ) @ #vk.7 )
+                case A_2_case_1
+                solve( (∃ #t2.
+                         (Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS.1) ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.4))  ∥
+                       (∃ #t2.
+                         (Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.4)) )
+                  case case_1
+                  by solve( Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS.1)
+                            ) @ #t2.1 )
+                next
+                  case case_2
+                  by solve( Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2.1 )
+                qed
+              next
+                case A_2_case_2
+                solve( (∃ #t2.
+                         (Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS.1) ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.4))  ∥
+                       (∃ #t2.
+                         (Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2)
+                        ∧
+                         (¬(last(#t2))) ∧ (#t2 < #vf.4)) )
+                  case case_1
+                  by solve( Sent( henc(<<<~NA.1, $B.1>, KAB.1>, Msg, Msg2>, ~KAS.1)
+                            ) @ #t2.1 )
+                next
+                  case case_2
+                  by solve( Sent( <<<~NA.1, $B.1>, KAB.1>, Msg, Msg2> ) @ #t2.1 )
+                qed
+              qed
+            qed
+          qed
+        qed
+      qed
+    next
+      case case_2
+      solve( IsKey( k ) @ #i )
+        case A_2
+        solve( CSKey( $A, $S, ~k ) ▶₁ #i )
+          case Client_Server_Keys
+          solve( (∃ #t2.
+                   (Sent( henc(m, ~k) ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #t1))  ∥
+                 (∃ #t2. (Sent( m ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #t1)) )
+            case case_1
+            by contradiction /* from formulas */
+          next
+            case case_2
+            by contradiction /* from formulas */
+          qed
+        qed
+      next
+        case B_1
+        solve( CSKey( $B, $S, ~k ) ▶₀ #i )
+          case Client_Server_Keys
+          solve( (∃ #t2.
+                   (Sent( henc(m, ~k) ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #t1))  ∥
+                 (∃ #t2. (Sent( m ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #t1)) )
+            case case_1
+            by contradiction /* from formulas */
+          next
+            case case_2
+            by contradiction /* from formulas */
+          qed
+        qed
+      next
+        case Client_Server_Keys
+        by contradiction /* node #t1 after last node #i */
+      next
+        case S_1_case_1
+        solve( SCKey( $S, $A, ~k ) ▶₀ #i )
+          case Client_Server_Keys
+          solve( (∃ #t2.
+                   (Sent( henc(m, ~k) ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #t1))  ∥
+                 (∃ #t2. (Sent( m ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #t1)) )
+            case case_1
+            by contradiction /* from formulas */
+          next
+            case case_2
+            by contradiction /* from formulas */
+          qed
+        qed
+      next
+        case S_1_case_2
+        solve( SCKey( $S, $A, ~KAS ) ▶₀ #i )
+          case Client_Server_Keys
+          solve( SCKey( $S, $B, ~k ) ▶₁ #i )
+            case Client_Server_Keys
+            solve( (∃ #t2.
+                     (Sent( henc(m, ~k) ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #t1))  ∥
+                   (∃ #t2. (Sent( m ) @ #t2) ∧ (¬(last(#t2))) ∧ (#t2 < #t1)) )
+              case case_1
+              by contradiction /* from formulas */
+            next
+              case case_2
+              by contradiction /* from formulas */
+            qed
+          qed
+        qed
+      qed
+    next
+      case case_3
+      by contradiction /* from formulas */
+    next
+      case case_4
+      by contradiction /* from formulas */
+    qed
+  qed
+qed
+
+lemma Executability_Lemma:
+  exists-trace
+  "∃ A B key #i #j.
+    ((FinishedA( A, B, key ) @ #i) ∧ (FinishedB( B, A, key ) @ #j)) ∧
+    (¬(A = B))"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ A B key #i #j.
+  (FinishedA( A, B, key ) @ #i) ∧ (FinishedB( B, A, key ) @ #j)
+ ∧
+  ¬(A = B)"
+*/
+by sorry
+
+lemma Secret_Shared_Key:
+  all-traces
+  "∀ agent key #i.
+    (SecretKey( agent, key ) @ #i) ⇒ (¬(∃ #t. K( key ) @ #t))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ agent key #i.
+  (SecretKey( agent, key ) @ #i) ∧ ∃ #t. (K( key ) @ #t)"
+*/
+by sorry
+
+
+
+
+
+
+
+
+
+/*
+WARNING: the following wellformedness checks failed!
+
+Formula terms
+=============
+
+  lemma `ForwardedMessage' uses terms of the wrong form:
+    `henc(Bound 0,Bound 3)', `henc(Bound 1,Bound 4)'
+  
+  The only allowed terms are public names and bound node and message
+  variables. If you encounter free message variables, then you might
+  have forgotten a #-prefix. Sort prefixes can only be dropped where
+  this is unambiguous. Moreover, reducible function symbols are
+  disallowed.
+
+Multiplication restriction of rules
+===================================
+
+  The following rule is not multiplication restricted:
+    rule (modulo E) A_2:
+       [
+       A_1_State( $A, $B, ~NA ), CSKey( $A, $S, ~KAS ),
+       In( henc(<<<~NA, $B>, KAB>, Msg, Msg2>, ~KAS) )
+       ]
+      --[
+      NotEqual( $A, $B ), NotEqual( KAB, $S ), NotEqual( KAB, $A ),
+      NotEqual( KAB, $B ), NotEqual( KAB, ~KAS ), NotEqual( KAB, ~NA ),
+      IsKey( ~KAS ), Forwarded( Msg, Msg2 )
+      ]->
+       [ Out( <Msg, Msg2> ), A_2_State( $S, $A, $B, ~KAS, KAB ) ]
+  
+  After replacing reducible function symbols in lhs with variables:
+    rule (modulo E) A_2:
+       [ A_1_State( $A, $B, ~NA ), CSKey( $A, $S, ~KAS ), In( x.1 ) ]
+      --[
+      NotEqual( $A, $B ), NotEqual( KAB, $S ), NotEqual( KAB, $A ),
+      NotEqual( KAB, $B ), NotEqual( KAB, ~KAS ), NotEqual( KAB, ~NA ),
+      IsKey( ~KAS ), Forwarded( Msg, Msg2 )
+      ]->
+       [ Out( <Msg, Msg2> ), A_2_State( $S, $A, $B, ~KAS, KAB ) ]
+  
+    Variables that occur only in rhs:  KAB, Msg, Msg2
+  
+  The following rule is not multiplication restricted:
+    rule (modulo E) B_1:
+       [ CSKey( $B, $S, ~KBS ), In( henc(<KAB, $A>, ~KBS) ), Fr( ~NB ) ]
+      --[
+      NotEqual( KAB, $A ), NotEqual( $A, $B ), NotEqual( $A, $S ),
+      NotEqual( $A, ~KBS ), NotEqual( KAB, $B ), NotEqual( KAB, $S ),
+      NotEqual( KAB, ~KBS ), IsKey( ~KBS ), Sent( henc(~NB, KAB) ),
+      Received( $S, $B, henc(KAB, ~KBS), henc($A, ~KBS) )
+      ]->
+       [ Out( henc(~NB, KAB) ), B_1_State( $S, $A, $B, ~KBS, KAB, ~NB ) ]
+  
+  After replacing reducible function symbols in lhs with variables:
+    rule (modulo E) B_1:
+       [ CSKey( $B, $S, ~KBS ), In( x.1 ), Fr( ~NB ) ]
+      --[
+      NotEqual( KAB, $A ), NotEqual( $A, $B ), NotEqual( $A, $S ),
+      NotEqual( $A, ~KBS ), NotEqual( KAB, $B ), NotEqual( KAB, $S ),
+      NotEqual( KAB, ~KBS ), IsKey( ~KBS ), Sent( henc(~NB, KAB) ),
+      Received( $S, $B, henc(KAB, ~KBS), henc($A, ~KBS) )
+      ]->
+       [ Out( henc(~NB, KAB) ), B_1_State( $S, $A, $B, ~KBS, KAB, ~NB ) ]
+  
+    Variables that occur only in rhs:  KAB
+  
+  The following rule is not multiplication restricted:
+    rule (modulo E) A_3:
+       [ A_2_State( $S, $A, $B, KAS, KAB ), In( henc(NB, KAB) ) ]
+      --[
+      NotEqual( NB, $A ), NotEqual( NB, $B ), NotEqual( NB, $S ),
+      NotEqual( NB, KAS ), NotEqual( NB, KAB ), SecretKey( $A, KAB ),
+      FinishedA( $A, $B, KAB )
+      ]->
+       [ Out( henc(succ(NB), KAB) ) ]
+  
+  After replacing reducible function symbols in lhs with variables:
+    rule (modulo E) A_3:
+       [ A_2_State( $S, $A, $B, KAS, KAB ), In( x.1 ) ]
+      --[
+      NotEqual( NB, $A ), NotEqual( NB, $B ), NotEqual( NB, $S ),
+      NotEqual( NB, KAS ), NotEqual( NB, KAB ), SecretKey( $A, KAB ),
+      FinishedA( $A, $B, KAB )
+      ]->
+       [ Out( henc(succ(NB), KAB) ) ]
+  
+    Variables that occur only in rhs:  NB
+*/
+
+/*
+Generated from:
+Tamarin version 1.9.0
+Maude version 2.7.1
+Git revision: 74ac97a49e71d7de8081bf1022479daa6058886d (with uncommited changes), branch: develop
+Compiled at: 2023-08-31 15:24:46.897077 UTC
+*/
+
+end/
+
+end
