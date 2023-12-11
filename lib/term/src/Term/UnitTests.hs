@@ -246,6 +246,10 @@ testsUnifyHomomorphic mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH"
     , ("16",        False,  hpair(x0,x1),                                                     henc(x2,x0)                                                                   )
     , ("17",        False,  henc(x0,x2),                                                      hpair(x2,x3)                                                                  )    
     , ("18",        True,   hpair(hpair(x0,x1),hpair(x2,x3)),                                 hpair(hpair(x1,x2),hpair(x3,x4))                                              )
+    , ("19",        True,   hpair(hpair(x0,x1),hpair(x2,x3)),                                 hpair(hpair(x1,x2),hpair(x3,x0))                                              )
+    , ("20",        True,   hpair(x0,x0),                                                     hpair(x1,hpair(x3,x2))                                                        )
+    , ("21",        True,   hpair(x0,x0),                                                     hpair(hpair(x2,x3),hpair(hpair(x3,x3),x4))                                    )
+    , ("22",        True,   hpair(x8,x8),                                                     hpair(hpair(henc(henc(x0,x1),x2),x3),henc(henc(henc(x4,x5),x6),x7))           )
     , ("defhenc 1", True,   henc( hpair (x0,x1), x2),                                         hpair (henc (x0,x2), henc (x1,x2))                                            )
     , ("defhenc 2", True,   hpair( henc (x0,x2), henc (x1,x2)),                               henc (hpair (x0,x1), x2)                                                      )
     , ("defhenc 3", True,   henc( henc (hpair (x0,x1), x2),x0),                               henc(henc (hpair (x0,x1), x2),x0)                                             )
@@ -279,6 +283,7 @@ testsUnifyHomomorphic mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH"
     , ("samefr 2",  True,   fx0,           fx1            )
     , ("samenat 2", True,   nn1,           nn2            )
     , ("samepub 2", True,   px0,           px1            )
+    , ("difficult", False,  hpair(hpair(nn1,fx0),x2),     hpair(hpair(x2,x3),x3)  ) 
      -- timepoint cases
     , ("node 1",    True,   node1,         node1          )
     , ("node 2",    True,   node1,         node2          )
