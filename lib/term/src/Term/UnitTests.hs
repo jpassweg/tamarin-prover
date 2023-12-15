@@ -297,6 +297,8 @@ testsUnifyHomomorphic mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH"
     , ("shapa 5",   True,   hpair(henc(x0,x1),x2),           henc(x3,x4))
     , ("shapa 6",   True,   hpair(henc(henc(x0,x1),x2),x3),  henc(x4,x5))
     , ("shapa 7",   True,   hpair(henc(henc(x0,x1),x2),x3),  henc(henc(x4,x5),x6))   
+    -- TODO: 1 + 2 = 3 luege ob sorts
+    -- Example womme müesst normhomomorphic awende nach einere rule application odr so
     ]
 
 testUnifyWithPrint :: MaudeHandle -> MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
