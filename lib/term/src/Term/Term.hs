@@ -116,6 +116,7 @@ module Term.Term (
     , bpReducibleFunSig
     , xorReducibleFunSig
     , homReducibleFunSig
+    , homEncFunSig
     , homPairFunSig
     , homPairNoEqFunSig
     , homPairFunDestSig

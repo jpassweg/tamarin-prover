@@ -80,6 +80,7 @@ module Term.Term.FunctionSymbols (
     , bpReducibleFunSig
     , xorReducibleFunSig
     , homReducibleFunSig
+    , homEncFunSig
     , homPairFunSig
     , homPairNoEqFunSig
     , homPairFunDestSig
@@ -267,8 +268,10 @@ bpReducibleFunSig = S.fromList [ NoEq pmultSym, C EMap ]
 -- NOTE: for symmetric encryption sdec is reducible but senc is not. 
 -- For homomorphic encryption, henc needs to be reducible for normalization. 
 homReducibleFunSig :: FunSig
-homReducibleFunSig = S.fromList [ NoEq homDecSym, NoEq homEncSym, 
-  NoEq homFstSym, NoEq homSndSym ]
+homReducibleFunSig = S.fromList [ NoEq homDecSym, NoEq homFstSym, NoEq homSndSym ]
+
+homEncFunSig :: FunSig
+homEncFunSig = S.fromList [ NoEq homEncSym ]
 
 -- | Reducible function symbols for XOR.
 xorReducibleFunSig :: FunSig

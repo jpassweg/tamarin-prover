@@ -113,7 +113,7 @@ maudeSig msig@MaudeSig{enableDH, enableBP, enableMSet, enableNat, enableXor, ena
                 `S.union` (if enableNat            then natFunSig  else S.empty)
                 `S.union` (if enableXor            then xorFunSig  else S.empty)
                 `S.union` (if enableHom            then homFunSig `S.union` homPairFunSig  else S.empty)
-    irreduciblefuns = allfuns `S.difference` reducibleWithoutMult
+    irreduciblefuns = allfuns `S.difference` (reducibleWithoutMult `S.union` homEncFunSig) 
     reducibleWithoutMult =
         S.fromList [ o | CtxtStRule (viewTerm -> FApp o _) _ <- S.toList stRules]
           `S.union` dhReducibleFunSig `S.union` bpReducibleFunSig `S.union` xorReducibleFunSig `S.union` homReducibleFunSig  --careful! the AC Mult is missing here (probably intentionally)
