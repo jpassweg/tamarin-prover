@@ -18,6 +18,7 @@ module Term.VTerm (
     , varTerm
     , constTerm
     , varsVTerm
+    , foldVarsVTerm
     , occursVTerm
     , constsVTerm
     , isVar
@@ -122,6 +123,10 @@ isLit _ = False
 -- | @vars t@ returns a duplicate-free list of variables that occur in @t@.
 varsVTerm :: Ord v => VTerm c v -> [v]
 varsVTerm = sortednub . D.toList . foldMap (foldMap return)
+
+-- | @foldVarsVTerm [t]@ returns a duplicate-free list of all variables that occur in @[t]@.
+foldVarsVTerm :: Ord v => [VTerm c v] -> [v]
+foldVarsVTerm = sortednub . concatMap (D.toList . foldMap (foldMap return))
 
 -- | @occurs v t@ returns @True@ if @v@ occurs in @t@
 occursVTerm :: Eq v => v -> VTerm c v -> Bool

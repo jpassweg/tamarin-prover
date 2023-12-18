@@ -6,11 +6,13 @@ module Term.Unification.UnificationCombinator (
 ) where
 
 import Term.LTerm (
-  LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..), varTerm, varsVTerm, viewTerm, isAnyHom, termViewToTerm, isLit)
+  LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..), varTerm, varsVTerm, foldVarsVTerm, viewTerm, isAnyHom, termViewToTerm, isLit)
 
-import Term.Rewriting.Definitions (Equal(..), Match, flattenMatch)
+import Term.Rewriting.Definitions (Equal(..), eqsToType, Match, flattenMatch)
 import Term.Substitution.SubstVFree (substFromList, applyVTerm, Subst, LSubst)
 import Term.Substitution.SubstVFresh (LSubstVFresh, substFromListVFresh, substToListVFresh)
+
+import Term.Unification.HomomorphicEncryption (getNewSimilarVar)
 
 import Term.Unification.MConst
     ( MConst,
@@ -23,7 +25,6 @@ import Term.Unification.MConst
 import Data.Bifunctor (second, bimap)
 import Data.List (permutations)
 import Extension.Prelude (sortednub)
-import Term.Unification.HomomorphicEncryption (getNewSimilarVar, foldVars, eqsToTerms)
 import Data.Maybe (mapMaybe)
 
 -- NOTE: Maybe add checks here that in the returned substitution all vars on the left
@@ -33,7 +34,7 @@ matchUnionDisjointTheories sortOf unifierPair isRightSystem matchProblem = case 
   Nothing -> []
   Just ms -> let
       eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
-      orgVars = foldVars $ concatMap (\(l,r) -> [l,r]) ms
+      orgVars = foldVarsVTerm $ concatMap (\(l,r) -> [l,r]) ms
       highestIndex = foldr (max . lvarIdx) 0 orgVars
       unifier = map substToListVFresh $ unifyUnionDisjointTheories (sortOfMConst sortOf) unifierPair isRightSystem eqs
       newVars = filter (`notElem` orgVars) $
@@ -64,7 +65,7 @@ matchUnionDisjointTheories sortOf unifierPair isRightSystem matchProblem = case 
 --   (probably not as it is a restriction which might never occur in the actual substitution)
 unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> MConstUnifierPair c -> (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> [LSubstVFresh c]
 unifyUnionDisjointTheories sortOf unifierPair isRightSystem eqs = let
-  allVars = foldVars $ eqsToTerms eqs
+  allVars = foldVarsVTerm $ eqsToType eqs
   (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars)
   (acSystem, homSystem) = splitSystem isRightSystem absEqs
   solvedSystems = solveDisjointSystems sortOf
