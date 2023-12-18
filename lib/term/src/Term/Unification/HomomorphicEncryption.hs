@@ -2,8 +2,7 @@
 
 module Term.Unification.HomomorphicEncryption (
   -- * Unification modulo EpsilonH for Homomorphic Encryption
-    unifyHomomorphicLTerm
-  , unifyHomomorphicLTermWrapper
+  unifyHomomorphicLTermWrapper
 
   -- * Matching modulo EpsilonH for Homomorphic Encryption
   , matchHomomorphicLTerm
