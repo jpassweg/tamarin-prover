@@ -6,13 +6,13 @@ module Term.Unification.UnificationCombinator (
 ) where
 
 import Term.LTerm (
-  LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..), varTerm, varsVTerm, foldVarsVTerm, viewTerm, isAnyHom, termViewToTerm, isLit)
+  LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..), 
+  varTerm, varsVTerm, foldVarsVTerm, viewTerm, isAnyHom, termViewToTerm, isLit,
+  evalFreshAvoiding, freshLVar)
 
 import Term.Rewriting.Definitions (Equal(..), eqsToType, Match, flattenMatch)
 import Term.Substitution.SubstVFree (substFromList, applyVTerm, Subst, LSubst)
 import Term.Substitution.SubstVFresh (LSubstVFresh, substFromListVFresh, substToListVFresh)
-
-import Term.Unification.HomomorphicEncryption (getNewSimilarVar)
 
 import Term.Unification.MConst
     ( MConst,
@@ -77,7 +77,7 @@ abstractVars ([], allVars) = ([], allVars)
 abstractVars (e:es, allVars) = case findAlienSubTerm e of
   Just (alienSubterm, applyToOneSide) -> let
     -- NOTE: can be improved to LSortMsg or LSortNat but algorithm then needs to be adapted
-    newVar = getNewSimilarVar (LVar "abstractVar" LSortMsg 0) allVars
+    newVar = evalFreshAvoiding (freshLVar "abstractVar" LSortMsg) allVars
     newE = applyToOneSide (substituteTermWithVar alienSubterm newVar) e
     in abstractVars (Equal alienSubterm (varTerm newVar) : newE : es, newVar : allVars)
   Nothing -> let (newEs, totVars) = abstractVars (es, allVars)
@@ -109,7 +109,7 @@ abstractEqs (e:es, allVars) = if isLit (eqLHS e) || isLit (eqRHS e)
     || isAnyHom (eqLHS e) == isAnyHom (eqRHS e)
   then let (newEs, newVars) = abstractEqs (es, allVars) in (e : newEs, newVars)
   else let
-    newVar = getNewSimilarVar (LVar "splitVar" LSortMsg 0) allVars
+    newVar = evalFreshAvoiding (freshLVar "splitVar" LSortMsg) allVars
     (newEs, newVars) = abstractEqs (es, newVar : allVars)
   in (Equal (varTerm newVar) (eqLHS e) : Equal (varTerm newVar) (eqRHS e) : newEs, newVars)
 

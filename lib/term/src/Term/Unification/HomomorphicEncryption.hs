@@ -7,9 +7,6 @@ module Term.Unification.HomomorphicEncryption (
   -- * Matching modulo EpsilonH for Homomorphic Encryption
   , matchHomomorphicLTermWrapper
 
-  -- * own new var generator
-  , getNewSimilarVar
-
   -- TODO: find better name for this
   -- * Failure rule Wrapper
   , failureHomomorphicRuleWrapper
@@ -31,7 +28,8 @@ import Term.Unification.MConst
 import Term.LTerm (
   LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..),
   isVar, varTerm, occursVTerm, foldVarsVTerm, viewTerm,
-  isHomPair, isHomEnc, sortCompare, sortOfLTerm)
+  isHomPair, isHomEnc, sortCompare, sortOfLTerm,
+  evalFreshAvoiding, freshLVar)
 -- Lit(Var, Con), IsConst, isVar, varTerm, termVar, foldVarsVTerm, occursVTerm come from Term.VTerm
 -- isHomPair, isHomEnc come from Term.Term
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
@@ -217,7 +215,7 @@ getFreeAvoidingSubstOfTerm orgVars (newSubst, allVs) t =
     (Lit (Var x)) ->
       if x `elem` map fst newSubst || x `notElem` orgVars
       then (newSubst, allVs)
-      else let newV = getNewSimilarVar x allVs in ((x, varTerm newV):newSubst, newV:allVs)
+      else let newV = evalFreshAvoiding (freshLVar (lvarName x) (lvarSort x)) allVs in ((x, varTerm newV):newSubst, newV:allVs)
     (FApp _ args) -> getFreeAvoidingSubstOfTerms orgVars (newSubst, allVs) args
 
 -- Presubst to Substitution
@@ -366,7 +364,8 @@ shapingHomomorphicRule (Equal eL eR) _ (_, allVars) = let
   then case findQualifyingETerm eRepsLHS n 0 of
     Just (qualifyingIndex, qualifyingELhs, x) -> let
       m = n + 2 - length qualifyingELhs
-      xFresh = getNewSimilarVar (LVar "sh" LSortMsg 0) allVars
+      xFresh = evalFreshAvoiding (freshLVar "sh" LSortMsg) allVars
+      --xFresh = getNewSimilarVar (LVar "sh" LSortMsg 0) allVars
       lhs1NewPTerm = let (ys,zs) = splitAt qualifyingIndex eRepsLHS in
         PRep (eRepsString $ pRep eL)
         (ys ++ [[varTerm xFresh] ++ take (m-1) (tail (eRep eR)) ++ tail qualifyingELhs] ++ tail zs)
@@ -436,11 +435,6 @@ parsingHomomorphicRule (Equal eL eR) _ _ = let
 --   the sort of @t@.
 sortCorrectForSubst :: IsConst c => (c -> LSort) -> LVar -> LTerm c -> Bool
 sortCorrectForSubst st v t = sortCompare (lvarSort v) (sortOfLTerm st t) `elem` [Just EQ, Just GT]
-
--- We want our own variable renaming method since we don't want to work with freeIndex
--- but rather with always incrementing index
-getNewSimilarVar :: LVar -> [LVar] -> LVar
-getNewSimilarVar x allVars = LVar (lvarName x) (lvarSort x) $ (+) 1 $ foldr (max . lvarIdx) (lvarIdx x) allVars
 
 occursVTermEqs :: LVar -> [Equal (LPETerm c)] -> Bool
 occursVTermEqs v eqs = any (occursVTerm v . lTerm) (eqsToType eqs)

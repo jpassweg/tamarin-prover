@@ -1,0 +1,24 @@
+theory Compose
+begin
+
+builtins: homomorphic-encryption
+
+rule GetVars:
+  [ Fr(~a), Fr(~b), Fr(~c), Fr(~d), Fr(~e), Fr(~f), Fr(~g) ]
+  --[]->
+  [ !Vars(~a,~b,~c,~d,~e,~f,~g) ]
+
+rule A:
+  [ !Vars(af,bf,cf,df,ef,ff,gf) ]
+  --[ Send(af,bf,cf,df,ef,ff,gf) ]->
+  [ OutVars(af,bf,cf,df,ef,ff,gf) ]
+
+rule B:
+  [ OutVars(ab,bb,cb,db,eb,fb,gb) ]
+  --[ Receive(ab,bb,cb,db,eb,fb,gb) ]->
+  []
+
+lemma Send_And_Received: exists-trace
+  "Ex al bl cl dl el fl gl #i #j. Send(al,bl,cl,dl,el,fl,gl) @i & Receive(al,bl,cl,dl,el,fl,gl) @j"
+
+end
