@@ -45,11 +45,6 @@ import Extension.Prelude (sortednub)
 -- Matching Algorithm using the Unification Algorithm
 -----------------------------------------------------
 
-matchHomomorphicLTermWrapper :: IsConst c => (c -> LSort) -> Match (LTerm c) -> [LSubst c]
-matchHomomorphicLTermWrapper sortOf matchProblem = case flattenMatch matchProblem of
-  Nothing -> []
-  Just ms -> maybeToList $ matchHomomorphicLTerm sortOf ms
-
 -- | matchHomomorphicLTerm
 -- NOTE: Tamarin does allow matching pair(x0,x1) with pair(x1,x0) even though the substitution
 -- x0 <~ x1, x1 <~ x0 is not allowed in unification.
@@ -57,33 +52,30 @@ matchHomomorphicLTermWrapper sortOf matchProblem = case flattenMatch matchProble
 -- creating new variables, unifyHomomorphicLTermWithVars can also take into account the 
 -- variables that we turned into Consts in toMConstA.
 -- NOTE: Id-substitutions (like x0 <~ x0) are being removed by the substFromList function.
-matchHomomorphicLTerm :: IsConst c => (c -> LSort) -> [(LTerm c, LTerm c)] -> Maybe (LSubst c)
-matchHomomorphicLTerm sortOf ms = let
+matchHomomorphicLTermWrapper :: IsConst c => (c -> LSort) -> Match (LTerm c) -> [LSubst c]
+matchHomomorphicLTermWrapper sortOf matchProblem = let
+  ms = fromMaybe [] (flattenMatch matchProblem)
   sO = sortOfMConst sortOf
   eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
   orgVars = foldVarsVTerm $ foldr (\(t,p) vs -> t:p:vs) [] ms
   orgLVars = foldVarsVTerm $ map snd ms
   unifier = unifyHomomorphicLTermWithVars sO (eqs, orgVars)
-  in toSingleSubst =<< substFromMConst =<< toSubstForm sO orgLVars =<< unifier
+  in fromPreSubst $ substFromMConst =<< toSubstForm sO orgLVars =<< unifier
 
 -- Unification Algorithm Wrapper
 --------------------------------
 
-unifyHomomorphicLTermWrapper :: IsConst c =>  (c -> LSort) -> [Equal (LTerm c)] -> [LSubstVFresh c]
-unifyHomomorphicLTermWrapper sortOf eqs = case unifyHomomorphicLTerm sortOf eqs of
-    Just (_, hSF) -> [hSF]
-    Nothing       -> []
-
-unifyHomomorphicLTerm :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> Maybe (LSubst c, LSubstVFresh c)
-unifyHomomorphicLTerm sortOf eqs = let
+unifyHomomorphicLTermWrapper :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> [LSubstVFresh c]
+unifyHomomorphicLTermWrapper sortOf eqs = let
   orgVars = foldVarsVTerm $ eqsToType eqs
   unifier = unifyHomomorphicLTermWithVars sortOf (eqs, orgVars)
-  in toDoubleSubst =<< toFreeAvoid orgVars =<< toSubstForm sortOf orgVars =<< unifier
+  in fromPreSubstVFresh $ toFreeAvoid orgVars =<< toSubstForm sortOf orgVars =<< unifier
 
 -- Unification Algorithm using the Homomorphic Rules
 ----------------------------------------------------
 
 -- | Types to make it easier to have an overview of the algorithm 
+-- TODO: change these substitiutions
 type PreSubst c = ([(LVar, LTerm c)], [LVar])
 type EqsSubst a = ([Equal a], [LVar])
 
@@ -231,11 +223,15 @@ getFreeAvoidingSubstOfTerm orgVars (newSubst, allVs) t =
 -- Presubst to Substitution
 ---------------------------
 
-toDoubleSubst :: PreSubst c -> Maybe (LSubst c, LSubstVFresh c)
-toDoubleSubst = Just . (\s -> (substFromList s, substFromListVFresh s)) . fst
+fromPreSubst :: Maybe (PreSubst c) -> [LSubst c]
+fromPreSubst pr = case pr of
+  Nothing -> []
+  Just s  -> [substFromList $ fst s]
 
-toSingleSubst :: PreSubst c -> Maybe (LSubst c)
-toSingleSubst = Just . substFromList . fst
+fromPreSubstVFresh :: Maybe (PreSubst c) -> [LSubstVFresh c]
+fromPreSubstVFresh pr = case pr of
+  Nothing -> []
+  Just s  -> [substFromListVFresh $ fst s]
 
 -- Homomorphic Rules Managers
 -----------------------------
@@ -305,7 +301,7 @@ trivialHomomorphicRule (Equal eL eR) _ _ = if lTerm eL == lTerm eR then HEqs ([]
 stdDecompositionHomomorphicRule :: IsConst c => HomomorphicRule c
 stdDecompositionHomomorphicRule (Equal eL eR) _ _ =
   case (viewTermPE eL, viewTermPE eR) of
-    (FApp lfsym largs, FApp rfsym rargs) | lfsym == rfsym && length largs == length rargs 
+    (FApp lfsym largs, FApp rfsym rargs) | lfsym == rfsym && length largs == length rargs
       -> HEqs (zipWith (\l r -> Equal (toLPETerm l) (toLPETerm r)) largs rargs, [])
     _ -> HNothing
 
@@ -350,13 +346,13 @@ differentConsts (Equal eL eR) _ _ = case (viewTermPE eL, viewTermPE eR) of
 -- Checks if sorts are incompatible
 doSortsCompare :: IsConst c => HomomorphicRule c
 doSortsCompare (Equal eL eR) sortOf _ = case (viewTermPE eL, viewTermPE eR) of
-  (Lit (Var vl), Lit (Var vr)) -> 
+  (Lit (Var vl), Lit (Var vr)) ->
     if sortCorrectForSubst sortOf vl (lTerm eR) || sortCorrectForSubst sortOf vr (lTerm eL) then HNothing else HFail
-  (Lit (Var vl), _           ) -> 
+  (Lit (Var vl), _           ) ->
     if sortCorrectForSubst sortOf vl (lTerm eR) then HNothing else HFail
-  (_,            Lit (Var vr)) -> 
+  (_,            Lit (Var vr)) ->
     if sortCorrectForSubst sortOf vr (lTerm eL) then HNothing else HFail
-  _                            -> 
+  _                            ->
     if isJust $ sortCompare (sortOfLTerm sortOf $ lTerm eL) (sortOfLTerm sortOf $ lTerm eR) then HNothing else HFail
 
 -- | Homomorphic Patterns
@@ -372,7 +368,7 @@ shapingHomomorphicRule (Equal eL eR) _ (_, allVars) = let
       m = n + 2 - length qualifyingELhs
       xFresh = getNewSimilarVar (LVar "sh" LSortMsg 0) allVars
       lhs1NewPTerm = let (ys,zs) = splitAt qualifyingIndex eRepsLHS in
-        PRep (eRepsString $ pRep eL) 
+        PRep (eRepsString $ pRep eL)
         (ys ++ [[varTerm xFresh] ++ take (m-1) (tail (eRep eR)) ++ tail qualifyingELhs] ++ tail zs)
       lhs1 = toLPETerm $ normHomomorphic $ fromPRepresentation lhs1NewPTerm
       rhs2 = toLPETerm $ normHomomorphic $ fromERepresentation $ varTerm xFresh : take (m-1) (tail (eRep eR))
@@ -404,8 +400,8 @@ failureOneHomomorphicRule (Equal eL eR) _ _ = let
       else matchVars vs vs2
 
 failureTwoHomomorphicRule :: IsConst c => HomomorphicRule c
-failureTwoHomomorphicRule (Equal eL eR) _ _ = let eRepsLHS = eRepsTerms $ pRep eL in 
-  if any (\e -> not (isVar $ head e) && (length e < length (eRep eR))) eRepsLHS && length eRepsLHS > 1 
+failureTwoHomomorphicRule (Equal eL eR) _ _ = let eRepsLHS = eRepsTerms $ pRep eL in
+  if any (\e -> not (isVar $ head e) && (length e < length (eRep eR))) eRepsLHS && length eRepsLHS > 1
   then HFail
   else HNothing
 
