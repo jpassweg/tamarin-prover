@@ -203,16 +203,13 @@ testMatchingHomWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
     lnMatchesHom = not (null substsHom)
     substHom = safeHead substsHom
 
-    directSubstHomM = matchHomomorphicLTerm sortOfName [(t1N, t2N)]
-    directSubstHom = fromMaybe emptySubst directSubstHomM
+    directSubstHomM = matchHomomorphicLTermWrapper sortOfName (DelayedMatches [(t1N, t2N)])
+    directSubstHom = if null directSubstHomM then emptySubst else head directSubstHomM
+    substHomMatches = not (null directSubstHomM)
 
     t2Subst = applyVTerm subst t2
     t2SubstH = applyVTerm directSubstHom t2
     t2NSubstH = normHomomorphic $ applyVTerm directSubstHom t2N
-
-    substHomMatches = case directSubstHomM of
-      Just _ -> True
-      _      -> False
 
     safeHead s = if null s then Subst $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)] else head s
 
