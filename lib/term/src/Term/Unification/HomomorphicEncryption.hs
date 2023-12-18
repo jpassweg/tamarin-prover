@@ -7,26 +7,18 @@ module Term.Unification.HomomorphicEncryption (
   -- * Matching modulo EpsilonH for Homomorphic Encryption
   , matchHomomorphicLTermWrapper
 
-  -- * Helper functions
-  , eqsToTerms
-  , foldVars
+  -- * own new var generator
   , getNewSimilarVar
 
+  -- TODO: find better name for this
   -- * Failure rule Wrapper
   , failureHomomorphicRuleWrapper
 
   -- * For debugging
   , debugHomomorphicRule
   , HomomorphicRuleReturn(..)
-  , unifyHomomorphicLTermWithVars
-  , toSubstForm
-  , toFreeAvoid
 
-  , MConst(..)
-  , toMConstA
-  , toMConstC
-  , toMConstVarList
-  , fromMConst
+  -- * Convenience export
   , sortOfMConst
 ) where
 
@@ -38,13 +30,13 @@ import Term.Unification.MConst
 
 import Term.LTerm (
   LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..),
-  isVar, varTerm, occursVTerm, varsVTerm, viewTerm,
+  isVar, varTerm, occursVTerm, foldVarsVTerm, viewTerm,
   isHomPair, isHomEnc, sortCompare, sortOfLTerm)
--- Lit(Var, Con), IsConst, isVar, varTerm, termVar, varsVTerm, occursVTerm come from Term.VTerm
+-- Lit(Var, Con), IsConst, isVar, varTerm, termVar, foldVarsVTerm, occursVTerm come from Term.VTerm
 -- isHomPair, isHomEnc come from Term.Term
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
 
-import Term.Rewriting.Definitions (Equal(..), Match, flattenMatch)
+import Term.Rewriting.Definitions (Equal(..), eqsToType, Match, flattenMatch)
 import Term.Substitution.SubstVFree (LSubst, substFromList, applyVTerm)
 import Term.Substitution.SubstVFresh (LSubstVFresh, substFromListVFresh)
 
@@ -69,8 +61,8 @@ matchHomomorphicLTerm :: IsConst c => (c -> LSort) -> [(LTerm c, LTerm c)] -> Ma
 matchHomomorphicLTerm sortOf ms = let
   sO = sortOfMConst sortOf
   eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
-  orgVars = foldVars $ foldr (\(t,p) vs -> t:p:vs) [] ms
-  orgLVars = foldVars $ map snd ms
+  orgVars = foldVarsVTerm $ foldr (\(t,p) vs -> t:p:vs) [] ms
+  orgLVars = foldVarsVTerm $ map snd ms
   unifier = unifyHomomorphicLTermWithVars sO (eqs, orgVars)
   in toSingleSubst =<< substFromMConst =<< toSubstForm sO orgLVars =<< unifier
 
@@ -84,7 +76,7 @@ unifyHomomorphicLTermWrapper sortOf eqs = case unifyHomomorphicLTerm sortOf eqs 
 
 unifyHomomorphicLTerm :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> Maybe (LSubst c, LSubstVFresh c)
 unifyHomomorphicLTerm sortOf eqs = let
-  orgVars = foldVars $ eqsToTerms eqs
+  orgVars = foldVarsVTerm $ eqsToType eqs
   unifier = unifyHomomorphicLTermWithVars sortOf (eqs, orgVars)
   in toDoubleSubst =<< toFreeAvoid orgVars =<< toSubstForm sortOf orgVars =<< unifier
 
@@ -179,7 +171,7 @@ moveVarLeft sortOf orgVars (Equal l r) = case (viewTerm l, viewTerm r) of
 addOrderDubVars :: IsConst c => [LVar] -> ([LVar], [LTerm c]) -> [(LVar, LVar)] -> Maybe [(LVar, LTerm c)]
 addOrderDubVars _ subst [] = Just (uncurry zip subst)
 addOrderDubVars orgVars (lPVars, rPTerms) ((lv,rv):dvs) = let
-  rPVars = foldVars rPTerms
+  rPVars = foldVarsVTerm rPTerms
   vs = foldr (\(l,r) s -> l:r:s) [] dvs
   in case (lv `elem` lPVars, lv `elem` rPVars, lv `elem` orgVars, lv `elem` vs, rv `elem` lPVars, rv `elem` rPVars, rv `elem` orgVars, rv `elem` vs) of
     (_,    _,    False,_,      _,    _,    False,_    ) -> addOrderDubVars orgVars (lPVars, rPTerms) dvs
@@ -449,18 +441,13 @@ parsingHomomorphicRule (Equal eL eR) _ _ = let
 sortCorrectForSubst :: IsConst c => (c -> LSort) -> LVar -> LTerm c -> Bool
 sortCorrectForSubst st v t = sortCompare (lvarSort v) (sortOfLTerm st t) `elem` [Just EQ, Just GT]
 
-eqsToTerms :: [Equal a] -> [a]
-eqsToTerms [] = []
-eqsToTerms (e:es) = eqLHS e : eqRHS e : eqsToTerms es
-
-foldVars :: [LTerm c] -> [LVar]
-foldVars = sortednub . concatMap varsVTerm
-
+-- We want our own variable renaming method since we don't want to work with freeIndex
+-- but rather with always incrementing index
 getNewSimilarVar :: LVar -> [LVar] -> LVar
 getNewSimilarVar x allVars = LVar (lvarName x) (lvarSort x) $ (+) 1 $ foldr (max . lvarIdx) (lvarIdx x) allVars
 
 occursVTermEqs :: LVar -> [Equal (LPETerm c)] -> Bool
-occursVTermEqs v eqs = any (occursVTerm v . lTerm) (eqsToTerms eqs)
+occursVTermEqs v eqs = any (occursVTerm v . lTerm) (eqsToType eqs)
 
 dubVars :: Equal (LTerm c) -> Bool
 dubVars (Equal l r) = case (viewTerm l, viewTerm r) of

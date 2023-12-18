@@ -8,6 +8,7 @@ module Term.Rewriting.Definitions (
     -- * Equalities
       Equal (..)
     , evalEqual
+    , eqsToType
 
     -- * Matching problems
     , Match(..)
@@ -42,6 +43,10 @@ data Equal a = Equal { eqLHS :: a, eqRHS :: a }
 -- 'Eq' instance.
 evalEqual :: Eq a => Equal a -> Bool
 evalEqual (Equal l r) = l == r
+
+eqsToType :: [Equal a] -> [a]
+eqsToType [] = []
+eqsToType (e:es) = eqLHS e : eqRHS e : eqsToType es
 
 instance Functor Equal where
     fmap f (Equal lhs rhs) = Equal (f lhs) (f rhs)
