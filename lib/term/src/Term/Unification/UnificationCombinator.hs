@@ -24,17 +24,20 @@ import Term.Unification.MConst
 
 import Data.Bifunctor (second, bimap)
 import Data.List (permutations)
-import Extension.Prelude (sortednub)
+import qualified Data.Set as S
 import Data.Maybe (mapMaybe)
 
+import Extension.Prelude (sortednub)
+
 -- NOTE: Maybe add checks here that in the returned substitution all vars on the left
+-- TODO: need to change the variable renaming to changing index per variable instead of a global index
 -- are from the matched terms and all vars on the right are from the term to be matched.
 matchUnionDisjointTheories :: IsConst c => (c -> LSort) -> DoubleMConstUnifierPair c -> (Equal (LTerm (MConst c)) -> Bool) -> Match (LTerm c) -> [LSubst c]
 matchUnionDisjointTheories sortOf unifierPair isRightSystem matchProblem = case flattenMatch matchProblem of
   Nothing -> []
   Just ms -> let
       eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
-      orgVars = foldVarsVTerm $ concatMap (\(l,r) -> [l,r]) ms
+      orgVars = S.toList $ foldVarsVTerm $ concatMap (\(l,r) -> [l,r]) ms
       highestIndex = foldr (max . lvarIdx) 0 orgVars
       unifier = map substToListVFresh $ unifyUnionDisjointTheories (sortOfMConst sortOf) unifierPair isRightSystem eqs
       newVars = filter (`notElem` orgVars) $
@@ -65,7 +68,7 @@ matchUnionDisjointTheories sortOf unifierPair isRightSystem matchProblem = case 
 --   (probably not as it is a restriction which might never occur in the actual substitution)
 unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> MConstUnifierPair c -> (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> [LSubstVFresh c]
 unifyUnionDisjointTheories sortOf unifierPair isRightSystem eqs = let
-  allVars = foldVarsVTerm $ eqsToType eqs
+  allVars = S.toList $ foldVarsVTerm $ eqsToType eqs
   (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars)
   (acSystem, homSystem) = splitSystem isRightSystem absEqs
   solvedSystems = solveDisjointSystems sortOf
