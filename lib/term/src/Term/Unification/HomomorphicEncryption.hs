@@ -39,8 +39,6 @@ import Term.Rewriting.Definitions (Equal(..), eqsToType, Match, flattenMatch)
 import Term.Substitution.SubstVFree (LSubst, substFromList, applyVTerm)
 import Term.Substitution.SubstVFresh (LSubstVFresh, substFromListVFresh)
 
-import Extension.Prelude (sortednub)
-
 -- Matching Algorithm using the Unification Algorithm
 -----------------------------------------------------
 
@@ -74,7 +72,7 @@ unifyHomomorphicLTermWrapper sortOf eqs = let
 ----------------------------------------------------
 
 -- | Types to make it easier to have an overview of the algorithm 
--- TODO: change these substitiutions
+-- TODO: change these substitiutions to include sets
 type PreSubst c = ([(LVar, LTerm c)], S.Set LVar)
 type EqsSubst a = ([Equal a], S.Set LVar)
 
@@ -89,7 +87,8 @@ type EqsSubst a = ([Equal a], S.Set LVar)
 -- data LSort = LSortPub | LSortFresh | LSortMsg | LSortNode -- Nodes are for dependency graphs
 unifyHomomorphicLTermWithVars :: IsConst c => (c -> LSort) -> EqsSubst (LTerm c) -> Maybe (EqsSubst (LTerm c))
 unifyHomomorphicLTermWithVars sortOf eqsSubst = let
-  unifier = applyHomomorphicRules sortOf allHomomorphicRules $ first (map (fmap $ toLPETerm . normHomomorphic)) eqsSubst
+  lpeEqsSubst = first (map (fmap $ toLPETerm . normHomomorphic)) eqsSubst
+  unifier = applyHomomorphicRules sortOf allHomomorphicRules lpeEqsSubst
   in Just . first (map (fmap lTerm)) =<< unifier
 
 -- Applying Homomorphic Rules
