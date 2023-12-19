@@ -75,6 +75,8 @@ unifyHomomorphicLTermWrapper sortOf eqs = let
 -- TODO: change these substitiutions to include sets
 type PreSubst c = ([(LVar, LTerm c)], S.Set LVar)
 type EqsSubst a = ([Equal a], S.Set LVar)
+type PreSubst2 c = (S.Set (LVar, LTerm c), S.Set LVar)
+type EqsSubst2 a = (S.Set (Equal a), S.Set LVar)
 
 -- | @unifyHomomorphicLNTerm eqs@ returns a set of unifiers for @eqs@ modulo EpsilonH.
 -- returns a substitution for terms so that they unify or an empty list 
@@ -91,11 +93,32 @@ unifyHomomorphicLTermWithVars sortOf eqsSubst = let
   unifier = applyHomomorphicRules sortOf allHomomorphicRules lpeEqsSubst
   in Just . first (map (fmap lTerm)) =<< unifier
 
+{-
+unifyHomomorphicLTermWithVars2:: IsConst c => (c -> LSort) -> EqsSubst2 (LTerm c) -> Maybe (EqsSubst2 (LTerm c))
+unifyHomomorphicLTermWithVars2 sortOf eqsSubst = let
+  lpeEqsSubst = first (S.map (fmap $ toLPETerm . normHomomorphic)) eqsSubst
+  unifier = applyHomomorphicRules2 sortOf allHomomorphicRules lpeEqsSubst
+  in Just . first (S.map (fmap lTerm)) =<< unifier
+-}
+
 -- Applying Homomorphic Rules
 -----------------------------
 
 -- Type to translate HomorphicRuleReturn
 data MaybeWFail a = MJust a | MNothing | MFail
+
+{-
+-- | Applies all homomorphic rules given en block, i.e., 
+-- it applies the first rule always first after each change
+-- Holds for output: No equation is a duplicate of another equation
+applyHomomorphicRules2 :: IsConst c => (c -> LSort) -> [HomomorphicRule c] -> EqsSubst2 (LPETerm c) -> Maybe (EqsSubst2 (LPETerm c))
+applyHomomorphicRules2 _ [] eqsSubst = Just eqsSubst -- no more rules to apply 
+applyHomomorphicRules2 sortOf (rule:rules) eqsSubst =
+  case applyHomomorphicRule sortOf rule eqsSubst [] of
+    MJust newEqsSubst -> applyHomomorphicRules2 sortOf allHomomorphicRules newEqsSubst
+    MNothing          -> applyHomomorphicRules2 sortOf rules eqsSubst
+    MFail             -> Nothing
+-}
 
 -- | Applies all homomorphic rules given en block, i.e., 
 -- it applies the first rule always first after each change
@@ -124,6 +147,11 @@ applyHomomorphicRule sortOf rule (e:es, allVars) passedEqs = let eqsSubst = (es 
 
 -- | To Homomorphic Solved Form (EqsSubst to PreSubst)
 ------------------------------------------------------
+
+{-
+toSubstForm2 :: IsConst c => (c -> LSort) -> S.Set LVar -> EqsSubst (LTerm c) -> Maybe (PreSubst c)
+toSubstForm2 sortOf orgVars (eqs, allVars) = Nothing
+-}
 
 -- This function also filters out all equations, for which the correpsonding substitution has a variable on the left side, 
 -- that is not part of original Variables (Note that for matching, are only the variables in p), as otherwise, it was 
