@@ -19,7 +19,7 @@ module Term.Unification.HomomorphicEncryption (
   , sortOfMConst
 ) where
 
-import Data.Maybe     (isJust, isNothing, mapMaybe, fromMaybe, maybeToList)
+import Data.Maybe     (isJust, isNothing, mapMaybe, fromMaybe, catMaybes, maybeToList)
 import Data.Bifunctor (first, second)
 import qualified Data.Set as S
 
@@ -38,6 +38,7 @@ import Term.LTerm (
 import Term.Rewriting.Definitions (Equal(..), eqsToType, Match, flattenMatch)
 import Term.Substitution.SubstVFree (LSubst, substFromList, applyVTerm)
 import Term.Substitution.SubstVFresh (LSubstVFresh, substFromListVFresh)
+import qualified Data.IntMap as S
 
 -- Matching Algorithm using the Unification Algorithm
 -----------------------------------------------------
@@ -93,32 +94,11 @@ unifyHomomorphicLTermWithVars sortOf eqsSubst = let
   unifier = applyHomomorphicRules sortOf allHomomorphicRules lpeEqsSubst
   in Just . first (map (fmap lTerm)) =<< unifier
 
-{-
-unifyHomomorphicLTermWithVars2:: IsConst c => (c -> LSort) -> EqsSubst2 (LTerm c) -> Maybe (EqsSubst2 (LTerm c))
-unifyHomomorphicLTermWithVars2 sortOf eqsSubst = let
-  lpeEqsSubst = first (S.map (fmap $ toLPETerm . normHomomorphic)) eqsSubst
-  unifier = applyHomomorphicRules2 sortOf allHomomorphicRules lpeEqsSubst
-  in Just . first (S.map (fmap lTerm)) =<< unifier
--}
-
 -- Applying Homomorphic Rules
 -----------------------------
 
 -- Type to translate HomorphicRuleReturn
 data MaybeWFail a = MJust a | MNothing | MFail
-
-{-
--- | Applies all homomorphic rules given en block, i.e., 
--- it applies the first rule always first after each change
--- Holds for output: No equation is a duplicate of another equation
-applyHomomorphicRules2 :: IsConst c => (c -> LSort) -> [HomomorphicRule c] -> EqsSubst2 (LPETerm c) -> Maybe (EqsSubst2 (LPETerm c))
-applyHomomorphicRules2 _ [] eqsSubst = Just eqsSubst -- no more rules to apply 
-applyHomomorphicRules2 sortOf (rule:rules) eqsSubst =
-  case applyHomomorphicRule sortOf rule eqsSubst [] of
-    MJust newEqsSubst -> applyHomomorphicRules2 sortOf allHomomorphicRules newEqsSubst
-    MNothing          -> applyHomomorphicRules2 sortOf rules eqsSubst
-    MFail             -> Nothing
--}
 
 -- | Applies all homomorphic rules given en block, i.e., 
 -- it applies the first rule always first after each change
@@ -148,43 +128,51 @@ applyHomomorphicRule sortOf rule (e:es, allVars) passedEqs = let eqsSubst = (es 
 -- | To Homomorphic Solved Form (EqsSubst to PreSubst)
 ------------------------------------------------------
 
-{-
-toSubstForm2 :: IsConst c => (c -> LSort) -> S.Set LVar -> EqsSubst (LTerm c) -> Maybe (PreSubst c)
-toSubstForm2 sortOf orgVars (eqs, allVars) = Nothing
--}
+solvedFormOrdering :: IsConst c => (c -> LSort) -> EqsSubst2 (LTerm c) -> Maybe (PreSubst2 c)
+solvedFormOrdering sortOf (eqs, allVars) = let
+  (substWDub, substWODub) = S.partition dubVars eqs
+  substWODubVars = foldVarsVTerm $ eqsToType $ S.toList substWODub
+  substWODubOrdered = S.map (moveVarLeft sortOf) substWODub
+  substDubOrdered = moveDubVarLeft substWDub substWODubVars
+  in Nothing
+
+moveDubVarLeft :: S.Set (Equal (LTerm c)) -> S.Set LVar -> Maybe (S.Set (LVar, LTerm c))
+moveDubVarLeft dubs nonDubsVars = let
+  dubsAndAllVars = computeVarSets dubs nonDubsVars
+  in Nothing
+
+computeVarSets :: S.Set (Equal (LTerm c)) -> S.Set LVar -> S.Set (Equal (LTerm c), S.Set LVar)
+computeVarSets dubs nonDubsVars = let
+  dubcsClean = S.map (fromMaybe "") $ S.map getDubVarEqs dubs
+  -- dubsWithVars = S.foldr () S.empty dubs
+  in S.empty
 
 -- This function also filters out all equations, for which the correpsonding substitution has a variable on the left side, 
 -- that is not part of original Variables (Note that for matching, are only the variables in p), as otherwise, it was 
 -- tested that the EquationStore will at some point have a substitution for which dom and vrange coincide in that variable.  
 toSubstForm :: IsConst c => (c -> LSort) -> S.Set LVar -> EqsSubst (LTerm c) -> Maybe (PreSubst c)
 toSubstForm sortOf orgVars (eqs, allVars) = let
-  substWODubVars = map (moveVarLeft sortOf orgVars) $ filter (not . dubVars) eqs
-  substM         = addOrderDubVars orgVars (unzip $ catMaybesWFail substWODubVars) $ getDubVars eqs
+  substWODubVars = map (moveVarLeft sortOf) $ filter (not . dubVars) eqs
+  substM         = addOrderDubVars orgVars (unzip $ catMaybes substWODubVars) $ getDubVars eqs
   subst          = fromMaybe [] substM
-  in if not (any isMFail substWODubVars) && isJust substM then Just (subst, allVars) else Nothing
+  in if not (any isNothing substWODubVars) && isJust substM then Just (subst, allVars) else Nothing
 
-moveVarLeft :: IsConst c => (c -> LSort) -> S.Set LVar -> Equal (LTerm c) -> MaybeWFail (LVar, LTerm c)
-moveVarLeft sortOf orgVars (Equal l r) = case (viewTerm l, viewTerm r) of
-  (Lit (Var lv), Lit (Var rv)) | lvarSort lv == lvarSort rv                           -> MFail -- should have been filtered out
-  (Lit (Var lv), Lit (Var rv)) | sortCompare (lvarSort lv) (lvarSort rv) == Just GT
-                                 && lv `elem` orgVars                                 -> MJust (lv, r)
-  (Lit (Var lv), Lit (Var rv)) | sortCompare (lvarSort lv) (lvarSort rv) == Just GT   -> MNothing
-  (Lit (Var lv), Lit (Var rv)) | sortCompare (lvarSort lv) (lvarSort rv) == Just LT
-                                 && rv `elem` orgVars                                 -> MJust (rv, l)
-  (Lit (Var lv), Lit (Var rv)) | sortCompare (lvarSort lv) (lvarSort rv) == Just LT   -> MNothing
-  (Lit (Var lv), Lit (Var rv)) | isNothing $ sortCompare (lvarSort lv) (lvarSort rv)  -> MFail -- Uncomparable sorts should have been caught
-  (Lit (Var lv), _           ) | sortCorrectForSubst sortOf lv r && lv `elem` orgVars -> MJust (lv, r)
-  (Lit (Var lv), _           ) | sortCorrectForSubst sortOf lv r                      -> MNothing
-  (Lit (Var _ ), _           )                                                        -> MFail -- Uncomparable sorts should have been caught
-  (_,            Lit (Var rv)) | sortCorrectForSubst sortOf rv l && rv `elem` orgVars -> MJust (rv, l)
-  (_,            Lit (Var rv)) | sortCorrectForSubst sortOf rv l                      -> MNothing
-  (_,            Lit (Var _ ))                                                        -> MFail -- Uncomparable sorts should have been caught
-  (Lit (Con cl), Lit (Con cr)) | cl == cr                                             -> MFail -- Equal consts should have dissapeared
-  (Lit (Con _ ), Lit (Con _ ))                                                        -> MFail -- Unequal consts should have been caught
-  (Lit (Con _ ), _           )                                                        -> MFail -- Const to Term not possible
-  (_,            Lit (Con _ ))                                                        -> MFail -- Const to Term not possible
-  (FApp fl _,    FApp fr _   ) | fl == fr                                             -> MFail -- Same functions not possible
-  (FApp _  _,    FApp _  _   )                                                        -> MFail -- Different function symbols not allowed
+moveVarLeft :: IsConst c => (c -> LSort) -> Equal (LTerm c) -> Maybe (LVar, LTerm c)
+moveVarLeft sortOf (Equal l r) = case (viewTerm l, viewTerm r) of
+  (Lit (Var lv), Lit (Var rv)) | lvarSort lv == lvarSort rv                           -> Nothing -- should have been filtered out
+  (Lit (Var lv), Lit (Var rv)) | sortCompare (lvarSort lv) (lvarSort rv) == Just GT   -> Just (lv, r)
+  (Lit (Var lv), Lit (Var rv)) | sortCompare (lvarSort lv) (lvarSort rv) == Just LT   -> Just (rv, l)
+  (Lit (Var lv), Lit (Var rv)) | isNothing $ sortCompare (lvarSort lv) (lvarSort rv)  -> Nothing -- Uncomparable sorts should have been caught
+  (Lit (Var lv), _           ) | sortCorrectForSubst sortOf lv r                      -> Just (lv, r)
+  (Lit (Var _ ), _           )                                                        -> Nothing -- Uncomparable sorts should have been caught
+  (_,            Lit (Var rv)) | sortCorrectForSubst sortOf rv l                      -> Just (rv, l)
+  (_,            Lit (Var _ ))                                                        -> Nothing -- Uncomparable sorts should have been caught
+  (Lit (Con cl), Lit (Con cr)) | cl == cr                                             -> Nothing -- Equal consts should have dissapeared
+  (Lit (Con _ ), Lit (Con _ ))                                                        -> Nothing -- Unequal consts should have been caught
+  (Lit (Con _ ), _           )                                                        -> Nothing -- Const to Term not possible
+  (_,            Lit (Con _ ))                                                        -> Nothing -- Const to Term not possible
+  (FApp fl _,    FApp fr _   ) | fl == fr                                             -> Nothing -- Same functions not possible
+  (FApp _  _,    FApp _  _   )                                                        -> Nothing -- Different function symbols not allowed
 
 addOrderDubVars :: IsConst c => S.Set LVar -> ([LVar], [LTerm c]) -> [(LVar, LVar)] -> Maybe [(LVar, LTerm c)]
 addOrderDubVars _ subst [] = Just (uncurry zip subst)
@@ -472,6 +460,14 @@ dubVars (Equal l r) = case (viewTerm l, viewTerm r) of
   (Lit (Var lv), Lit (Var rv)) | lvarSort lv == lvarSort rv -> True
   _                                                         -> False
 
+getDubVarsS :: S.Set (Equal (LTerm c)) -> S.Set (LVar, LVar)
+getDubVarsS es = S.map getDubVarS
+  
+getDubVarS :: Equal (LTerm c) -> (LVar, LVar)
+getDubVarS (Eqaul l r) = case (viewTerm l, viewTerm r) of
+  (Lit (Var lv), Lit (Var rv)) -> Just (lv,rv)
+  _                            -> Nothing
+
 getDubVars :: [Equal (LTerm c)] -> [(LVar, LVar)]
 getDubVars [] = []
 getDubVars (Equal l r:es) = case (viewTerm l, viewTerm r) of
@@ -483,9 +479,3 @@ substFromMConst = Just . first (map (second fromMConst))
 
 combineAnySubst :: Ord b => ([a], S.Set b) -> ([a], S.Set b) -> ([a], S.Set b)
 combineAnySubst (es1,vs1) (es2,vs2) = (es1++es2, vs1 `S.union` vs2)
-
-catMaybesWFail :: [MaybeWFail a] -> [a]
-catMaybesWFail = mapMaybe (\case MJust s -> Just s; _ -> Nothing)
-
-isMFail :: MaybeWFail a -> Bool
-isMFail = \case MFail -> True; _ -> False
