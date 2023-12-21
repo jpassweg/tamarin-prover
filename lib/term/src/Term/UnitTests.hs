@@ -20,7 +20,6 @@ import Term.Positions
 import Text.PrettyPrint.Class
 
 import Data.List
-import qualified Data.Set as S
 import Data.Maybe
 import qualified Data.Map as M
 import Prelude
@@ -31,8 +30,6 @@ import Data.Bifunctor (second)
 
 import Term.Unification.LPETerm
 import Term.Unification.HomomorphicEncryption
-
-import Extension.Prelude (sortednub)
 
 testEqual :: (Eq a, Show a) => String -> a -> a -> Test
 testEqual t a b = TestLabel t $ TestCase $ assertEqual t b a
@@ -405,22 +402,22 @@ testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
 -- Functions to test if the substitution is correct
 -- *****************************************************************************
 
-isCorrectSubst :: IsConst c => S.Set LVar -> LSubst c -> Bool
+isCorrectSubst :: IsConst c => [LVar] -> LSubst c -> Bool
 isCorrectSubst orgVars subst = let s = substToList subst in
   allLeftVarsUnique s && allLeftVarsNotRight s && allLeftVarsOrgVars orgVars s && noOrgVarsRight orgVars s
 
-isCorrectPreSubst :: IsConst c => S.Set LVar -> ([(LVar, LTerm c)], [LVar]) -> Bool
+isCorrectPreSubst :: IsConst c => [LVar] -> ([(LVar, LTerm c)], [LVar]) -> Bool
 isCorrectPreSubst orgVars (s,_) =
   allLeftVarsUnique s && allLeftVarsNotRight s && allLeftVarsOrgVars orgVars s
 
-isCorrectMatchSubst :: S.Set LVar -> S.Set LVar -> LSubst c -> Bool
+isCorrectMatchSubst :: [LVar] -> [LVar] -> LSubst c -> Bool
 isCorrectMatchSubst leftVars rightVars subst = let s = substToList subst in
   allLeftVarsOrgVars rightVars s && onlyOrgVarsRight leftVars s
 
 isSortCorrectSubst :: IsConst c => LSubst c -> (c -> LSort) -> Bool
 isSortCorrectSubst subst st = let s = substToList subst in all (\(v,t) -> sortCompare (lvarSort v) (sortOfLTerm st t) `elem` [Just EQ, Just GT]) s
 
-isCorrectFreeAvoidSubst :: S.Set LVar -> ([(LVar, LTerm c)], [LVar]) -> ([(LVar, LTerm c)], [LVar]) -> Bool
+isCorrectFreeAvoidSubst :: [LVar] -> ([(LVar, LTerm c)], [LVar]) -> ([(LVar, LTerm c)], [LVar]) -> Bool
 isCorrectFreeAvoidSubst orgVars orgSubst completeSubst = let
   (cmpLVars, _) = second foldVarsVTerm $ unzip $ fst completeSubst
   (_, orgRVars) = second foldVarsVTerm $ unzip $ fst orgSubst
@@ -433,13 +430,13 @@ allLeftVarsUnique ((vL,_):substs) = not (any (\(vR,_) -> vL == vR) substs) && al
 allLeftVarsNotRight :: [(LVar, LTerm c)] -> Bool
 allLeftVarsNotRight subst = let (vars,terms) = unzip subst in not $ any (\v -> v `elem` foldVarsVTerm terms) vars
 
-allLeftVarsOrgVars :: S.Set LVar -> [(LVar, LTerm c)] -> Bool
+allLeftVarsOrgVars :: [LVar] -> [(LVar, LTerm c)] -> Bool
 allLeftVarsOrgVars orgVars = all ((`elem` orgVars). fst)
 
-noOrgVarsRight :: S.Set LVar -> [(LVar, LTerm c)] -> Bool
+noOrgVarsRight :: [LVar] -> [(LVar, LTerm c)] -> Bool
 noOrgVarsRight orgVars subst = let rightVars = foldVarsVTerm (map snd subst) in all (`notElem` rightVars) orgVars
 
-onlyOrgVarsRight :: S.Set LVar -> [(LVar, LTerm c)] -> Bool
+onlyOrgVarsRight :: [LVar] -> [(LVar, LTerm c)] -> Bool
 onlyOrgVarsRight orgVars subst = let rightVars = foldVarsVTerm (map snd subst) in all (`elem` orgVars) rightVars
 
 -- *****************************************************************************
@@ -571,16 +568,16 @@ testsUnifyHomomorphicSf _ _ =
 testsUnifyHomomorphicRules :: MaudeHandle -> MaudeHandle -> Test
 testsUnifyHomomorphicRules _ _ = TestLabel "Tests for Unify module EpsilonH Rules" $
   TestList
-    [ testTrue "trivial 1" (debugHomomorphicRule 9 tE1 s ([], vA [tE1]) == HEqs ([], S.empty) )
-    , testTrue "trivial 2" (debugHomomorphicRule 9 tFE1 s ([], vA [tFE1]) == HEqs ([], S.empty) )
+    [ testTrue "trivial 1" (debugHomomorphicRule 9 tE1 s ([], vA [tE1]) == HEqs ([], []) )
+    , testTrue "trivial 2" (debugHomomorphicRule 9 tFE1 s ([], vA [tFE1]) == HEqs ([], []) )
     , testTrue "trivial 3" (debugHomomorphicRule 9 tE2 s ([], vA [tE2]) == HNothing)
-    , testTrue "std dec 1" (debugHomomorphicRule 10 tFE2 s ([], vA [tFE2]) == HEqs ([tE2, tE3], S.empty) )
+    , testTrue "std dec 1" (debugHomomorphicRule 10 tFE2 s ([], vA [tFE2]) == HEqs ([tE2, tE3], []) )
     , testTrue "std dec 2" (debugHomomorphicRule 10 tFE3 s ([], vA [tFE3]) == HNothing)
     , testTrue "var sub 1" (debugHomomorphicRule 8 tHE1 s ([], vA [tHE1]) == HNothing)
     , testTrue "var sub 2" (debugHomomorphicRule 8 tHE1 s ([tE3], vA [tHE1, tE3]) == HNothing)
-    , testTrue "var sub 3" (debugHomomorphicRule 8 tHE1 s ([tE2], vA [tHE1, tE2]) == HSubstEqs tHE1S ([tHE1], S.empty) )
-    , testTrue "var sub 4" (debugHomomorphicRule 8 tHE1 s ([tFE2], vA [tHE1, tFE2]) == HSubstEqs tHE1S ([tHE1], S.empty) )
-    , testTrue "var sub 5" (debugHomomorphicRule 8 tE2 s ([tFE2], vA [tE2, tFE2]) == HSubstEqs tE2S ([tE2], S.empty) )
+    , testTrue "var sub 3" (debugHomomorphicRule 8 tHE1 s ([tE2], vA [tHE1, tE2]) == HSubstEqs tHE1S ([tHE1], []) )
+    , testTrue "var sub 4" (debugHomomorphicRule 8 tHE1 s ([tFE2], vA [tHE1, tFE2]) == HSubstEqs tHE1S ([tHE1], []) )
+    , testTrue "var sub 5" (debugHomomorphicRule 8 tE2 s ([tFE2], vA [tE2, tFE2]) == HSubstEqs tE2S ([tE2], []) )
     , testTrue "var sub 6" (debugHomomorphicRule 8 tHE2 s ([], vA [tHE2]) == HNothing)
     , testTrue "var sub 7" (debugHomomorphicRule 8 tHE2 s ([tE3], vA [tHE2, tE3]) == HNothing)
     , testTrue "var sub 8" (debugHomomorphicRule 8 tHE2 s ([tE2], vA [tHE2, tE2]) == HNothing)
@@ -606,7 +603,7 @@ testsUnifyHomomorphicRules _ _ = TestLabel "Tests for Unify module EpsilonH Rule
     , testTrue "fail2   3" (debugHomomorphicRule 1 tE1 s ([], vA [tE1]) == HNothing)
     , testTrue "fail2   4" (debugHomomorphicRule 1 tFFE6 s ([], vA [tFFE6]) == HNothing)
     , testTrue "fail2   5" (debugHomomorphicRule 1 tFFE7 s ([], vA [tFFE7]) == HNothing)
-    , testTrue "parsing 1" (debugHomomorphicRule 7 tFE1 s ([], vA [tFE1]) == HEqs ([tE1, tE4], S.empty) )
+    , testTrue "parsing 1" (debugHomomorphicRule 7 tFE1 s ([], vA [tFE1]) == HEqs ([tE1, tE4], []) )
     , testsUnifyHomomorphicShaping
     ]
   where
@@ -635,7 +632,7 @@ testsUnifyHomomorphicRules _ _ = TestLabel "Tests for Unify module EpsilonH Rule
     tFFE7 = Equal (fH (hpair (henc (hpair (x0,x1),x2),x3))) (fH (henc (x4,x6)))
     s = sortOfName
     fH = toLPETerm
-    vA = S.fromList . concatMap (varsVTerm . lTerm) . concatMap (\(Equal l r) -> [l,r])
+    vA = concatMap (varsVTerm . lTerm) . concatMap (\(Equal l r) -> [l,r])
     -- shaping:  tFFE1 = Equal P [""] [[x,x.1]] E [x.2,x.3,x.4] with n = 2, m = 2
     --    Return tFFE2 = Equal P [""] [[xH.1, x.3, x.1]] E [x.2,x.3,x.4]
     --           tFFE3 = Equal x.0                       E [xH.1, x.3]
@@ -645,10 +642,10 @@ testsUnifyHomomorphicRules _ _ = TestLabel "Tests for Unify module EpsilonH Rule
 testsUnifyHomomorphicShaping :: Test
 testsUnifyHomomorphicShaping = TestLabel "Tests for Unify module EpsilonH Shaping Rule" $
   TestList
-   [ testTrue "Shaping 1" (debugHomomorphicRule 6 pairHenc1 s ([], vA [pairHenc1]) == HEqs ([pairHenc1Shaped1, pairHenc1Shaped2], S.singleton sh1V))
-   , testTrue "Shaping 2" (debugHomomorphicRule 6 pairHenc2 s ([], vA [pairHenc2]) == HEqs ([pairHenc2Shaped1, pairHenc2Shaped2], S.singleton sh2V))
-   , testTrue "Shaping 3" (debugHomomorphicRule 6 pairHenc3 s ([], vA [pairHenc3]) == HEqs ([pairHenc3Shaped1, pairHenc3Shaped2], S.singleton sh3V))
-   , testTrue "Shaping 4" (debugHomomorphicRule 6 pairHenc4 s ([], vA [pairHenc4]) == HEqs ([pairHenc4Shaped1, pairHenc4Shaped2], S.singleton sh4V))
+   [ testTrue "Shaping 1" (debugHomomorphicRule 6 pairHenc1 s ([], vA [pairHenc1]) == HEqs ([pairHenc1Shaped1, pairHenc1Shaped2], [sh1V]))
+   , testTrue "Shaping 2" (debugHomomorphicRule 6 pairHenc2 s ([], vA [pairHenc2]) == HEqs ([pairHenc2Shaped1, pairHenc2Shaped2], [sh2V]))
+   , testTrue "Shaping 3" (debugHomomorphicRule 6 pairHenc3 s ([], vA [pairHenc3]) == HEqs ([pairHenc3Shaped1, pairHenc3Shaped2], [sh3V]))
+   , testTrue "Shaping 4" (debugHomomorphicRule 6 pairHenc4 s ([], vA [pairHenc4]) == HEqs ([pairHenc4Shaped1, pairHenc4Shaped2], [sh4V]))
    ]
   where
     -- example 1: n = 1, m = 2
@@ -699,7 +696,7 @@ testsUnifyHomomorphicShaping = TestLabel "Tests for Unify module EpsilonH Shapin
     -- helper:
     s = sortOfName
     fH = toLPETerm
-    vA = S.fromList . concatMap (varsVTerm . lTerm) . concatMap (\(Equal l r) -> [l,r])
+    vA = concatMap (varsVTerm . lTerm) . concatMap (\(Equal l r) -> [l,r])
 
 -- *****************************************************************************
 -- Specific printer

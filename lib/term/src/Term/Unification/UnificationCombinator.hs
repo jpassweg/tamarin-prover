@@ -37,7 +37,7 @@ matchUnionDisjointTheories sortOf unifierPair isRightSystem matchProblem = case 
   Nothing -> []
   Just ms -> let
       eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
-      orgVars = S.toList $ foldVarsVTerm $ concatMap (\(l,r) -> [l,r]) ms
+      orgVars = foldVarsVTerm $ concatMap (\(l,r) -> [l,r]) ms
       highestIndex = foldr (max . lvarIdx) 0 orgVars
       unifier = map substToListVFresh $ unifyUnionDisjointTheories (sortOfMConst sortOf) unifierPair isRightSystem eqs
       newVars = filter (`notElem` orgVars) $
@@ -68,7 +68,7 @@ matchUnionDisjointTheories sortOf unifierPair isRightSystem matchProblem = case 
 --   (probably not as it is a restriction which might never occur in the actual substitution)
 unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> MConstUnifierPair c -> (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> [LSubstVFresh c]
 unifyUnionDisjointTheories sortOf unifierPair isRightSystem eqs = let
-  allVars = S.toList $ foldVarsVTerm $ eqsToType eqs
+  allVars = foldVarsVTerm $ eqsToType eqs
   (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars)
   (acSystem, homSystem) = splitSystem isRightSystem absEqs
   solvedSystems = solveDisjointSystems sortOf

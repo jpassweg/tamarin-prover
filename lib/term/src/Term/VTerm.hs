@@ -125,9 +125,9 @@ isLit _ = False
 varsVTerm :: Ord v => VTerm c v -> [v]
 varsVTerm = sortednub . D.toList . foldMap (foldMap return)
 
--- | @foldVarsVTerm [t]@ returns the set of all variables that occur in @[t]@.
-foldVarsVTerm :: Ord v => [VTerm c v] -> Set v
-foldVarsVTerm = fromList . concatMap (D.toList . foldMap (foldMap return))
+-- | @foldVarsVTerm [t]@ returns a duplicate-free list of variables that occur in @[t]@.
+foldVarsVTerm :: Ord v => [VTerm c v] -> [v]
+foldVarsVTerm = sortednub . concatMap (D.toList . foldMap (foldMap return))
 
 -- | @occurs v t@ returns @True@ if @v@ occurs in @t@
 occursVTerm :: Eq v => v -> VTerm c v -> Bool
