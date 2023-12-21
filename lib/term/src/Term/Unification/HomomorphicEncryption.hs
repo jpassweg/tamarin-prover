@@ -166,21 +166,14 @@ solvedFormOrdering sortOf (eqs, allVars) = let
 
 moveVarLeft :: IsConst c => (c -> LSort) -> Equal (LTerm c) -> Maybe (Either (LVar, LVar) (LVar, LTerm c))
 moveVarLeft sortOf (Equal l r) = case (viewTerm l, viewTerm r) of
-  (Lit (Var lv), Lit (Var rv)) | lvarSort lv == lvarSort rv                           -> Just $ Left  (lv,rv) 
+  (Lit (Var lv), Lit (Var rv)) | lvarSort lv == lvarSort rv                           -> Just $ Left  (lv, rv) 
   (Lit (Var lv), Lit (Var rv)) | sortCompare (lvarSort lv) (lvarSort rv) == Just GT   -> Just $ Right (lv, r)
   (Lit (Var lv), Lit (Var rv)) | sortCompare (lvarSort lv) (lvarSort rv) == Just LT   -> Just $ Right (rv, l)
   (Lit (Var lv), Lit (Var rv)) | isNothing $ sortCompare (lvarSort lv) (lvarSort rv)  -> Nothing -- Uncomparable sorts should have been caught
   (Lit (Var lv), _           ) | sortCorrectForSubst sortOf lv r                      -> Just $ Right (lv, r)
-  (Lit (Var _ ), _           )                                                        -> Nothing -- Uncomparable sorts should have been caught
   (_,            Lit (Var rv)) | sortCorrectForSubst sortOf rv l                      -> Just $ Right (rv, l)
-  (_,            Lit (Var _ ))                                                        -> Nothing -- Uncomparable sorts should have been caught
-  (Lit (Con cl), Lit (Con cr)) | cl == cr                                             -> Nothing -- Equal consts should have dissapeared
-  (Lit (Con _ ), Lit (Con _ ))                                                        -> Nothing -- Unequal consts should have been caught
-  (Lit (Con _ ), _           )                                                        -> Nothing -- Const to Term not possible
-  (_,            Lit (Con _ ))                                                        -> Nothing -- Const to Term not possible
-  (FApp fl _,    FApp fr _   ) | fl == fr                                             -> Nothing -- Same functions not possible
-  (FApp _  _,    FApp _  _   )                                                        -> Nothing -- Different function symbols not allowed
-
+  (_,_)                                                                               -> Nothing
+  
 -- We assume: if both variables are unique, even in matching, the order does not play a role
 dubVarLeft :: [LVar] -> (LVar, LVar) -> Maybe (LVar, LVar)
 dubVarLeft otherVars (l,r) = case (l `notElem` otherVars, r `notElem` otherVars) of
