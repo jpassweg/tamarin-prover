@@ -139,10 +139,7 @@ prepareUnifyUnionDisjointTheories sortOf mhnd eqs = let
   in case (hasAC, hasHom) of
     (_,     False) -> unsafePerformIO (UM.unifyViaMaude mhnd sortOf eqs)
     (False, True)  -> unifyHomomorphicLTermWrapper sortOf eqs
-    (True,  True)  -> unifyUnionDisjointTheories sortOf (acUnifier, homUnifier) (isAnyHom . eqLHS) eqs
-  where
-    acUnifier = unsafePerformIO . UM.unifyViaMaude mhnd (sortOfMConst sortOf)
-    homUnifier = unifyHomomorphicLTermWrapper (sortOfMConst sortOf)
+    (True,  True)  -> unifyUnionDisjointTheories sortOf mhnd (isAnyHom . eqLHS) eqs
 
 -- | @unifyLTerm sortOf eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLNTermFactored :: [Equal LNTerm]
@@ -238,16 +235,14 @@ solveMatchLTerm sortOf matchProblem =
           (Left ACProblem, _) | not $ any (\m -> hasAny isAnyHom (fst m) || hasAny isAnyHom (snd m)) ms ->
               unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
           (Left ACProblem, _) ->
-              matchUnionDisjointTheories sortOf (acUnifier, homUnifier) (isAnyHom . eqLHS) matchProblem
+              matchUnionDisjointTheories sortOf hnd (isAnyHom . eqLHS) matchProblem
           (Left HomomorphicProblem, _) | not $ any (\m -> hasAny isACC (fst m) || hasAny isACC (snd m)) ms ->
               matchHomomorphicLTermWrapper sortOf matchProblem
           (Left HomomorphicProblem, _) ->
-              matchUnionDisjointTheories sortOf (acUnifier, homUnifier) (isAnyHom . eqLHS) matchProblem
+              matchUnionDisjointTheories sortOf hnd (isAnyHom . eqLHS) matchProblem
           (Right (), mappings) -> [substFromMap mappings]
       where
         match = forM_ ms $ \(t, p) -> matchRaw sortOf t p
-        acUnifier = unsafePerformIO . UM.unifyViaMaude hnd (sortOfMConst (sortOfMConst sortOf))
-        homUnifier = unifyHomomorphicLTermWrapper (sortOfMConst (sortOfMConst sortOf))
 
 -- | @solveMatchLNTerm eqs@ returns a complete set of matchers for @eqs@
 -- modulo AC.

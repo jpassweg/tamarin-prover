@@ -14,6 +14,9 @@ import Term.Rewriting.Definitions (Equal(..), eqsToType, Match, flattenMatch)
 import Term.Substitution.SubstVFree (substFromList, applyVTerm, Subst, LSubst)
 import Term.Substitution.SubstVFresh (LSubstVFresh, substFromListVFresh, substToListVFresh)
 
+import qualified Term.Maude.Process as UM
+import           System.IO.Unsafe (unsafePerformIO)
+
 import Term.Unification.MConst
     ( MConst,
       toMConstA,
@@ -27,18 +30,19 @@ import Data.List (permutations)
 import Data.Maybe (mapMaybe)
 
 import Extension.Prelude (sortednub)
+import Term.Unification.HomomorphicEncryption (unifyHomomorphicLTermWrapper)
 
 -- NOTE: Maybe add checks here that in the returned substitution all vars on the left
 -- TODO: need to change the variable renaming to changing index per variable instead of a global index
 -- are from the matched terms and all vars on the right are from the term to be matched.
-matchUnionDisjointTheories :: IsConst c => (c -> LSort) -> DoubleMConstUnifierPair c -> (Equal (LTerm (MConst c)) -> Bool) -> Match (LTerm c) -> [LSubst c]
-matchUnionDisjointTheories sortOf unifierPair isRightSystem matchProblem = case flattenMatch matchProblem of
+matchUnionDisjointTheories :: IsConst c => (c -> LSort) -> UM.MaudeHandle -> (Equal (LTerm (MConst c)) -> Bool) -> Match (LTerm c) -> [LSubst c]
+matchUnionDisjointTheories sortOf mhnd isRightSystem matchProblem = case flattenMatch matchProblem of
   Nothing -> []
   Just ms -> let
       eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
       orgVars = foldVarsVTerm $ concatMap (\(l,r) -> [l,r]) ms
       highestIndex = foldr (max . lvarIdx) 0 orgVars
-      unifier = map substToListVFresh $ unifyUnionDisjointTheories (sortOfMConst sortOf) unifierPair isRightSystem eqs
+      unifier = map substToListVFresh $ unifyUnionDisjointTheories (sortOfMConst sortOf) mhnd isRightSystem eqs
       newVars = filter (`notElem` orgVars) $
         map fst (concat unifier) ++ concatMap (varsVTerm . snd) (concat unifier)
       newVarsSubst = zipWith (\v newIdx -> (v, LVar (lvarName v) (lvarSort v) newIdx)) newVars [highestIndex+1..]
@@ -65,14 +69,18 @@ matchUnionDisjointTheories sortOf unifierPair isRightSystem matchProblem = case 
 --   being two different variables.  
 -- - Investigate which linear orderings make sense "sort wise" and if we can remove some
 --   (probably not as it is a restriction which might never occur in the actual substitution)
-unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> MConstUnifierPair c -> (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> [LSubstVFresh c]
-unifyUnionDisjointTheories sortOf unifierPair isRightSystem eqs = let
+unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> UM.MaudeHandle -> (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> [LSubstVFresh c]
+unifyUnionDisjointTheories sortOf mhnd isRightSystem eqs = let
   allVars = foldVarsVTerm $ eqsToType eqs
   (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars)
   (acSystem, homSystem) = splitSystem isRightSystem absEqs
+  unifierPair = (acUnifier, homUnifier)
   solvedSystems = solveDisjointSystems sortOf
     (acSystem, homSystem) unifierPair (filter onlySameSortsPartitions $ getAllPartitions absAllVars)
   in combineDisjointSystems $ cleanSolvedSystem absAllVars solvedSystems
+  where
+    acUnifier = unsafePerformIO . UM.unifyViaMaude mhnd (sortOfMConst sortOf)
+    homUnifier = unifyHomomorphicLTermWrapper (sortOfMConst sortOf)
 
 abstractVars :: IsConst c => ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], [LVar])
 abstractVars ([], allVars) = ([], allVars)
@@ -136,9 +144,6 @@ splitSystem :: IsConst c => (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> Eq
 splitSystem fBool = foldr (\eq (eqL, eqR) -> if fBool eq then (eqL, eq:eqR) else (eq:eqL, eqR)) ([],[])
 
 type EquationPair c = ([Equal (LTerm c)], [Equal (LTerm c)])
-
-type DoubleMConstUnifierPair c = ([Equal (LTerm (MConst (MConst c)))] -> [LSubstVFresh (MConst (MConst c))]
-                                , [Equal (LTerm (MConst (MConst c)))] -> [LSubstVFresh (MConst (MConst c))])
 
 type MConstUnifierPair c = ([Equal (LTerm (MConst c))] -> [LSubstVFresh (MConst c)]
                           , [Equal (LTerm (MConst c))] -> [LSubstVFresh (MConst c)])
