@@ -412,10 +412,10 @@ bpVariantsIntruder hnd ru = do
         rngs     = map snd mappings
 
 ------------------------------------------------------------------------------
--- Homomorphic encryption Intruder rules
+-- Hom encryption Intruder rules
 ------------------------------------------------------------------------------
 
--- | @homIntruderRules@ computes the intruder rules for homomorphic encryption
+-- | @homIntruderRules@ computes the intruder rules for hom encryption
 -- Bool argument: is diff theory or not
 -- from module Theory.Model.Rule: Rule _rInfo :: i, _rPrems :: [LNFact], _rConcs :: [LNFact], _rActs :: [LNFact], _rNewVars :: [LNTerm]
 homIntruderRules :: Bool -> WithMaude [IntrRuleAC]

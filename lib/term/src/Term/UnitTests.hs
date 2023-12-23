@@ -87,26 +87,26 @@ propUnifySound hnd t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
     substs = unifyLNTerm [Equal t1 t2] `runReader` hnd
 
 -- *****************************************************************************
--- Tests aggregate for homomorphic encryption
+-- Tests aggregate for hom encryption
 -- *****************************************************************************
 
-testAllHomomorphic :: MaudeHandle -> MaudeHandle -> Test
-testAllHomomorphic _ mhndHom = TestLabel "All Homomorphic Tests" $
+testAllHom :: MaudeHandle -> MaudeHandle -> Test
+testAllHom _ mhndHom = TestLabel "All Hom Tests" $
   TestList
-    [ testsMatchingHomomorphic mhndHom mhndHom
-    , testsUnifyHomomorphic mhndHom mhndHom
-    , testsUnifyHomomorphicSf mhndHom mhndHom
-    , testsUnifyHomomorphicRules mhndHom mhndHom
-    , testPrinterHomomorphic mhndHom mhndHom
+    [ testsMatchingHom mhndHom mhndHom
+    , testsUnifyHom mhndHom mhndHom
+    , testsUnifyHomSf mhndHom mhndHom
+    , testsUnifyHomRules mhndHom mhndHom
+    , testPrinterHom mhndHom mhndHom
     ]
 
 -- *****************************************************************************
--- Tests for Matching modulo EpsilonH (For Homomorphic encryption)
+-- Tests for Matching modulo EpsilonH (For Hom encryption)
 -- *****************************************************************************
 
 -- match t p tries to find a substitution phi such that "t == phi applied to p"
-testsMatchingHomomorphic :: MaudeHandle -> MaudeHandle -> Test
-testsMatchingHomomorphic mhnd mhndHom = TestLabel "Tests for Matching modulo EpsilonH" $
+testsMatchingHom :: MaudeHandle -> MaudeHandle -> Test
+testsMatchingHom mhnd mhndHom = TestLabel "Tests for Matching modulo EpsilonH" $
   TestList $ map (\(testName, testOutcome, term1, term2) ->
     testMatchingHomWithPrint mhnd mhndHom testName testOutcome term1 term2)
     -- small examples
@@ -158,10 +158,10 @@ testMatchingHomWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
       testTrue printText (caseOutcome == substHomMatches)
       -- terms equal after norming
     , testTrue "equal n" (caseOutcome == (t1N == t2NSubstH))
-      -- if matching without homomorphic rules works then so should it with those rules
+      -- if matching without hom rules works then so should it with those rules
       -- lnMatches implies substHMatches
     , testTrue "ln=>hom" (not lnMatches || substHomMatches)
-      -- comparing with the maude handle including homomorphic unification
+      -- comparing with the maude handle including hom unification
     , testTrue "equal mhndHom" (caseOutcome == lnMatchesHom)
     -- lnMatches implies lnMatchesHom
     , testTrue "ln=>mhndHom" (not lnMatches || lnMatchesHom)
@@ -188,8 +188,8 @@ testMatchingHomWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
       ++ "------ END TEST PRINTER ------"
       ++ "Note: x.2 <~ x means x is being replaced by x.2" ++ "\n"
 
-    t1N = normHomomorphic t1
-    t2N = normHomomorphic t2
+    t1N = normHom t1
+    t2N = normHom t2
 
     substs = solveMatchLNTerm (t1 `matchWith` t2) `runReader` mhnd
     numMatchers = length substs
@@ -201,24 +201,24 @@ testMatchingHomWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
     lnMatchesHom = not (null substsHom)
     substHom = safeHead substsHom
 
-    directSubstHomM = matchHomomorphicLTermWrapper sortOfName (DelayedMatches [(t1N, t2N)])
+    directSubstHomM = matchHomLTerm sortOfName (DelayedMatches [(t1N, t2N)])
     directSubstHom = if null directSubstHomM then emptySubst else head directSubstHomM
     substHomMatches = not (null directSubstHomM)
 
     t2Subst = applyVTerm subst t2
     t2SubstH = applyVTerm directSubstHom t2
-    t2NSubstH = normHomomorphic $ applyVTerm directSubstHom t2N
+    t2NSubstH = normHom $ applyVTerm directSubstHom t2N
 
     safeHead s = if null s then Subst $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)] else head s
 
 -- *****************************************************************************
--- Tests for Unification modulo EpsilonH (For Homomorphic encryption)
+-- Tests for Unification modulo EpsilonH (For Hom encryption)
 -- *****************************************************************************
 
 -- Multiple tests for unification modulo EpisolonH algorithm 
--- implemented in unifyHomomorphicLNTerm
-testsUnifyHomomorphic :: MaudeHandle -> MaudeHandle -> Test
-testsUnifyHomomorphic mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH" $
+-- implemented in unifyHomLNTerm
+testsUnifyHom :: MaudeHandle -> MaudeHandle -> Test
+testsUnifyHom mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH" $
   TestList $ map (\(testName, testOutcome, term1, term2) ->
     testUnifyWithPrint mhnd mhndHom testName testOutcome term1 term2)
     [ ("1",         True,   x0,                                                               x0                                                                            )
@@ -293,7 +293,7 @@ testsUnifyHomomorphic mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH"
     , ("shapa 6",   True,   hpair(henc(henc(x0,x1),x2),x3),  henc(x4,x5))
     , ("shapa 7",   True,   hpair(henc(henc(x0,x1),x2),x3),  henc(henc(x4,x5),x6))   
     -- TODO: 1 + 2 = 3 luege ob sorts
-    -- Example womme müesst normhomomorphic awende nach einere rule application odr so
+    -- Example womme müesst normhom awende nach einere rule application odr so
     ]
 
 testUnifyWithPrint :: MaudeHandle -> MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
@@ -305,11 +305,11 @@ testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
     , testTrue "n equal" (caseOutcome == (t1NSubstH == t2NSubstH))
     -- freeToAvoid does not change the outcome
     , testTrue "freeAvoid" (caseOutcome == (t1NSubstHFreeAvoid == t2NSubstHFreeAvoid))
-    -- if unifying without homomorphic rules works then so should it with those rules
+    -- if unifying without hom rules works then so should it with those rules
     -- lnUnifies implies substHUnifies
     , testTrue "ln=>hom" (not lnUnifies || substHUnifies)
     -- multiples other tests if the unification was done correctly
-    -- needs to be changed if unifyHomomorphicLTerm changes
+    -- needs to be changed if unifyHomLTerm changes
     --, testTrue "isCorr substForm" (isCorrectPreSubst orgVars substForm)
     --, testTrue "isCorr freeAvoid" (isCorrectPreSubst orgVars substFormFreeAvoid)
     --, testTrue "isCorr freeAvoid 2" (isCorrectFreeAvoidSubst orgVars substForm substFormFreeAvoid)
@@ -338,7 +338,7 @@ testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
       ++ "First unifier: " ++ show subst ++ "\n"
       ++ "After fTFA:    VSubst: " ++ show substFreeAvoid ++ "\n"
       ++ "New Terms:     " ++ show t1SubstFreeAvoid ++ ", " ++ show t2SubstFreeAvoid ++ "\n"
-      ++ "--- unifyHomomorphicLTerm ---" ++ "\n"
+      ++ "--- unifyHomLTerm ---" ++ "\n"
       ++ "First unifier: " ++ show substH ++ "\n"
       ++ "New Terms:     " ++ show t1SubstH ++ ", " ++ show t2SubstH ++ "\n"
       ++ "After fTFA:    VSubst: " ++ show substHFreeAvoid ++ "\n"
@@ -363,13 +363,13 @@ testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
     substHomFreeAvoid = freshToFreeAvoiding substHom [t1,t2]
     lnUnifiesHom = not (null substsHom)
 
-    substHUnifier = unifyHomomorphicLTermWrapper sortOfName [Equal t1 t2]
+    substHUnifier = unifyHomLTerm sortOfName [Equal t1 t2]
     substH = if null substHUnifier then emptySubst else substFromList $ substToListVFresh (head substHUnifier)
     substHFreeAvoid = if null substHUnifier then emptySubst else freshToFreeAvoiding (head substHUnifier) [t1,t2]
     substHUnifies = not (null substHUnifier)
 
     orgVars = foldVarsVTerm [t1,t2]
-    --unifier = unifyHomomorphicLTermWithVars sortOfName ([Equal t1 t2], orgVars)
+    --unifier = unifyHomLTermWithVars sortOfName ([Equal t1 t2], orgVars)
     --substFormM = toSubstForm sortOfName orgVars =<< unifier
     --substForm = fromMaybe ([],[]) substFormM
     --substFormFreeAvoidM = toFreeAvoid orgVars =<< substFormM
@@ -383,18 +383,18 @@ testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
     t1SubstHFreeAvoid = applyVTerm substHFreeAvoid t1
     t2SubstHFreeAvoid = applyVTerm substHFreeAvoid t2
 
-    t1NSubstH = normHomomorphic $ applyVTerm substH t1
-    t2NSubstH = normHomomorphic $ applyVTerm substH t2
-    t1NSubstHFreeAvoid = normHomomorphic $ applyVTerm substHFreeAvoid t1
-    t2NSubstHFreeAvoid = normHomomorphic $ applyVTerm substHFreeAvoid t2
+    t1NSubstH = normHom $ applyVTerm substH t1
+    t2NSubstH = normHom $ applyVTerm substH t2
+    t1NSubstHFreeAvoid = normHom $ applyVTerm substHFreeAvoid t1
+    t2NSubstHFreeAvoid = normHom $ applyVTerm substHFreeAvoid t2
 
-    t1N = normHomomorphic t1
-    t2N = normHomomorphic t2
-    t1NSubstHN = normHomomorphic $ applyVTerm substH t1N
-    t2NSubstHN = normHomomorphic $ applyVTerm substH t2N
+    t1N = normHom t1
+    t2N = normHom t2
+    t1NSubstHN = normHom $ applyVTerm substH t1N
+    t2NSubstHN = normHom $ applyVTerm substH t2N
 
-    t1NN = normHomomorphic t1N
-    t2NN = normHomomorphic t2N
+    t1NN = normHom t1N
+    t2NN = normHom t2N
 
     safeHead s = if null s then SubstVFresh $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)] else head s
 
@@ -444,9 +444,9 @@ onlyOrgVarsRight orgVars subst = let rightVars = foldVarsVTerm (map snd subst) i
 -- *****************************************************************************
 
 -- Multiple tests for the functions directly used by the 
--- homomorphic encrytion unification algorithm 
-testsUnifyHomomorphicSf :: MaudeHandle -> MaudeHandle -> Test
-testsUnifyHomomorphicSf _ _ =
+-- hom encrytion unification algorithm 
+testsUnifyHomSf :: MaudeHandle -> MaudeHandle -> Test
+testsUnifyHomSf _ _ =
   TestLabel "Tests for Unify module EpsilonH subfunctions" $
   TestList
     [ testTrue "position var" (positionsWithTerms x0 == [("",x0)])
@@ -472,9 +472,9 @@ testsUnifyHomomorphicSf _ _ =
     , testTrue "fromtoERep henc" (fromERepresentation (buildERepresentation tH1) == tH1)
     , testTrue "fromtoPRep hpair" (fromPRepresentation (buildPRepresentation tP1) == tP1)
     , testTrue "fromtoPRep henc" (fromPRepresentation (buildPRepresentation tH1) == tH1)
-    , testTrue "norm1" (normHomomorphic x0 == x0)
-    , testTrue "norm2" (normHomomorphic (hpair (x0,x1)) == hpair (x0,x1))
-    , testTrue "norm3" (normHomomorphic (henc (hpair (x0,x1),x2)) == hpair (henc (x0,x2),henc (x1,x2)))
+    , testTrue "norm1" (normHom x0 == x0)
+    , testTrue "norm2" (normHom (hpair (x0,x1)) == hpair (x0,x1))
+    , testTrue "norm3" (normHom (henc (hpair (x0,x1),x2)) == hpair (henc (x0,x2),henc (x1,x2)))
     , testTrue "sanityCheck" (not (allLeftVarsNotRight [
         (LVar "x0" LSortMsg 15, hpair (varTerm $ LVar "x"  LSortMsg 22, varTerm $ LVar "x"  LSortMsg 23)),
         (LVar "x2" LSortMsg 17, varTerm $ LVar "x2" LSortMsg 21),
@@ -486,11 +486,11 @@ testsUnifyHomomorphicSf _ _ =
     -- henc( henc( hpair(x0,x1), k0), k1) 
     -- -> henc( hpair( henc(x0,k0), henc(x1,k0) ), k1)
     -- -> hpair( henc(henc(x0,k0),k1) , henc(henc(x1,k0),k1) )
-    , testTrue "norm4" (normHomomorphic norm1 == norm2)
-    , testTrue "norm5" (normHomomorphic tpaper1 == tpaper1N)
-    , testTrue "norm6" (normHomomorphic tpaper2 == tpaper2N)
-    , testTrue "norm7" (normHomomorphic tpaper3 == tpaper3)
-    , testTrue "norm8" (normHomomorphic normInKey == normedInKey)
+    , testTrue "norm4" (normHom norm1 == norm2)
+    , testTrue "norm5" (normHom tpaper1 == tpaper1N)
+    , testTrue "norm6" (normHom tpaper2 == tpaper2N)
+    , testTrue "norm7" (normHom tpaper3 == tpaper3)
+    , testTrue "norm8" (normHom normInKey == normedInKey)
     ]
   where
     t1 = henc (hpair (x0,x1),x2)
@@ -550,61 +550,61 @@ testsUnifyHomomorphicSf _ _ =
     tP1 = hpair (x0, x1)
 
 -- *****************************************************************************
--- Tests for specific rules of the Homomorphic Unification Algorithm
+-- Tests for specific rules of the Hom Unification Algorithm
 -- *****************************************************************************
 
--- debugHomomorphicRule: 
---  [ failureOneHomomorphicRule             0
---  , failureTwoHomomorphicRule             1
---  , occurCheckHomomorphicRule             2
---  , clashHomomorphicRule                  3
---  , differentConsts                       4
---  , doSortsCompare                        5
---  , shapingHomomorphicRule                6
---  , parsingHomomorphicRule                7
---  , variableSubstitutionHomomorphicRule   8
---  , trivialHomomorphicRule                9
---  , stdDecompositionHomomorphicRule]      10
-testsUnifyHomomorphicRules :: MaudeHandle -> MaudeHandle -> Test
-testsUnifyHomomorphicRules _ _ = TestLabel "Tests for Unify module EpsilonH Rules" $
+-- debugHomRule: 
+--  [ failureOneHomRule             0
+--  , failureTwoHomRule             1
+--  , occurCheckHomRule             2
+--  , clashHomRule                  3
+--  , differentConsts               4
+--  , doSortsCompare                5
+--  , shapingHomRule                6
+--  , parsingHomRule                7
+--  , variableSubstitutionHomRule   8
+--  , trivialHomRule                9
+--  , stdDecompositionHomRule]      10
+testsUnifyHomRules :: MaudeHandle -> MaudeHandle -> Test
+testsUnifyHomRules _ _ = TestLabel "Tests for Unify module EpsilonH Rules" $
   TestList
-    [ testTrue "trivial 1" (debugHomomorphicRule 9 tE1 s ([], vA [tE1]) == HEqs ([], []) )
-    , testTrue "trivial 2" (debugHomomorphicRule 9 tFE1 s ([], vA [tFE1]) == HEqs ([], []) )
-    , testTrue "trivial 3" (debugHomomorphicRule 9 tE2 s ([], vA [tE2]) == HNothing)
-    , testTrue "std dec 1" (debugHomomorphicRule 10 tFE2 s ([], vA [tFE2]) == HEqs ([tE2, tE3], []) )
-    , testTrue "std dec 2" (debugHomomorphicRule 10 tFE3 s ([], vA [tFE3]) == HNothing)
-    , testTrue "var sub 1" (debugHomomorphicRule 8 tHE1 s ([], vA [tHE1]) == HNothing)
-    , testTrue "var sub 2" (debugHomomorphicRule 8 tHE1 s ([tE3], vA [tHE1, tE3]) == HNothing)
-    , testTrue "var sub 3" (debugHomomorphicRule 8 tHE1 s ([tE2], vA [tHE1, tE2]) == HSubstEqs tHE1S ([tHE1], []) )
-    , testTrue "var sub 4" (debugHomomorphicRule 8 tHE1 s ([tFE2], vA [tHE1, tFE2]) == HSubstEqs tHE1S ([tHE1], []) )
-    , testTrue "var sub 5" (debugHomomorphicRule 8 tE2 s ([tFE2], vA [tE2, tFE2]) == HSubstEqs tE2S ([tE2], []) )
-    , testTrue "var sub 6" (debugHomomorphicRule 8 tHE2 s ([], vA [tHE2]) == HNothing)
-    , testTrue "var sub 7" (debugHomomorphicRule 8 tHE2 s ([tE3], vA [tHE2, tE3]) == HNothing)
-    , testTrue "var sub 8" (debugHomomorphicRule 8 tHE2 s ([tE2], vA [tHE2, tE2]) == HNothing)
-    , testTrue "clash   1" (debugHomomorphicRule 3 tFE1 s ([], vA [tFE1]) == HNothing)
-    , testTrue "clash   2" (debugHomomorphicRule 3 tFE3 s ([], vA [tFE3]) == HNothing)
-    , testTrue "clash   3" (debugHomomorphicRule 3 tFE4 s ([], vA [tFE4]) == HFail)
-    , testTrue "occur   1" (debugHomomorphicRule 2 tFE4 s ([], vA [tFE4]) == HNothing)
-    , testTrue "occur   2" (debugHomomorphicRule 2 tE1 s ([], vA [tE1]) == HNothing)
-    , testTrue "occur   3" (debugHomomorphicRule 2 tE2 s ([], vA [tE2]) == HNothing)
-    , testTrue "occur   4" (debugHomomorphicRule 2 tHE1 s ([], vA [tHE1]) == HNothing)
-    , testTrue "occur   5" (debugHomomorphicRule 2 tHE2 s ([], vA [tHE2]) == HFail)
-    , testTrue "shaping 1" (debugHomomorphicRule 6 tFFE1 s ([], vA [tFFE1]) == HNothing) -- resolved by standard decomposition rule
-    , testTrue "shaping 2" (debugHomomorphicRule 6 tFFE1 s ([tFFE2], vA [tFFE1, tFFE2]) == HNothing)
-    , testTrue "shaping 3" (debugHomomorphicRule 6 tFE2 s ([], vA [tFE2]) == HNothing)
-    , testTrue "shaping 4" (debugHomomorphicRule 6 tHE2 s ([], vA [tHE2]) == HNothing)
-    , testTrue "shaping 5" (debugHomomorphicRule 6 tFFE4 s ([tFFE2], vA [tFFE4, tFFE2]) == HNothing)
-    , testTrue "fail1   1" (debugHomomorphicRule 0 tFE5 s ([], vA [tFE5]) == HFail)
-    , testTrue "fail1   2" (debugHomomorphicRule 0 tFE1 s ([], vA [tFE1]) == HNothing)
-    , testTrue "fail1   3" (debugHomomorphicRule 0 tFFE1 s ([], vA [tFFE1]) == HNothing)
-    , testTrue "fail1   4" (debugHomomorphicRule 0 tFE6 s ([], vA [tFE6]) == HNothing)
-    , testTrue "fail2   1" (debugHomomorphicRule 1 tFFE5 s ([], vA [tFFE5]) == HFail)
-    , testTrue "fail2   2" (debugHomomorphicRule 1 tFFE1 s ([], vA [tFFE1]) == HNothing)
-    , testTrue "fail2   3" (debugHomomorphicRule 1 tE1 s ([], vA [tE1]) == HNothing)
-    , testTrue "fail2   4" (debugHomomorphicRule 1 tFFE6 s ([], vA [tFFE6]) == HNothing)
-    , testTrue "fail2   5" (debugHomomorphicRule 1 tFFE7 s ([], vA [tFFE7]) == HNothing)
-    , testTrue "parsing 1" (debugHomomorphicRule 7 tFE1 s ([], vA [tFE1]) == HEqs ([tE1, tE4], []) )
-    , testsUnifyHomomorphicShaping
+    [ testTrue "trivial 1" (debugHomRule 9 tE1 s ([], vA [tE1]) == HEqs ([], []) )
+    , testTrue "trivial 2" (debugHomRule 9 tFE1 s ([], vA [tFE1]) == HEqs ([], []) )
+    , testTrue "trivial 3" (debugHomRule 9 tE2 s ([], vA [tE2]) == HNothing)
+    , testTrue "std dec 1" (debugHomRule 10 tFE2 s ([], vA [tFE2]) == HEqs ([tE2, tE3], []) )
+    , testTrue "std dec 2" (debugHomRule 10 tFE3 s ([], vA [tFE3]) == HNothing)
+    , testTrue "var sub 1" (debugHomRule 8 tHE1 s ([], vA [tHE1]) == HNothing)
+    , testTrue "var sub 2" (debugHomRule 8 tHE1 s ([tE3], vA [tHE1, tE3]) == HNothing)
+    , testTrue "var sub 3" (debugHomRule 8 tHE1 s ([tE2], vA [tHE1, tE2]) == HSubstEqs tHE1S ([tHE1], []) )
+    , testTrue "var sub 4" (debugHomRule 8 tHE1 s ([tFE2], vA [tHE1, tFE2]) == HSubstEqs tHE1S ([tHE1], []) )
+    , testTrue "var sub 5" (debugHomRule 8 tE2 s ([tFE2], vA [tE2, tFE2]) == HSubstEqs tE2S ([tE2], []) )
+    , testTrue "var sub 6" (debugHomRule 8 tHE2 s ([], vA [tHE2]) == HNothing)
+    , testTrue "var sub 7" (debugHomRule 8 tHE2 s ([tE3], vA [tHE2, tE3]) == HNothing)
+    , testTrue "var sub 8" (debugHomRule 8 tHE2 s ([tE2], vA [tHE2, tE2]) == HNothing)
+    , testTrue "clash   1" (debugHomRule 3 tFE1 s ([], vA [tFE1]) == HNothing)
+    , testTrue "clash   2" (debugHomRule 3 tFE3 s ([], vA [tFE3]) == HNothing)
+    , testTrue "clash   3" (debugHomRule 3 tFE4 s ([], vA [tFE4]) == HFail)
+    , testTrue "occur   1" (debugHomRule 2 tFE4 s ([], vA [tFE4]) == HNothing)
+    , testTrue "occur   2" (debugHomRule 2 tE1 s ([], vA [tE1]) == HNothing)
+    , testTrue "occur   3" (debugHomRule 2 tE2 s ([], vA [tE2]) == HNothing)
+    , testTrue "occur   4" (debugHomRule 2 tHE1 s ([], vA [tHE1]) == HNothing)
+    , testTrue "occur   5" (debugHomRule 2 tHE2 s ([], vA [tHE2]) == HFail)
+    , testTrue "shaping 1" (debugHomRule 6 tFFE1 s ([], vA [tFFE1]) == HNothing) -- resolved by standard decomposition rule
+    , testTrue "shaping 2" (debugHomRule 6 tFFE1 s ([tFFE2], vA [tFFE1, tFFE2]) == HNothing)
+    , testTrue "shaping 3" (debugHomRule 6 tFE2 s ([], vA [tFE2]) == HNothing)
+    , testTrue "shaping 4" (debugHomRule 6 tHE2 s ([], vA [tHE2]) == HNothing)
+    , testTrue "shaping 5" (debugHomRule 6 tFFE4 s ([tFFE2], vA [tFFE4, tFFE2]) == HNothing)
+    , testTrue "fail1   1" (debugHomRule 0 tFE5 s ([], vA [tFE5]) == HFail)
+    , testTrue "fail1   2" (debugHomRule 0 tFE1 s ([], vA [tFE1]) == HNothing)
+    , testTrue "fail1   3" (debugHomRule 0 tFFE1 s ([], vA [tFFE1]) == HNothing)
+    , testTrue "fail1   4" (debugHomRule 0 tFE6 s ([], vA [tFE6]) == HNothing)
+    , testTrue "fail2   1" (debugHomRule 1 tFFE5 s ([], vA [tFFE5]) == HFail)
+    , testTrue "fail2   2" (debugHomRule 1 tFFE1 s ([], vA [tFFE1]) == HNothing)
+    , testTrue "fail2   3" (debugHomRule 1 tE1 s ([], vA [tE1]) == HNothing)
+    , testTrue "fail2   4" (debugHomRule 1 tFFE6 s ([], vA [tFFE6]) == HNothing)
+    , testTrue "fail2   5" (debugHomRule 1 tFFE7 s ([], vA [tFFE7]) == HNothing)
+    , testTrue "parsing 1" (debugHomRule 7 tFE1 s ([], vA [tFE1]) == HEqs ([tE1, tE4], []) )
+    , testsUnifyHomShaping
     ]
   where
     tE1 = Equal (fH x0) (fH x0)
@@ -639,13 +639,13 @@ testsUnifyHomomorphicRules _ _ = TestLabel "Tests for Unify module EpsilonH Rule
     -- failure2: tFFE5 = Equal P ["1","2"] [[hpair(x,x.1),x.2],[x.3]] 
     --                         E [x.4,x.5,x.6] with n = 2, m = 1
 
-testsUnifyHomomorphicShaping :: Test
-testsUnifyHomomorphicShaping = TestLabel "Tests for Unify module EpsilonH Shaping Rule" $
+testsUnifyHomShaping :: Test
+testsUnifyHomShaping = TestLabel "Tests for Unify module EpsilonH Shaping Rule" $
   TestList
-   [ testTrue "Shaping 1" (debugHomomorphicRule 6 pairHenc1 s ([], vA [pairHenc1]) == HEqs ([pairHenc1Shaped1, pairHenc1Shaped2], [sh1V]))
-   , testTrue "Shaping 2" (debugHomomorphicRule 6 pairHenc2 s ([], vA [pairHenc2]) == HEqs ([pairHenc2Shaped1, pairHenc2Shaped2], [sh2V]))
-   , testTrue "Shaping 3" (debugHomomorphicRule 6 pairHenc3 s ([], vA [pairHenc3]) == HEqs ([pairHenc3Shaped1, pairHenc3Shaped2], [sh3V]))
-   , testTrue "Shaping 4" (debugHomomorphicRule 6 pairHenc4 s ([], vA [pairHenc4]) == HEqs ([pairHenc4Shaped1, pairHenc4Shaped2], [sh4V]))
+   [ testTrue "Shaping 1" (debugHomRule 6 pairHenc1 s ([], vA [pairHenc1]) == HEqs ([pairHenc1Shaped1, pairHenc1Shaped2], [sh1V]))
+   , testTrue "Shaping 2" (debugHomRule 6 pairHenc2 s ([], vA [pairHenc2]) == HEqs ([pairHenc2Shaped1, pairHenc2Shaped2], [sh2V]))
+   , testTrue "Shaping 3" (debugHomRule 6 pairHenc3 s ([], vA [pairHenc3]) == HEqs ([pairHenc3Shaped1, pairHenc3Shaped2], [sh3V]))
+   , testTrue "Shaping 4" (debugHomRule 6 pairHenc4 s ([], vA [pairHenc4]) == HEqs ([pairHenc4Shaped1, pairHenc4Shaped2], [sh4V]))
    ]
   where
     -- example 1: n = 1, m = 2
@@ -704,8 +704,8 @@ testsUnifyHomomorphicShaping = TestLabel "Tests for Unify module EpsilonH Shapin
 
 -- Test used to print return values and variables for debugging
 -- Set Test return value to false to print out text
-testPrinterHomomorphic :: MaudeHandle -> MaudeHandle -> Test
-testPrinterHomomorphic _ _ =
+testPrinterHom :: MaudeHandle -> MaudeHandle -> Test
+testPrinterHom _ _ =
   TestLabel "prints out debugging information" $
   TestList
     [ testTrue (show "***text being printed***") True]
@@ -899,7 +899,7 @@ testsSimple _hnd =
 tests :: FilePath -> IO Test
 tests maudePath = do
     mhnd    <- startMaude maudePath allMaudeSig
-    mhndHom <- startMaude maudePath allMaudeSigPlusHomomorphic
+    mhndHom <- startMaude maudePath allMaudeSigPlusHom
     return $ TestList [ testsVariant mhnd
                       , tcompare mhnd
                       , testsSubs mhnd
@@ -907,7 +907,7 @@ tests maudePath = do
                       , testsSubst
                       , testsNorm mhnd
                       , testsUnify mhnd
-                      , testAllHomomorphic mhnd mhndHom
+                      , testAllHom mhnd mhndHom
                       , testsSimple mhnd
                       , testsMatching mhnd
                       ]
@@ -919,8 +919,8 @@ allMaudeSig = mconcat
     , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
 
 -- with enableHom=True
-allMaudeSigPlusHomomorphic :: MaudeSig
-allMaudeSigPlusHomomorphic = mconcat
+allMaudeSigPlusHom :: MaudeSig
+allMaudeSigPlusHom = mconcat
     [ bpMaudeSig, msetMaudeSig, homMaudeSig
     , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
 

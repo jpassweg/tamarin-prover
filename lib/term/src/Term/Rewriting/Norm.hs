@@ -31,7 +31,7 @@ import           Term.Maude.Signature
 import           Term.Substitution
 import           Term.SubtermRule
 import           Term.Unification
-import Term.Unification.LPETerm (normHomomorphic, nfHomomorphic)
+import Term.Unification.LPETerm (normHom, nfHom)
 
 ----------------------------------------------------------------------
 -- Normalization using Maude
@@ -41,7 +41,7 @@ import Term.Unification.LPETerm (normHomomorphic, nfHomomorphic)
 norm :: (IsConst c)
      => (c -> LSort) -> LTerm c -> WithMaude (LTerm c)
 norm _      t@(viewTerm -> Lit _) = return t
-norm sortOf t         = reader $ \hnd -> (if enableHom $ mhMaudeSig hnd then normHomomorphic else id) $ unsafePerformIO $ normViaMaude hnd sortOf t
+norm sortOf t         = reader $ \hnd -> (if enableHom $ mhMaudeSig hnd then normHom else id) $ unsafePerformIO $ normViaMaude hnd sortOf t
 
 -- | @norm' t@ normalizes the term @t@ using Maude.
 norm' :: LNTerm -> WithMaude LNTerm
@@ -54,7 +54,7 @@ norm' = norm sortOfName
 
 -- | @nfViaHaskell t@ returns @True@ if the term @t@ is in normal form.
 nfViaHaskell :: LNTerm -> WithMaude Bool
-nfViaHaskell t0 = reader $ \hnd -> nfHomomorphic t0 && check hnd
+nfViaHaskell t0 = reader $ \hnd -> nfHom t0 && check hnd
   where
     check hnd = go t0
       where
@@ -89,7 +89,7 @@ nfViaHaskell t0 = reader $ \hnd -> nfHomomorphic t0 && check hnd
             -- bilinear map
             FEMap _                         (viewTerm2 -> FPMult _ _) -> False
             FEMap (viewTerm2 -> FPMult _ _) _                         -> False
-            -- homomorphic encryption -- gets caught by nfHomomorphic
+            -- hom encryption -- gets caught by nfHom
             FHdec t1 t2 -> go t1 && go t2
             FHenc t1 t2 -> go t1 && go t2
             FHomPair t1 t2 -> go t1 && go t2

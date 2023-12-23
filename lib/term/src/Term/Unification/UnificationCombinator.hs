@@ -22,15 +22,14 @@ import Term.Unification.MConst
       toMConstA,
       toMConstC,
       toMConstVarList,
-      fromMConst,
-      sortOfMConst )
+      fromMConst )
 
 import Data.Bifunctor (second, bimap)
 import Data.List (permutations)
 import Data.Maybe (mapMaybe)
 
 import Extension.Prelude (sortednub)
-import Term.Unification.HomomorphicEncryption (unifyHomomorphicLTermWrapper)
+import Term.Unification.HomomorphicEncryption
 
 -- NOTE: Maybe add checks here that in the returned substitution all vars on the left
 -- TODO: need to change the variable renaming to changing index per variable instead of a global index
@@ -81,7 +80,7 @@ unifyUnionDisjointTheories sortOf mhnd eqs = let
   in combineDisjointSystems $ cleanSolvedSystem absAllVars solvedSystems
   where
     acUnifier = unsafePerformIO . UM.unifyViaMaude mhnd (sortOfMConst sortOf)
-    homUnifier = unifyHomomorphicLTermWrapper (sortOfMConst sortOf)
+    homUnifier = unifyHomLTerm (sortOfMConst sortOf)
 
 abstractVars :: IsConst c => ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], [LVar])
 abstractVars ([], allVars) = ([], allVars)

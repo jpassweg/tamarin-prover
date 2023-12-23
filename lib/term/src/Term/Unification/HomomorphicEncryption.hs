@@ -1,17 +1,17 @@
 
 module Term.Unification.HomomorphicEncryption (
-  -- * Unification modulo EpsilonH for Homomorphic Encryption
-  unifyHomomorphicLTermWrapper
+  -- * Unification modulo EpsilonH for Hom Encryption
+  unifyHomLTerm
 
-  -- * Matching modulo EpsilonH for Homomorphic Encryption
-  , matchHomomorphicLTermWrapper
+  -- * Matching modulo EpsilonH for Hom Encryption
+  , matchHomLTerm
 
   -- * Failure rule Wrapper
-  , fastTestUnifiableHomomorphic
+  , fastTestUnifiableHom
 
   -- * For debugging
-  , debugHomomorphicRule
-  , HomomorphicRuleReturn(..)
+  , debugHomRule
+  , HomRuleReturn(..)
 
   -- * Convenience export
   , sortOfMConst
@@ -41,15 +41,15 @@ import Term.Substitution.SubstVFresh (LSubstVFresh, substFromListVFresh)
 -- Matching Algorithm using the Unification Algorithm
 -----------------------------------------------------
 
--- | matchHomomorphicLTerm
+-- | matchHomLTerm
 -- NOTE: Tamarin does allow matching pair(x0,x1) with pair(x1,x0) even though the substitution
 -- x0 <~ x1, x1 <~ x0 is not allowed in unification.
--- NOTE: The variables orgVars are given to unifyHomomorphicLTermWithVars such that when 
--- creating new variables, unifyHomomorphicLTermWithVars can also take into account the 
+-- NOTE: The variables orgVars are given to unifyHomLTermWithVars such that when 
+-- creating new variables, unifyHomLTermWithVars can also take into account the 
 -- variables that we turned into Consts in toMConstA.
 -- NOTE: Id-substitutions (like x0 <~ x0) are being removed by the substFromList function.
-matchHomomorphicLTermWrapper :: IsConst c => (c -> LSort) -> Match (LTerm c) -> [LSubst c]
-matchHomomorphicLTermWrapper sortOf matchProblem = let
+matchHomLTerm :: IsConst c => (c -> LSort) -> Match (LTerm c) -> [LSubst c]
+matchHomLTerm sortOf matchProblem = let
   ms = fromMaybe [] (flattenMatch matchProblem)
   eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
   orgVars = foldVarsVTerm $ foldr (\(t,p) vs -> t:p:vs) [] ms
@@ -71,8 +71,8 @@ matchHomomorphicLTermWrapper sortOf matchProblem = let
 -- Unification Algorithm Wrapper
 --------------------------------
 
-unifyHomomorphicLTermWrapper :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> [LSubstVFresh c]
-unifyHomomorphicLTermWrapper sortOf eqs = let
+unifyHomLTerm :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> [LSubstVFresh c]
+unifyHomLTerm sortOf eqs = let
   orgVars = foldVarsVTerm $ eqsToType eqs
   in toUnifier $ cleanSubUnif orgVars 
     =<< toFreeAvoid orgVars 
@@ -108,10 +108,10 @@ combineAnySubst (es1,vs1) (es2,vs2) = (es1++es2, vs1++vs2)
 -- Type to translate HomorphicRuleReturn
 data MaybeWFail a = MJust a | MNothing | MFail
 
--- Cap Unification Algorithm: Applying Homomorphic Rules
+-- Cap Unification Algorithm: Applying Hom Rules
 --------------------------------------------------------
 
--- | @unifyHomomorphicLNTerm eqs@ returns a set of unifiers for @eqs@ modulo EpsilonH.
+-- | @unifyHomLNTerm eqs@ returns a set of unifiers for @eqs@ modulo EpsilonH.
 -- returns a substitution for terms so that they unify or an empty list 
 -- if it is not possible to unify the terms
 -- Types used:
@@ -122,36 +122,36 @@ data MaybeWFail a = MJust a | MNothing | MFail
 -- data LSort = LSortPub | LSortFresh | LSortMsg | LSortNode -- Nodes are for dependency graphs
 applyCapUnification :: IsConst c => (c -> LSort) -> EqsSubst (LTerm c) -> Maybe (EqsSubst (LTerm c))
 applyCapUnification sortOf eqsSubst = let
-  lpeEqsSubst = first (map (fmap $ toLPETerm . normHomomorphic)) eqsSubst
-  unifier = applyHomomorphicRules sortOf allHomomorphicRules lpeEqsSubst
+  lpeEqsSubst = first (map (fmap $ toLPETerm . normHom)) eqsSubst
+  unifier = applyHomRules sortOf allHomRules lpeEqsSubst
   in Just . first (map (fmap lTerm)) =<< unifier
 
--- | Applies all homomorphic rules given en block, i.e., 
+-- | Applies all hom rules given en block, i.e., 
 -- it applies the first rule always first after each change
 -- Holds for output: No equation is a duplicate of another equation
-applyHomomorphicRules :: IsConst c => (c -> LSort) -> [HomomorphicRule c] -> EqsSubst (LPETerm c) -> Maybe (EqsSubst (LPETerm c))
-applyHomomorphicRules _ [] eqsSubst = Just eqsSubst -- no more rules to apply 
-applyHomomorphicRules sortOf (rule:rules) eqsSubst =
-  case applyHomomorphicRule sortOf rule eqsSubst [] of
-    MJust newEqsSubst -> applyHomomorphicRules sortOf allHomomorphicRules newEqsSubst
-    MNothing          -> applyHomomorphicRules sortOf rules eqsSubst
+applyHomRules :: IsConst c => (c -> LSort) -> [HomRule c] -> EqsSubst (LPETerm c) -> Maybe (EqsSubst (LPETerm c))
+applyHomRules _ [] eqsSubst = Just eqsSubst -- no more rules to apply 
+applyHomRules sortOf (rule:rules) eqsSubst =
+  case applyHomRule sortOf rule eqsSubst [] of
+    MJust newEqsSubst -> applyHomRules sortOf allHomRules newEqsSubst
+    MNothing          -> applyHomRules sortOf rules eqsSubst
     MFail             -> Nothing
 
--- | Applies the homomorphic rule to the first term possible in equation list or returns Nothing 
+-- | Applies the hom rule to the first term possible in equation list or returns Nothing 
 -- if the rule is not applicable to any terms
-applyHomomorphicRule :: IsConst c => (c -> LSort) -> HomomorphicRule c -> EqsSubst (LPETerm c) -> [Equal (LPETerm c)] -> MaybeWFail (EqsSubst (LPETerm c))
-applyHomomorphicRule _ _ ([], _) _ = MNothing
-applyHomomorphicRule sortOf rule (e:es, allVars) passedEqs = let eqsSubst = (es ++ passedEqs, allVars) in
+applyHomRule :: IsConst c => (c -> LSort) -> HomRule c -> EqsSubst (LPETerm c) -> [Equal (LPETerm c)] -> MaybeWFail (EqsSubst (LPETerm c))
+applyHomRule _ _ ([], _) _ = MNothing
+applyHomRule sortOf rule (e:es, allVars) passedEqs = let eqsSubst = (es ++ passedEqs, allVars) in
   case rule e sortOf eqsSubst of
     HEqs            newSubst -> MJust $ combineAnySubst eqsSubst newSubst
     HSubstEqs subst newSubst -> MJust $ combineAnySubst (applyEqsSubst subst eqsSubst) newSubst
-    HNothing                 -> applyHomomorphicRule sortOf rule (es, allVars) (e:passedEqs)
+    HNothing                 -> applyHomRule sortOf rule (es, allVars) (e:passedEqs)
     HFail                    -> MFail
   where
     applyEqsSubst :: IsConst c1 => [(LVar, LTerm c1)] -> EqsSubst (LPETerm c1) -> EqsSubst (LPETerm c1)
-    applyEqsSubst subst = first (map (fmap (toLPETerm . normHomomorphic . applyVTerm (substFromList subst) . lTerm)))
+    applyEqsSubst subst = first (map (fmap (toLPETerm . normHom . applyVTerm (substFromList subst) . lTerm)))
 
--- | To Homomorphic Solved Form (EqsSubst to PreSubst)
+-- | To Hom Solved Form (EqsSubst to PreSubst)
 ------------------------------------------------------
 
 -- Returns a ordering in which each LVar in the tuple is unique or Nothing
@@ -239,11 +239,11 @@ cleanSubUnif orgVars (subst, allVs) = let
   cleanSubst = filter ((`elem` orgVars) . fst) subst
   in Just (cleanSubst, allVs)
 
--- Homomorphic Rules Managers
+-- Hom Rules Managers
 -----------------------------
 
--- | Return type for a HomomorphicRule
-data HomomorphicRuleReturn c =
+-- | Return type for a HomRule
+data HomRuleReturn c =
     HEqs                        (EqsSubst (LPETerm c))
   | HSubstEqs [(LVar, LTerm c)] (EqsSubst (LPETerm c))
   | HNothing
@@ -254,35 +254,35 @@ data HomomorphicRuleReturn c =
 -- @arg1 = equation which we try to apply the rule on
 -- @arg2 = translation from terms to sorts
 -- @arg3 = all other equations (may be needed to check if a variable occurs in them)
-type HomomorphicRule c = Equal (LPETerm c) -> (c -> LSort) -> EqsSubst (LPETerm c) -> HomomorphicRuleReturn c
+type HomRule c = Equal (LPETerm c) -> (c -> LSort) -> EqsSubst (LPETerm c) -> HomRuleReturn c
 
--- | All homomorphic rules in order of application
+-- | All hom rules in order of application
 -- All rules are added as such that they are first applied on the equation
 -- Equal (eqLHS eq) (eqRHS eq) and then on the equation Equal (eqRHS eq) (eqLHS eq)
 -- with eq being the first argument given to the function
-allHomomorphicRules :: IsConst c => [HomomorphicRule c]
-allHomomorphicRules = map (\r -> combineWrapperHomomorphicRule r (switchedWrapperHomomorphicRule r))
+allHomRules :: IsConst c => [HomRule c]
+allHomRules = map (\r -> combineWrapperHomRule r (switchedWrapperHomRule r))
   -- failure rules first
-  [ failureOneHomomorphicRule
-  , failureTwoHomomorphicRule
-  , occurCheckHomomorphicRule
-  , clashHomomorphicRule
+  [ failureOneHomRule
+  , failureTwoHomRule
+  , occurCheckHomRule
+  , clashHomRule
   -- new failure rules
   , differentConsts
   , doSortsCompare
-  -- then homomorphic patterns   
+  -- then hom patterns   
   -- shaping best before parsing  
-  , shapingHomomorphicRule
-  , parsingHomomorphicRule
+  , shapingHomRule
+  , parsingHomRule
   -- varSub en block with homorphic patterns
-  , variableSubstitutionHomomorphicRule
+  , variableSubstitutionHomRule
   -- then other rules
-  , trivialHomomorphicRule
-  , stdDecompositionHomomorphicRule ]
+  , trivialHomRule
+  , stdDecompositionHomRule ]
 
 -- | Combines two rules and runs the second rule if first returns HNothing
-combineWrapperHomomorphicRule :: IsConst c => HomomorphicRule c -> HomomorphicRule c -> HomomorphicRule c
-combineWrapperHomomorphicRule rule1 rule2 eq sortOf eqsSubst =
+combineWrapperHomRule :: IsConst c => HomRule c -> HomRule c -> HomRule c
+combineWrapperHomRule rule1 rule2 eq sortOf eqsSubst =
   case rule1 eq sortOf eqsSubst of
     HNothing -> rule2 eq sortOf eqsSubst
     ret      -> ret
@@ -290,29 +290,29 @@ combineWrapperHomomorphicRule rule1 rule2 eq sortOf eqsSubst =
 -- | Since the equality sign used is not oriented, we need
 -- to look at the possibility of rule applications for 
 -- both x = t and t = x for any equation.
--- This function is used in combination with combineWrapperHomomorphicRule
-switchedWrapperHomomorphicRule :: IsConst c => HomomorphicRule c -> HomomorphicRule c
-switchedWrapperHomomorphicRule rule eq = rule (Equal (eqRHS eq) (eqLHS eq))
+-- This function is used in combination with combineWrapperHomRule
+switchedWrapperHomRule :: IsConst c => HomRule c -> HomRule c
+switchedWrapperHomRule rule eq = rule (Equal (eqRHS eq) (eqLHS eq))
 
--- | used to export homomorphic rules for debugging
-debugHomomorphicRule :: IsConst c => Int -> HomomorphicRule c
-debugHomomorphicRule i = allHomomorphicRules !! i
+-- | used to export hom rules for debugging
+debugHomRule :: IsConst c => Int -> HomRule c
+debugHomRule i = allHomRules !! i
 
 -- | Standard syntactic inference rules
 -----------------------------------------
 
-trivialHomomorphicRule :: IsConst c => HomomorphicRule c
-trivialHomomorphicRule (Equal eL eR) _ _ = if lTerm eL == lTerm eR then HEqs ([], []) else HNothing
+trivialHomRule :: IsConst c => HomRule c
+trivialHomRule (Equal eL eR) _ _ = if lTerm eL == lTerm eR then HEqs ([], []) else HNothing
 
-stdDecompositionHomomorphicRule :: IsConst c => HomomorphicRule c
-stdDecompositionHomomorphicRule (Equal eL eR) _ _ =
+stdDecompositionHomRule :: IsConst c => HomRule c
+stdDecompositionHomRule (Equal eL eR) _ _ =
   case (viewTermPE eL, viewTermPE eR) of
     (FApp lfsym largs, FApp rfsym rargs) | lfsym == rfsym && length largs == length rargs
       -> HEqs (zipWith (\l r -> Equal (toLPETerm l) (toLPETerm r)) largs rargs, [])
     _ -> HNothing
 
-variableSubstitutionHomomorphicRule :: IsConst c => HomomorphicRule c
-variableSubstitutionHomomorphicRule (Equal eL eR) sortOf (eqs,_) = let tR = lTerm eR in
+variableSubstitutionHomRule :: IsConst c => HomRule c
+variableSubstitutionHomRule (Equal eL eR) sortOf (eqs,_) = let tR = lTerm eR in
   case (viewTermPE eL, viewTermPE eR) of
     (Lit (Var vl), Lit (Var vr)) | lvarSort vl == lvarSort vr ->
       if vl /= vr && occursVTermEqs vl eqs && occursVTermEqs vr eqs
@@ -327,15 +327,15 @@ variableSubstitutionHomomorphicRule (Equal eL eR) sortOf (eqs,_) = let tR = lTer
       occursVTermEqs :: LVar -> [Equal (LPETerm c)] -> Bool
       occursVTermEqs v es = any (occursVTerm v . lTerm) (eqsToType es)
 
-clashHomomorphicRule :: IsConst c => HomomorphicRule c
-clashHomomorphicRule (Equal eL eR) _ _ = let tL = lTerm eL; tR = lTerm eR
+clashHomRule :: IsConst c => HomRule c
+clashHomRule (Equal eL eR) _ _ = let tL = lTerm eL; tR = lTerm eR
   in case (viewTermPE eL, viewTermPE eR) of
     (FApp lfsym _, FApp rfsym _) | lfsym /= rfsym && not (isHomPair tL && isHomEnc tR) && not (isHomEnc tL && isHomPair tR)
       -> HFail
     _ -> HNothing
 
-occurCheckHomomorphicRule :: IsConst c => HomomorphicRule c
-occurCheckHomomorphicRule (Equal tL tR) _ _ = case viewTermPE tL of
+occurCheckHomRule :: IsConst c => HomRule c
+occurCheckHomRule (Equal tL tR) _ _ = case viewTermPE tL of
     (Lit (Var vL)) | tL /= tR && occursVTerm vL (lTerm tR) -> HFail
     _                                                      -> HNothing
 
@@ -343,7 +343,7 @@ occurCheckHomomorphicRule (Equal tL tR) _ _ = case viewTermPE tL of
 ---------------------------------------------
 
 -- Checks if consts can be unified
-differentConsts :: IsConst c => HomomorphicRule c
+differentConsts :: IsConst c => HomRule c
 differentConsts (Equal eL eR) _ _ = case (viewTermPE eL, viewTermPE eR) of
   (Lit (Con cl), Lit (Con cr)) -> if cl == cr then HNothing else HFail
   (Lit (Con _ ), Lit (Var _ )) -> HNothing
@@ -353,7 +353,7 @@ differentConsts (Equal eL eR) _ _ = case (viewTermPE eL, viewTermPE eR) of
   _                            -> HNothing
 
 -- Checks if sorts are incompatible
-doSortsCompare :: IsConst c => HomomorphicRule c
+doSortsCompare :: IsConst c => HomRule c
 doSortsCompare (Equal eL eR) sortOf _ = case (viewTermPE eL, viewTermPE eR) of
   (Lit (Var vl), Lit (Var vr)) ->
     if sortGEQ sortOf vl (lTerm eR) || sortGEQ sortOf vr (lTerm eL) then HNothing else HFail
@@ -364,11 +364,11 @@ doSortsCompare (Equal eL eR) sortOf _ = case (viewTermPE eL, viewTermPE eR) of
   _                            ->
     if isJust $ sortCompare (sortOfLTerm sortOf $ lTerm eL) (sortOfLTerm sortOf $ lTerm eR) then HNothing else HFail
 
--- | Homomorphic Patterns
+-- | Hom Patterns
 -------------------------
 
-shapingHomomorphicRule :: IsConst c => HomomorphicRule c
-shapingHomomorphicRule (Equal eL eR) _ (_, allVars) = let
+shapingHomRule :: IsConst c => HomRule c
+shapingHomRule (Equal eL eR) _ (_, allVars) = let
   eRepsLHS = eRepsTerms $ pRep eL
   n = length (eRep eR) - 1
   in if length eRepsLHS > 1 && n >= 1
@@ -379,8 +379,8 @@ shapingHomomorphicRule (Equal eL eR) _ (_, allVars) = let
       lhs1NewPTerm = let (ys,zs) = splitAt qualifyingIndex eRepsLHS in
         PRep (eRepsString $ pRep eL)
         (ys ++ [[varTerm xFresh] ++ take (m-1) (tail (eRep eR)) ++ tail qualifyingELhs] ++ tail zs)
-      lhs1 = toLPETerm $ normHomomorphic $ fromPRepresentation lhs1NewPTerm
-      rhs2 = toLPETerm $ normHomomorphic $ fromERepresentation $ varTerm xFresh : take (m-1) (tail (eRep eR))
+      lhs1 = toLPETerm $ normHom $ fromPRepresentation lhs1NewPTerm
+      rhs2 = toLPETerm $ normHom $ fromERepresentation $ varTerm xFresh : take (m-1) (tail (eRep eR))
       in HEqs ([Equal lhs1 eR, Equal (toLPETerm $ varTerm x) rhs2], [xFresh])
     Nothing -> HNothing
   else HNothing
@@ -391,8 +391,8 @@ shapingHomomorphicRule (Equal eL eR) _ (_, allVars) = let
       (Lit (Var v)) | (length e - 1 < n) && not (null e) -> Just (ind, e, v)
       _                                                  -> findQualifyingETerm es n (ind+1)
 
-failureOneHomomorphicRule :: IsConst c => HomomorphicRule c
-failureOneHomomorphicRule (Equal eL eR) _ _ = let
+failureOneHomRule :: IsConst c => HomRule c
+failureOneHomRule (Equal eL eR) _ _ = let
     (tL, tR) = (lTerm eL, lTerm eR)
     tLNonKey = filter (\(p,_) -> all ('1' ==) (ePosition p tL)) (positionsWithTerms tL)
     tRNonKey = filter (\(p,_) -> all ('1' ==) (ePosition p tR)) (positionsWithTerms tR)
@@ -408,8 +408,8 @@ failureOneHomomorphicRule (Equal eL eR) _ _ = let
       then map (\(m,_) -> (fst v, m)) matches ++ matchVars vs vs2
       else matchVars vs vs2
 
-failureTwoHomomorphicRule :: IsConst c => HomomorphicRule c
-failureTwoHomomorphicRule (Equal eL eR) _ _ = let eRepsLHS = eRepsTerms $ pRep eL in
+failureTwoHomRule :: IsConst c => HomRule c
+failureTwoHomRule (Equal eL eR) _ _ = let eRepsLHS = eRepsTerms $ pRep eL in
   if any (\e -> not (isVar $ head e) && (length e < length (eRep eR))) eRepsLHS && length eRepsLHS > 1
   then HFail
   else HNothing
@@ -418,19 +418,19 @@ failureTwoHomomorphicRule (Equal eL eR) _ _ = let eRepsLHS = eRepsTerms $ pRep e
 -- check any other thingens
 -- add other checks also here (like pair and henc but not other different)
 -- give better name
-fastTestUnifiableHomomorphic :: IsConst c => LTerm c -> LTerm c -> Bool
-fastTestUnifiableHomomorphic l r = let
-    lPE = toLPETerm $ normHomomorphic l
-    rPE = toLPETerm $ normHomomorphic r
+fastTestUnifiableHom :: IsConst c => LTerm c -> LTerm c -> Bool
+fastTestUnifiableHom l r = let
+    lPE = toLPETerm $ normHom l
+    rPE = toLPETerm $ normHom r
     returns =  [
-      failureOneHomomorphicRule (Equal lPE rPE) (const LSortMsg) ([], []),
-      failureOneHomomorphicRule (Equal rPE lPE) (const LSortMsg) ([], []),
-      failureTwoHomomorphicRule (Equal lPE rPE) (const LSortMsg) ([], []),
-      failureTwoHomomorphicRule (Equal rPE lPE) (const LSortMsg) ([], []),
-      occurCheckHomomorphicRule (Equal lPE rPE) (const LSortMsg) ([], []),
-      occurCheckHomomorphicRule (Equal rPE lPE) (const LSortMsg) ([], []),
-      clashHomomorphicRule (Equal lPE rPE) (const LSortMsg) ([], []),
-      clashHomomorphicRule (Equal rPE lPE) (const LSortMsg) ([], []),
+      failureOneHomRule (Equal lPE rPE) (const LSortMsg) ([], []),
+      failureOneHomRule (Equal rPE lPE) (const LSortMsg) ([], []),
+      failureTwoHomRule (Equal lPE rPE) (const LSortMsg) ([], []),
+      failureTwoHomRule (Equal rPE lPE) (const LSortMsg) ([], []),
+      occurCheckHomRule (Equal lPE rPE) (const LSortMsg) ([], []),
+      occurCheckHomRule (Equal rPE lPE) (const LSortMsg) ([], []),
+      clashHomRule (Equal lPE rPE) (const LSortMsg) ([], []),
+      clashHomRule (Equal rPE lPE) (const LSortMsg) ([], []),
       differentConsts (Equal lPE rPE) (const LSortMsg) ([], []),
       differentConsts (Equal rPE lPE) (const LSortMsg) ([], [])
       -- can't check doSortsCompare since this function should be callable without 
@@ -438,12 +438,12 @@ fastTestUnifiableHomomorphic l r = let
       ]
     in all (== HNothing) returns
     
-parsingHomomorphicRule :: IsConst c => HomomorphicRule c
-parsingHomomorphicRule (Equal eL eR) _ _ = let
+parsingHomRule :: IsConst c => HomRule c
+parsingHomRule (Equal eL eR) _ _ = let
   eRepsLHS = eRepsTerms $ pRep eL
-  newLHS = toLPETerm $ normHomomorphic $ fromPRepresentation $ PRep (eRepsString $ pRep eL) (map init eRepsLHS)
-  newRHS = toLPETerm $ normHomomorphic $ fromERepresentation $ init (eRep eR)
-  allKms = map (toLPETerm . normHomomorphic) $ last (eRep eR) : map last eRepsLHS
+  newLHS = toLPETerm $ normHom $ fromPRepresentation $ PRep (eRepsString $ pRep eL) (map init eRepsLHS)
+  newRHS = toLPETerm $ normHom $ fromERepresentation $ init (eRep eR)
+  allKms = map (toLPETerm . normHom) $ last (eRep eR) : map last eRepsLHS
   in if all (\t -> length t >= 2) (eRepsLHS ++ [eRep eR])
   then HEqs (Equal newLHS newRHS : getAllCombinations allKms, [])
   else HNothing

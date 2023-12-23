@@ -168,7 +168,7 @@ substCreatesNonNormalTerms hnd sys fsubst =
 -- errors should already get caught by hasNonNormalTerms
 hasNonHomNormalTerms :: System -> Bool
 hasNonHomNormalTerms _ = False
---  not (all nfHomomorphic terms)
+--  not (all nfHom terms)
 --  where
 --    terms = sortednub . concatMap getTerms . M.elems . L.get sNodes $ sys
 --    getTerms (Rule _ ps cs as nvs) = concatMap factTerms (ps++cs++as) ++ nvs
@@ -456,7 +456,7 @@ prettyContradiction contra = case contra of
     ImpossibleChain              -> text "impossible chain"
     NonInjectiveFactInstance cex -> text $ "non-injective facts " ++ show cex
     FormulasFalse                -> text "from formulas"
-    NonHomNormalTerms            -> text "non-normal homomorphic terms"
+    NonHomNormalTerms            -> text "non-normal hom terms"
     SuperfluousLearn m v         ->
         doubleQuotes (prettyLNTerm m) <->
         text ("derived before and after") <->

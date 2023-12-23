@@ -1,7 +1,7 @@
 {-# LANGUAGE ViewPatterns       #-}
 
 module Term.Unification.LPETerm (
-  -- * Homomorphic Representation types
+  -- * Hom Representation types
     LPETerm(..)
   , PRepresentation(..)
   , ERepresentation
@@ -9,7 +9,7 @@ module Term.Unification.LPETerm (
   -- * Helper functions
   , viewTermPE
 
-  -- * Homomorphic Representation functions
+  -- * Hom Representation functions
   , toLPETerm
   , positionsWithTerms
   , pPosition
@@ -19,10 +19,10 @@ module Term.Unification.LPETerm (
   , fromERepresentation
 
   -- * Norm functions
-  , normHomomorphic
-  , nfHomomorphic
+  , normHom
+  , nfHom
 
-  -- * Functions for debuggin Homomorphic Representations
+  -- * Functions for debuggin Hom Representations
   , findPurePPositions
   , findPenukEPositions
   , maximalPositions
@@ -43,15 +43,15 @@ import Term.LTerm (
 -- viewTerm, viewTerm2, termViewToTerm from Term.Term.Raw
 -- fAppHomPair, fAppHomEnc, isHomEnc from Term.Term
 
--- New Types used for Unification modulo Homomorphic Encrpytion
+-- New Types used for Unification modulo Hom Encrpytion
 ---------------------------------------------------------------
 
 -- | E representation as defined in the cap unification paper
 type ERepresentation c = [LTerm c]
 
 -- | P representation as defined in the cap unification paper
---   Since rules applied in the Unification modulo Homomorphic Encrpytion algorithm
---   (namely the homomorphic patterns) compare either ERepresentation or ERepresentations
+--   Since rules applied in the Unification modulo Hom Encrpytion algorithm
+--   (namely the hom patterns) compare either ERepresentation or ERepresentations
 --   inside a PRepresentation, we directly store the terms inside the PRepresentation as
 --   ERepresentations of the terms.
 data PRepresentation c = PRep
@@ -62,7 +62,7 @@ data PRepresentation c = PRep
 
 -- | Terms used for proving; i.e., variables fixed to logical variables
 --   and constants to Names.
---   Additionally contains some position information for Homomorphic encryption rules
+--   Additionally contains some position information for Hom encryption rules
 data LPETerm c = LPETerm
       { lTerm :: LTerm c
       , pRep  :: PRepresentation c
@@ -76,10 +76,10 @@ data LPETerm c = LPETerm
 viewTermPE :: IsConst c => LPETerm c -> TermView (Lit c LVar)
 viewTermPE = viewTerm . lTerm
 
--- Homomorphic encryption and LNPETerms specific functions
+-- Hom encryption and LNPETerms specific functions
 ----------------------------------------------------------
 
--- | Builds P and E Representation for matching with homomorphic patterns 
+-- | Builds P and E Representation for matching with hom patterns 
 toLPETerm :: (IsConst c) => LTerm c -> LPETerm c
 toLPETerm t = LPETerm t (buildPRepresentation t) (buildERepresentation t)
 
@@ -96,7 +96,7 @@ positionsWithTerms' pos t = case viewTerm t of
     argFunc :: (IsConst c) => Int -> LTerm c -> [(String, LTerm c)]
     argFunc ind = positionsWithTerms' (pos ++ show ind)
 
--- | Returns the pposition used for Homomorphic Pattern rules
+-- | Returns the pposition used for Hom Pattern rules
 pPosition :: (IsConst c) => String -> LTerm c -> String
 pPosition [] _ = ""
 pPosition (i:q) t = let ind = read [i] - 1 in case viewTerm2 t of
@@ -105,7 +105,7 @@ pPosition (i:q) t = let ind = read [i] - 1 in case viewTerm2 t of
   FHenc t1 t2     ->     pPosition q ([t1,t2] !! ind)
   _               -> "N"
 
--- | Returns the eposition used for Homomorphic Pattern rules
+-- | Returns the eposition used for Hom Pattern rules
 ePosition :: (IsConst c) => String -> LTerm c -> String
 ePosition [] _ = ""
 ePosition (i:q) t = let ind = read [i] - 1 in case viewTerm2 t of
@@ -163,7 +163,7 @@ validBitString s = contains12Pattern s
 maximalPositions :: (IsConst c) => [(String, LTerm c)] -> [(String, LTerm c)]
 maximalPositions ps = filter (\p -> not $ any (properPrefix (fst p) . fst) ps) ps
 
--- | returns P representation for Homomorphic Patterns
+-- | returns P representation for Hom Patterns
 buildPRepresentation :: (IsConst c) => LTerm c -> PRepresentation c
 buildPRepresentation t = uncurry PRep $ unzip
   $ map (second buildERepresentation) $ maximalPositions $ findPurePPositions t
@@ -174,7 +174,7 @@ buildPRepresentationOnly :: (IsConst c) => LTerm c -> ([String],[LTerm c])
 buildPRepresentationOnly t = unzip $ maximalPositions $ findPurePPositions t
 -}
 
--- | returns E representation for Homomorphic Patterns
+-- | returns E representation for Hom Patterns
 buildERepresentation :: (IsConst c) => LTerm c -> ERepresentation c
 buildERepresentation t = map snd $ maximalPositions $ findPenukEPositions t
 
@@ -213,38 +213,38 @@ fromERepresentation :: (IsConst c) => ERepresentation c -> LTerm c
 fromERepresentation e = if length e == 1 then head e
   else fAppHomEnc (fromERepresentation (init e), last e)
 
--- Norm related functions for Homomorphic encryption
+-- Norm related functions for Hom encryption
 ----------------------------------------------------
 
--- | @normHomomorphic t@ normalizes the term @t@ modulo the homomorphic rule 
+-- | @normHom t@ normalizes the term @t@ modulo the hom rule 
 -- henc(<x1,x2>,k) -> <henc(x1,k),henc(x2,k)>
-normHomomorphic :: (IsConst c) => LTerm c -> LTerm c
-normHomomorphic t = case viewTerm t of
+normHom :: (IsConst c) => LTerm c -> LTerm c
+normHom t = case viewTerm t of
     FApp _ [t1, t2] | isHomEnc t -> let 
-      t1N = normHomomorphic t1 
-      t2N = normHomomorphic t2
+      t1N = normHom t1 
+      t2N = normHom t2
       in case viewTerm2 t1N of
-        FHomPair t11N t12N -> fAppHomPair (normHomomorphic $ fAppHomEnc (t11N, t2N), normHomomorphic $ fAppHomEnc (t12N, t2N))
+        FHomPair t11N t12N -> fAppHomPair (normHom $ fAppHomEnc (t11N, t2N), normHom $ fAppHomEnc (t12N, t2N))
         _               -> fAppHomEnc (t1N, t2N)
-    FApp funsym ts -> termViewToTerm (FApp funsym (map normHomomorphic ts))
+    FApp funsym ts -> termViewToTerm (FApp funsym (map normHom ts))
     Lit _ -> t
 
-nfHomomorphic :: (IsConst c) => LTerm c -> Bool
-nfHomomorphic t = case viewTerm t of
+nfHom :: (IsConst c) => LTerm c -> Bool
+nfHom t = case viewTerm t of
   FApp _ [viewTerm2 -> FHomPair _ _, _] | isHomEnc t -> False
-  FApp _ ts                                          -> all nfHomomorphic ts
+  FApp _ ts                                          -> all nfHom ts
   Lit _                                              -> True
 
 {-
 -- | returns if the term is in normal form modulo HE+
-nfHomomorphicHEPlus :: (IsConst c) => LTerm c -> Bool
-nfHomomorphicHEPlus t = case viewTerm t of
+nfHomHEPlus :: (IsConst c) => LTerm c -> Bool
+nfHomHEPlus t = case viewTerm t of
     FApp _ [t1   ] | isFst t    && isPair t1           -> False
     FApp _ [t1   ] | isSnd t    && isPair t1           -> False
     FApp _ [t1, _] | isHomDec t && hasSameHomKey t t1  -> False
     FApp _ [t1, _] | isHomEnc t && isPair t1           -> False
     FApp _ [t1, _] | isHomDec t && hasSameHomKeys t t1 -> False
-    FApp _ ts -> all nfHomomorphicHEPlus ts
+    FApp _ ts -> all nfHomHEPlus ts
     Lit _ -> True
   where
     hasSameHomKeys :: (IsConst c) => LTerm c -> LTerm c -> Bool
@@ -252,9 +252,9 @@ nfHomomorphicHEPlus t = case viewTerm t of
           all (hasSameHomKey t1) (snd $ buildPRepresentationOnly t2) &&
           all isHomEnc (snd $ buildPRepresentationOnly t2)
 
--- | @normHomomorphic t@ normalizes the term @t@ modulo HE+
-normHomomorphicHEPlus :: (IsConst c) => LTerm c -> LTerm c
-normHomomorphicHEPlus t = case viewTerm t of
+-- | @normHom t@ normalizes the term @t@ modulo HE+
+normHomHEPlus :: (IsConst c) => LTerm c -> LTerm c
+normHomHEPlus t = case viewTerm t of
     FApp _ [t1    ] | isFst t    && isPair t1           -> nH $ getFst t1
     FApp _ [t1    ] | isSnd t    && isPair t1           -> nH $ getSnd t1
     FApp _ [t1, _ ] | isHomDec t && hasSameHomKey t t1  -> nH t1
@@ -266,7 +266,7 @@ normHomomorphicHEPlus t = case viewTerm t of
       termViewToTerm (FApp funsym (map nH ts))
     Lit _ -> t
   where
-    nH = normHomomorphicHEPlus
+    nH = normHomHEPlus
     getFst :: (IsConst c) => LTerm c -> LTerm c
     getFst te = case viewTerm te of
       FApp _ [t1, _] -> t1

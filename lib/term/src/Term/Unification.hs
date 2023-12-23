@@ -138,7 +138,7 @@ prepareUnifyUnionDisjointTheories sortOf mhnd eqs = let
     hasHom = all (\(Equal l r) -> hasAny isAnyHom l && hasAny isAnyHom r) eqs
   in case (hasAC, hasHom) of
     (_,     False) -> unsafePerformIO (UM.unifyViaMaude mhnd sortOf eqs)
-    (False, True)  -> unifyHomomorphicLTermWrapper sortOf eqs
+    (False, True)  -> unifyHomLTerm sortOf eqs
     (True,  True)  -> unifyUnionDisjointTheories sortOf mhnd eqs
 
 -- | @unifyLTerm sortOf eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
@@ -236,9 +236,9 @@ solveMatchLTerm sortOf matchProblem =
               unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
           (Left ACProblem, _) ->
               matchUnionDisjointTheories sortOf hnd matchProblem
-          (Left HomomorphicProblem, _) | not $ any (\m -> hasAny isACC (fst m) || hasAny isACC (snd m)) ms ->
-              matchHomomorphicLTermWrapper sortOf matchProblem
-          (Left HomomorphicProblem, _) ->
+          (Left HomProblem, _) | not $ any (\m -> hasAny isACC (fst m) || hasAny isACC (snd m)) ms ->
+              matchHomLTerm sortOf matchProblem
+          (Left HomProblem, _) ->
               matchUnionDisjointTheories sortOf hnd matchProblem
           (Right (), mappings) -> [substFromMap mappings]
       where
@@ -307,7 +307,7 @@ unifyRaw l0 r0 = do
           guard  (sortGeqLTerm sortOf v t)
           modify (M.insert v t . M.map (applyVTerm (substFromList [(v,t)])))
 
--- | Unify two 'LTerm's with delayed AC-unification and delayed Homomorphic Encryption unification.
+-- | Unify two 'LTerm's with delayed AC-unification and delayed Hom Encryption unification.
 unifyRawWithHom :: IsConst c => LTerm c -> LTerm c -> UnifyRaw c ()
 unifyRawWithHom l0 r0 = do
     mappings <- get
@@ -335,9 +335,9 @@ unifyRawWithHom l0 r0 = do
           guard (lfsym == natOneSym) >> tell [Equal l r]
        (FApp (AC NatPlus) _, FApp (NoEq rfsym) []) ->
           guard (rfsym == natOneSym) >> tell [Equal l r]
-       -- Homomorphic cases (need to be handled here since next is the general case with guard)
+       -- Hom cases (need to be handled here since next is the general case with guard)
        (FApp (NoEq _) _, FApp (NoEq _) _) | isAnyHom l || isAnyHom r  ->
-           guard (fastTestUnifiableHomomorphic l r)
+           guard (fastTestUnifiableHom l r)
            >> tell [Equal l r]
        -- General cases / function application
        (FApp (NoEq lfsym) largs, FApp (NoEq rfsym) rargs) ->
@@ -364,7 +364,7 @@ unifyRawWithHom l0 r0 = do
           guard  (sortGeqLTerm sortOf v t)
           modify (M.insert v t . M.map (applyVTerm (substFromList [(v,t)])))
 
-data MatchFailure = NoMatcher | ACProblem | HomomorphicProblem
+data MatchFailure = NoMatcher | ACProblem | HomProblem
 
 instance Semigroup MatchFailure where
   _ <> _ = NoMatcher
@@ -394,7 +394,7 @@ matchRaw sortOf t p = do
 
       (Lit (Con ct),  Lit (Con cp)) -> guard (ct == cp)
       (FApp (NoEq _) _, FApp (NoEq _) _) | isAnyHom t || isAnyHom p ->
-           throwError HomomorphicProblem
+           throwError HomProblem
       (FApp (NoEq tfsym) targs, FApp (NoEq pfsym) pargs) ->
            guard (tfsym == pfsym && length targs == length pargs)
            >> sequence_ (zipWith (matchRaw sortOf) targs pargs)

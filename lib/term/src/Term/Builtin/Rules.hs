@@ -64,7 +64,7 @@ dhRules = S.fromList
     dhNeutral = fAppDHNeutral
     one  = fAppOne
 
--- | The rewrite rule for homomorphic symmetric encryption.
+-- | The rewrite rule for hom symmetric encryption.
 --   Due to homorphic encryption breaking the finite variant property
 --   the only rule stated is the same behaviour as symmetric encryption
 --   and the rest is offloaded to the unification and matching algorithm.  

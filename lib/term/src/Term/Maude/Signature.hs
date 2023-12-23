@@ -239,7 +239,7 @@ prettyMaudeSigExcept sig excl = P.vcat
       , (enableMSet, "multiset")
       , (enableNat,  "natural-numbers")
       , (enableXor,  "xor")
-      , (enableHom, "homomorphic-encryption")
+      , (enableHom,  "homomorphic-encryption")
       ]
 
     ppFunSymb (f,(k,priv,constr)) = P.text $ BC.unpack f ++ "/" ++ show k

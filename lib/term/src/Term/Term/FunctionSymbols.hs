@@ -227,7 +227,7 @@ dhFunSig = S.fromList [ AC Mult, NoEq expSym, NoEq oneSym, NoEq invSym, NoEq dhN
 xorFunSig :: FunSig
 xorFunSig = S.fromList [ AC Xor, NoEq zeroSym ]
 
--- | The signature for Homomorphic function symbols
+-- | The signature for Hom function symbols
 homFunSig :: FunSig
 homFunSig = S.fromList [NoEq homEncSym, NoEq homDecSym]
 
@@ -264,9 +264,9 @@ dhReducibleFunSig = S.fromList [ NoEq expSym, NoEq invSym ]
 bpReducibleFunSig :: FunSig
 bpReducibleFunSig = S.fromList [ NoEq pmultSym, C EMap ]
 
--- | Reducible function symbols for Homomorphic Encryption
+-- | Reducible function symbols for Hom Encryption
 -- NOTE: for symmetric encryption sdec is reducible but senc is not. 
--- For homomorphic encryption, henc needs to be reducible for normalization. 
+-- For hom encryption, henc needs to be reducible for normalization. 
 homReducibleFunSig :: FunSig
 homReducibleFunSig = S.fromList [ NoEq homDecSym, NoEq homFstSym, NoEq homSndSym ]
 

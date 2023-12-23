@@ -408,7 +408,7 @@ precomputeSources parameters ctxt restrictions =
       . map (filter (`elem` '_' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']))
 
     rawSources =
-      mapMaybe (removeHomomorphicIncorrectSources . initialSource ctxt restrictions) 
+      mapMaybe (removeHomIncorrectSources . initialSource ctxt restrictions) 
       (protoGoals ++ msgGoals)
 
     -- construct source starting from facts from non-special rules
@@ -459,9 +459,9 @@ precomputeSources parameters ctxt restrictions =
 
     msig = mhMaudeSig . get pcMaudeHandle $ ctxt
 
-    -- Removes sources that assume terms not in homomorphic normal form. Might not be complete.
-    removeHomomorphicIncorrectSources :: Source -> Maybe Source
-    removeHomomorphicIncorrectSources s = case L.get cdGoal s of
+    -- Removes sources that assume terms not in hom normal form. Might not be complete.
+    removeHomIncorrectSources :: Source -> Maybe Source
+    removeHomIncorrectSources s = case L.get cdGoal s of
         ActionG v f -> let vM = containsSimpleHenc (factTerms f)
           in if isKUFact f && isJust vM
           then Just $ Source (ActionG v f) (filterSystemsNotVarToPair (fromJust vM) (L.get cdCases s))
