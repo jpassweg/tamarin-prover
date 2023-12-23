@@ -1,4 +1,4 @@
-
+{-# LANGUAGE TupleSections #-}
 
 module Term.Unification.UnificationCombinator (
     matchUnionDisjointTheories
@@ -35,14 +35,14 @@ import Term.Unification.HomomorphicEncryption (unifyHomomorphicLTermWrapper)
 -- NOTE: Maybe add checks here that in the returned substitution all vars on the left
 -- TODO: need to change the variable renaming to changing index per variable instead of a global index
 -- are from the matched terms and all vars on the right are from the term to be matched.
-matchUnionDisjointTheories :: IsConst c => (c -> LSort) -> UM.MaudeHandle -> (Equal (LTerm (MConst c)) -> Bool) -> Match (LTerm c) -> [LSubst c]
-matchUnionDisjointTheories sortOf mhnd isRightSystem matchProblem = case flattenMatch matchProblem of
+matchUnionDisjointTheories :: IsConst c => (c -> LSort) -> UM.MaudeHandle -> Match (LTerm c) -> [LSubst c]
+matchUnionDisjointTheories sortOf mhnd matchProblem = case flattenMatch matchProblem of
   Nothing -> []
   Just ms -> let
       eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
       orgVars = foldVarsVTerm $ concatMap (\(l,r) -> [l,r]) ms
       highestIndex = foldr (max . lvarIdx) 0 orgVars
-      unifier = map substToListVFresh $ unifyUnionDisjointTheories (sortOfMConst sortOf) mhnd isRightSystem eqs
+      unifier = map substToListVFresh $ unifyUnionDisjointTheories (sortOfMConst sortOf) mhnd eqs
       newVars = filter (`notElem` orgVars) $
         map fst (concat unifier) ++ concatMap (varsVTerm . snd) (concat unifier)
       newVarsSubst = zipWith (\v newIdx -> (v, LVar (lvarName v) (lvarSort v) newIdx)) newVars [highestIndex+1..]
@@ -69,8 +69,9 @@ matchUnionDisjointTheories sortOf mhnd isRightSystem matchProblem = case flatten
 --   being two different variables.  
 -- - Investigate which linear orderings make sense "sort wise" and if we can remove some
 --   (probably not as it is a restriction which might never occur in the actual substitution)
-unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> UM.MaudeHandle -> (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> [LSubstVFresh c]
-unifyUnionDisjointTheories sortOf mhnd isRightSystem eqs = let
+unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> UM.MaudeHandle -> [Equal (LTerm c)] -> [LSubstVFresh c]
+unifyUnionDisjointTheories sortOf mhnd eqs = let
+  isRightSystem = (isAnyHom . eqLHS)
   allVars = foldVarsVTerm $ eqsToType eqs
   (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars)
   (acSystem, homSystem) = splitSystem isRightSystem absEqs
@@ -168,7 +169,7 @@ solveDisjointSystems sortOf sys unifiers (vP:varPartitions) = let
       then applyVarPartition vClasses newSys
       else applyVarPartition vClasses (applyToSystem (vClassSubst vClass) newSys)
     vClassSubst :: IsConst c => [LVar] -> Subst c LVar
-    vClassSubst vClass = substFromList $ map (\v -> (v, varTerm $ head vClass)) (tail vClass)
+    vClassSubst vClass = substFromList $ map (, varTerm $ head vClass) (tail vClass)
     applyToSystem :: IsConst c => Subst c LVar -> EquationPair c -> EquationPair c
     applyToSystem subst (sysL, sysR) = ((map . fmap) (applyVTerm subst) sysL,
                                         (map . fmap) (applyVTerm subst) sysR)
@@ -252,4 +253,4 @@ combineDisjointSystems (varPt, varOrd, _, substL, substR) = let
     addPartitionedVar (vClass:vsClasses) subst = let
         rightSide = foldl (\vT (vR, tR) -> if vT == varTerm vR then tR else vT)
           (varTerm $ head vClass) subst
-      in addPartitionedVar vsClasses subst ++ map (\v -> (v,rightSide)) (tail vClass)
+      in addPartitionedVar vsClasses subst ++ map (,rightSide) (tail vClass)
