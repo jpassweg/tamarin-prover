@@ -54,8 +54,10 @@ module Term.Term (
     , isNullaryPublicFunction
     , isPrivateFunction
     , isAC
+    , isACC
     , getLeftTerm
     , getRightTerm
+    , hasAny
 
     -- ** "Protected" subterms
     , allProtSubterms
@@ -283,6 +285,18 @@ isPrivateFunction _                                            = False
 isAC :: Show a => Term a -> Bool
 isAC (viewTerm -> FApp (AC _) _) = True
 isAC _                           = False
+
+-- | 'True' iff the term is an AC-operator or a C-operator.
+isACC :: Show a => Term a -> Bool
+isACC (viewTerm -> FApp (AC _) _) = True
+isACC (viewTerm -> FApp (C  _) _) = True
+isACC _                           = False
+
+-- | 'True' iff the function applied to the term itself or any subterm returns 'True'
+hasAny :: Show a => (Term a -> Bool) -> Term a -> Bool 
+hasAny f t = case viewTerm t of
+  Lit _              -> f t
+  FApp _ args        -> f t || any (hasAny f) args
 
 ----------------------------------------------------------------------
 -- Convert Diff Terms

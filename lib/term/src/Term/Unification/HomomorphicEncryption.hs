@@ -6,9 +6,8 @@ module Term.Unification.HomomorphicEncryption (
   -- * Matching modulo EpsilonH for Homomorphic Encryption
   , matchHomomorphicLTermWrapper
 
-  -- TODO: find better name for this
   -- * Failure rule Wrapper
-  , failureHomomorphicRuleWrapper
+  , fastTestUnifiableHomomorphic
 
   -- * For debugging
   , debugHomomorphicRule
@@ -415,16 +414,30 @@ failureTwoHomomorphicRule (Equal eL eR) _ _ = let eRepsLHS = eRepsTerms $ pRep e
   then HFail
   else HNothing
 
-failureHomomorphicRuleWrapper :: IsConst c => LTerm c -> LTerm c -> Bool
-failureHomomorphicRuleWrapper l r = let
+-- check both directions
+-- check any other thingens
+-- add other checks also here (like pair and henc but not other different)
+-- give better name
+fastTestUnifiableHomomorphic :: IsConst c => LTerm c -> LTerm c -> Bool
+fastTestUnifiableHomomorphic l r = let
     lPE = toLPETerm $ normHomomorphic l
     rPE = toLPETerm $ normHomomorphic r
-  in case ( failureOneHomomorphicRule (Equal lPE rPE) (const LSortMsg) ([], []),
-            failureTwoHomomorphicRule (Equal lPE rPE) (const LSortMsg) ([], [])
-          ) of
-    (HNothing, HNothing) -> True
-    _ -> False
-
+    returns =  [
+      failureOneHomomorphicRule (Equal lPE rPE) (const LSortMsg) ([], []),
+      failureOneHomomorphicRule (Equal rPE lPE) (const LSortMsg) ([], []),
+      failureTwoHomomorphicRule (Equal lPE rPE) (const LSortMsg) ([], []),
+      failureTwoHomomorphicRule (Equal rPE lPE) (const LSortMsg) ([], []),
+      occurCheckHomomorphicRule (Equal lPE rPE) (const LSortMsg) ([], []),
+      occurCheckHomomorphicRule (Equal rPE lPE) (const LSortMsg) ([], []),
+      clashHomomorphicRule (Equal lPE rPE) (const LSortMsg) ([], []),
+      clashHomomorphicRule (Equal rPE lPE) (const LSortMsg) ([], []),
+      differentConsts (Equal lPE rPE) (const LSortMsg) ([], []),
+      differentConsts (Equal rPE lPE) (const LSortMsg) ([], [])
+      -- can't check doSortsCompare since this function should be callable without 
+      -- sort information on the terms
+      ]
+    in all (== HNothing) returns
+    
 parsingHomomorphicRule :: IsConst c => HomomorphicRule c
 parsingHomomorphicRule (Equal eL eR) _ _ = let
   eRepsLHS = eRepsTerms $ pRep eL

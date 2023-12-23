@@ -107,6 +107,7 @@ import           Term.Unification.UnificationCombinator
 
 import           Debug.Trace.Ignore
 
+
 -- Unification modulo AC
 ----------------------------------------------------------------------
 
@@ -115,40 +116,31 @@ unifyLTermFactored :: (IsConst c)
                    => (c -> LSort)
                    -> [Equal (LTerm c)]
                    -> WithMaude (LSubst c, [SubstVFresh c LVar])
-unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
-    solve h $ execRWST unif sortOf M.empty
+unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $
+    if enableHom $ mhMaudeSig h
+    then do solveWHom h $ execRWST unifWHom sortOf M.empty
+    else do solve     h $ execRWST unif     sortOf M.empty
   where
     unif = sequence [ unifyRaw t p | Equal t p <- eqs ]
+    unifWHom = sequence [ unifyRawWithHom t p | Equal t p <- eqs ]
     solve h subst = case subst of
+      Nothing        -> (emptySubst, [])
+      Just (m, [])   -> (substFromMap m, [emptySubstVFresh])
+      Just (m, leqs) -> (substFromMap m, unsafePerformIO (UM.unifyViaMaude h sortOf $ map (applyVTerm (substFromMap m) <$>) leqs))
+    solveWHom h subst = case subst of
       Nothing        -> (emptySubst, [])
       Just (m, [])   -> (substFromMap m, [emptySubstVFresh])
       Just (m, leqs) -> (substFromMap m, prepareUnifyUnionDisjointTheories sortOf h $ map (applyVTerm (substFromMap m) <$>) leqs)
 
 prepareUnifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> MaudeHandle -> [Equal (LTerm c)] -> [LSubstVFresh c]
 prepareUnifyUnionDisjointTheories sortOf mhnd eqs = let
-    noAC  = all (\(Equal l r) -> hasNoAC  l && hasNoAC  r) eqs
-    noHom = all (\(Equal l r) -> hasNoHom l && hasNoHom r) eqs
-  in case (enableHom $ mhMaudeSig mhnd, noHom, noAC) of
-    (False, _,     _)     -> unsafePerformIO (UM.unifyViaMaude mhnd sortOf eqs)
-    (True,  True,  False) -> unsafePerformIO (UM.unifyViaMaude mhnd sortOf eqs)
-    (True,  False, True)  -> unifyHomomorphicLTermWrapper sortOf eqs
-    (True,  False, False) -> unifyUnionDisjointTheories sortOf (acUnifier, homUnifier) (isAnyHom . eqLHS) eqs
-    (_,     True,  True)  -> [emptySubstVFresh] -- NOTE: should not happen
+    hasAC  = all (\(Equal l r) -> hasAny isACC l    && hasAny isACC r   ) eqs
+    hasHom = all (\(Equal l r) -> hasAny isAnyHom l && hasAny isAnyHom r) eqs
+  in case (hasAC, hasHom) of
+    (_,     False) -> unsafePerformIO (UM.unifyViaMaude mhnd sortOf eqs)
+    (False, True)  -> unifyHomomorphicLTermWrapper sortOf eqs
+    (True,  True)  -> unifyUnionDisjointTheories sortOf (acUnifier, homUnifier) (isAnyHom . eqLHS) eqs
   where
-    hasNoAC :: IsConst c => LTerm c -> Bool
-    hasNoAC t = case viewTerm t of
-      Lit _              -> True
-      FApp (C _) _       -> False
-      FApp (AC _) _      -> False
-      FApp (NoEq _) args -> all hasNoAC args
-      FApp List args     -> all hasNoAC args
-    hasNoHom :: IsConst c => LTerm c -> Bool
-    hasNoHom t = case viewTerm t of
-      Lit _              -> True
-      FApp (C _) args    -> all hasNoHom args
-      FApp (AC _) args   -> all hasNoHom args
-      FApp (NoEq _) args -> not (isAnyHom t) && all hasNoHom args
-      FApp List args     -> all hasNoHom args
     acUnifier = unsafePerformIO . UM.unifyViaMaude mhnd (sortOfMConst sortOf)
     homUnifier = unifyHomomorphicLTermWrapper (sortOfMConst sortOf)
 
@@ -243,29 +235,17 @@ solveMatchLTerm sortOf matchProblem =
           (Left NoMatcher, _)  -> []
           (Left ACProblem, _) | not $ enableHom $ mhMaudeSig hnd ->
               unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
-          (Left ACProblem, _) | all (\m -> hasNoHom (fst m) && hasNoHom (snd m)) ms ->
+          (Left ACProblem, _) | not $ any (\m -> hasAny isAnyHom (fst m) || hasAny isAnyHom (snd m)) ms ->
               unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
           (Left ACProblem, _) ->
               matchUnionDisjointTheories sortOf (acUnifier, homUnifier) (isAnyHom . eqLHS) matchProblem
-          (Left HomomorphicProblem, _) | all (\m -> hasNoAC (fst m) && hasNoAC (snd m)) ms ->
+          (Left HomomorphicProblem, _) | not $ any (\m -> hasAny isACC (fst m) || hasAny isACC (snd m)) ms ->
               matchHomomorphicLTermWrapper sortOf matchProblem
           (Left HomomorphicProblem, _) ->
               matchUnionDisjointTheories sortOf (acUnifier, homUnifier) (isAnyHom . eqLHS) matchProblem
           (Right (), mappings) -> [substFromMap mappings]
       where
         match = forM_ ms $ \(t, p) -> matchRaw sortOf t p
-        hasNoAC t = case viewTerm t of
-          Lit _              -> True
-          FApp (C _) _       -> False
-          FApp (AC _) _      -> False
-          FApp (NoEq _) args -> all hasNoAC args
-          FApp List args     -> all hasNoAC args
-        hasNoHom t = case viewTerm t of
-          Lit _              -> True
-          FApp (C _) args    -> all hasNoHom args
-          FApp (AC _) args   -> all hasNoHom args
-          FApp (NoEq _) args -> not (isAnyHom t) && all hasNoHom args
-          FApp List args     -> all hasNoHom args
         acUnifier = unsafePerformIO . UM.unifyViaMaude hnd (sortOfMConst (sortOfMConst sortOf))
         homUnifier = unifyHomomorphicLTermWrapper (sortOfMConst (sortOfMConst sortOf))
 
@@ -307,15 +287,6 @@ unifyRaw l0 r0 = do
           guard (lfsym == natOneSym) >> tell [Equal l r]
        (FApp (AC NatPlus) _, FApp (NoEq rfsym) []) ->
           guard (rfsym == natOneSym) >> tell [Equal l r]
-       -- Homomorphic cases (need to be handled here since next is the general case with guard)
-       (FApp (NoEq lfsym) _, FApp (NoEq rfsym) _) | lfsym /= rfsym ->
-           -- chech failure rules
-           guard (((isHomPair l && isHomEnc r) || (isHomEnc l && isHomPair r)) && failureHomomorphicRuleWrapper l r)
-           >> tell [Equal l r]
-       (FApp (NoEq _) _, FApp (NoEq _) _) | isAnyHom l || isAnyHom r  ->
-           -- chech failure rules
-           guard (failureHomomorphicRuleWrapper l r)
-           >> tell [Equal l r]
        -- General cases / function application
        (FApp (NoEq lfsym) largs, FApp (NoEq rfsym) rargs) ->
            guard (lfsym == rfsym && length largs == length rargs)
@@ -341,6 +312,62 @@ unifyRaw l0 r0 = do
           guard  (sortGeqLTerm sortOf v t)
           modify (M.insert v t . M.map (applyVTerm (substFromList [(v,t)])))
 
+-- | Unify two 'LTerm's with delayed AC-unification and delayed Homomorphic Encryption unification.
+unifyRawWithHom :: IsConst c => LTerm c -> LTerm c -> UnifyRaw c ()
+unifyRawWithHom l0 r0 = do
+    mappings <- get
+    sortOf <- ask
+    l <- gets ((`applyVTerm` l0) . substFromMap)
+    r <- gets ((`applyVTerm` r0) . substFromMap)
+    guard (trace (show ("unifyRaw", mappings, l ,r)) True)
+    case (viewTerm l, viewTerm r) of
+       (Lit (Var vl), Lit (Var vr))
+         | vl == vr  -> return ()
+         | otherwise -> case (lvarSort vl, lvarSort vr) of
+             (sl, sr) | sl == sr                 -> if vl < vr then elim vr l
+                                                    else elim vl r
+             _        | sortGeqLTerm sortOf vl r -> elim vl r
+             -- If unification can succeed here, then it must work by
+             -- elimating the right-hand variable with the left-hand side.
+             _                                   -> elim vr l
+
+       (Lit (Var vl),  _            ) -> elim vl r
+       (_,             Lit (Var vr) ) -> elim vr l
+       (Lit (Con cl),  Lit (Con cr) ) -> guard (cl == cr)
+       -- Special cases for builtin naturals: Make sure to perform unification
+       -- via Maude if we have 1:nat on the left-/right-hand side.
+       (FApp (NoEq lfsym) [], FApp (AC NatPlus) _) ->
+          guard (lfsym == natOneSym) >> tell [Equal l r]
+       (FApp (AC NatPlus) _, FApp (NoEq rfsym) []) ->
+          guard (rfsym == natOneSym) >> tell [Equal l r]
+       -- Homomorphic cases (need to be handled here since next is the general case with guard)
+       (FApp (NoEq _) _, FApp (NoEq _) _) | isAnyHom l || isAnyHom r  ->
+           guard (fastTestUnifiableHomomorphic l r)
+           >> tell [Equal l r]
+       -- General cases / function application
+       (FApp (NoEq lfsym) largs, FApp (NoEq rfsym) rargs) ->
+           guard (lfsym == rfsym && length largs == length rargs)
+           >> sequence_ (zipWith unifyRaw largs rargs)
+       (FApp List largs, FApp List rargs) ->
+           guard (length largs == length rargs)
+           >> sequence_ (zipWith unifyRaw largs rargs)
+       -- NOTE: We assume here that terms of the form mult(t) never occur.
+       (FApp (AC lacsym) _, FApp (AC racsym) _) ->
+           guard (lacsym == racsym) >> tell [Equal l r]  -- delay unification
+
+       (FApp (C lsym) largs, FApp (C rsym) rargs) ->
+           guard (lsym == rsym && length largs == length rargs)
+           >> tell [Equal l r]  -- delay unification
+
+       -- all unifiable pairs of term constructors have been enumerated
+       _                      -> mzero -- no unifier
+  where
+    elim v t
+      | v `occurs` t = mzero -- no unifier
+      | otherwise    = do
+          sortOf <- ask
+          guard  (sortGeqLTerm sortOf v t)
+          modify (M.insert v t . M.map (applyVTerm (substFromList [(v,t)])))
 
 data MatchFailure = NoMatcher | ACProblem | HomomorphicProblem
 
@@ -371,9 +398,8 @@ matchRaw sortOf t p = do
                       | otherwise -> throwError NoMatcher
 
       (Lit (Con ct),  Lit (Con cp)) -> guard (ct == cp)
-      (FApp (NoEq tfsym) _, FApp (NoEq pfsym) _) | tfsym /= pfsym ->
-           guard ((isHomPair t && isHomEnc p) || (isHomEnc t && isHomPair p))
-           >> throwError HomomorphicProblem
+      (FApp (NoEq _) _, FApp (NoEq _) _) | isAnyHom t || isAnyHom p ->
+           throwError HomomorphicProblem
       (FApp (NoEq tfsym) targs, FApp (NoEq pfsym) pargs) ->
            guard (tfsym == pfsym && length targs == length pargs)
            >> sequence_ (zipWith (matchRaw sortOf) targs pargs)
