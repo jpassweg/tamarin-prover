@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 
 module Term.Unification.HomomorphicEncryption (
   -- * Unification modulo EpsilonH for Homomorphic Encryption
@@ -19,9 +18,9 @@ module Term.Unification.HomomorphicEncryption (
   , sortOfMConst
 ) where
 
-import Data.Maybe     (isJust, isNothing, mapMaybe, fromMaybe, catMaybes, maybeToList)
-import Data.Either    (lefts, rights, partitionEithers)
-import Data.Bifunctor (first, second, bimap)
+import Data.Maybe     (isJust, isNothing, fromMaybe, catMaybes)
+import Data.Either    (partitionEithers)
+import Data.Bifunctor (first, second)
 import Data.List      (nub)
 
 import Term.Unification.LPETerm
@@ -29,10 +28,10 @@ import Term.Unification.MConst
 
 import Term.LTerm (
   LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..),
-  isVar, varTerm, occursVTerm, foldVarsVTerm, viewTerm,
-  isHomPair, isHomEnc, sortCompare, sortOfLTerm,
+  isVar, varTerm, occursVTerm, foldVarsVTerm, varsVTerm, viewTerm,
+  isHomPair, isHomEnc, sortCompare, sortOfLTerm, sortGEQ,
   evalFreshAvoiding, freshLVar)
--- Lit(Var, Con), IsConst, isVar, varTerm, termVar, foldVarsVTerm, occursVTerm come from Term.VTerm
+-- Lit(Var, Con), IsConst, isVar, varTerm, termVar, foldVarsVTerm, varsVTerm, occursVTerm come from Term.VTerm
 -- isHomPair, isHomEnc come from Term.Term
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
 
@@ -53,17 +52,22 @@ import Term.Substitution.SubstVFresh (LSubstVFresh, substFromListVFresh)
 matchHomomorphicLTermWrapper :: IsConst c => (c -> LSort) -> Match (LTerm c) -> [LSubst c]
 matchHomomorphicLTermWrapper sortOf matchProblem = let
   ms = fromMaybe [] (flattenMatch matchProblem)
-  sortOfConst = sortOfMConst sortOf
   eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
   orgVars = foldVarsVTerm $ foldr (\(t,p) vs -> t:p:vs) [] ms
-  orgLVars = foldVarsVTerm $ map snd ms
-  unifier = applyCapUnification sortOfConst (eqs, orgVars)
-  in toMatcher $ solvedFormOrdering sortOfConst =<< unifier
+  rangeVars = foldVarsVTerm $ map fst ms
+  domainVars = foldVarsVTerm $ map snd ms
+  sortOfConst = sortOfMConst sortOf
+  in toMatcher $ cleanSubMatch domainVars rangeVars 
+    =<< fromMConstSubst 
+    =<< solvedFormOrdering sortOfConst
+    =<< applyCapUnification sortOfConst (eqs, orgVars)
   where
-    toMatcher :: IsConst c1 => Maybe (PreSubst (MConst c1)) -> [LSubst c1]
+    fromMConstSubst :: IsConst c1 => PreSubst (MConst c1) -> Maybe (PreSubst c1)
+    fromMConstSubst = Just . first (map (second fromMConst))
+    toMatcher :: IsConst c1 => Maybe (PreSubst c1) -> [LSubst c1]
     toMatcher pr = case pr of
       Nothing -> []
-      Just s  -> [substFromList $ map (second fromMConst) $ fst s]
+      Just s  -> [substFromList $ fst s]
 
 -- Unification Algorithm Wrapper
 --------------------------------
@@ -71,16 +75,18 @@ matchHomomorphicLTermWrapper sortOf matchProblem = let
 unifyHomomorphicLTermWrapper :: IsConst c => (c -> LSort) -> [Equal (LTerm c)] -> [LSubstVFresh c]
 unifyHomomorphicLTermWrapper sortOf eqs = let
   orgVars = foldVarsVTerm $ eqsToType eqs
-  unifier = applyCapUnification sortOf (eqs, orgVars)
-  in toUnifier $ toFreeAvoid orgVars =<< solvedFormOrdering sortOf =<< unifier
+  in toUnifier $ cleanSubUnif orgVars 
+    =<< toFreeAvoid orgVars 
+    =<< solvedFormOrdering sortOf 
+    =<< applyCapUnification sortOf (eqs, orgVars)
   where
     toUnifier :: IsConst c1 => Maybe (PreSubst c1) -> [LSubstVFresh c1]
     toUnifier pr = case pr of
       Nothing -> []
       Just s  -> [substFromListVFresh $ fst s]
 
--- Unification Algorithm using the Homomorphic Rules
-----------------------------------------------------
+-- Helper types
+---------------
 
 -- | Types to make it easier to have an overview of the algorithm 
 -- NOTE: we chose not sets for diffrent reasons
@@ -96,6 +102,16 @@ unifyHomomorphicLTermWrapper sortOf eqs = let
 type PreSubst c = ([(LVar, LTerm c)], [LVar])
 type EqsSubst a = ([Equal a], [LVar])
 
+-- Helper function for types
+combineAnySubst :: ([a], [b]) -> ([a], [b]) -> ([a], [b])
+combineAnySubst (es1,vs1) (es2,vs2) = (es1++es2, vs1++vs2)
+
+-- Type to translate HomorphicRuleReturn
+data MaybeWFail a = MJust a | MNothing | MFail
+
+-- Cap Unification Algorithm: Applying Homomorphic Rules
+--------------------------------------------------------
+
 -- | @unifyHomomorphicLNTerm eqs@ returns a set of unifiers for @eqs@ modulo EpsilonH.
 -- returns a substitution for terms so that they unify or an empty list 
 -- if it is not possible to unify the terms
@@ -110,12 +126,6 @@ applyCapUnification sortOf eqsSubst = let
   lpeEqsSubst = first (map (fmap $ toLPETerm . normHomomorphic)) eqsSubst
   unifier = applyHomomorphicRules sortOf allHomomorphicRules lpeEqsSubst
   in Just . first (map (fmap lTerm)) =<< unifier
-
--- Applying Homomorphic Rules
------------------------------
-
--- Type to translate HomorphicRuleReturn
-data MaybeWFail a = MJust a | MNothing | MFail
 
 -- | Applies all homomorphic rules given en block, i.e., 
 -- it applies the first rule always first after each change
@@ -139,7 +149,7 @@ applyHomomorphicRule sortOf rule (e:es, allVars) passedEqs = let eqsSubst = (es 
     HNothing                 -> applyHomomorphicRule sortOf rule (es, allVars) (e:passedEqs)
     HFail                    -> MFail
   where
-    applyEqsSubst :: IsConst c => [(LVar, LTerm c)] -> EqsSubst (LPETerm c) -> EqsSubst (LPETerm c)
+    applyEqsSubst :: IsConst c1 => [(LVar, LTerm c1)] -> EqsSubst (LPETerm c1) -> EqsSubst (LPETerm c1)
     applyEqsSubst subst = first (map (fmap (toLPETerm . normHomomorphic . applyVTerm (substFromList subst) . lTerm)))
 
 -- | To Homomorphic Solved Form (EqsSubst to PreSubst)
@@ -170,8 +180,8 @@ moveVarLeft sortOf (Equal l r) = case (viewTerm l, viewTerm r) of
   (Lit (Var lv), Lit (Var rv)) | sortCompare (lvarSort lv) (lvarSort rv) == Just GT   -> Just $ Right (lv, r)
   (Lit (Var lv), Lit (Var rv)) | sortCompare (lvarSort lv) (lvarSort rv) == Just LT   -> Just $ Right (rv, l)
   (Lit (Var lv), Lit (Var rv)) | isNothing $ sortCompare (lvarSort lv) (lvarSort rv)  -> Nothing -- Uncomparable sorts should have been caught
-  (Lit (Var lv), _           ) | sortCorrectForSubst sortOf lv r                      -> Just $ Right (lv, r)
-  (_,            Lit (Var rv)) | sortCorrectForSubst sortOf rv l                      -> Just $ Right (rv, l)
+  (Lit (Var lv), _           ) | sortGEQ sortOf lv r                      -> Just $ Right (lv, r)
+  (_,            Lit (Var rv)) | sortGEQ sortOf rv l                      -> Just $ Right (rv, l)
   (_,_)                                                                               -> Nothing
   
 -- We assume: if both variables are unique, even in matching, the order does not play a role
@@ -198,7 +208,7 @@ toFreeAvoid orgVars subst = let
   completeSubst = combineAnySubst freeAvoidingSubst (applyPreSubstToVrange freeAvoidingSubst subst)
   in Just completeSubst
   where
-    applyPreSubstToVrange :: IsConst c => PreSubst c -> PreSubst c -> PreSubst c
+    applyPreSubstToVrange :: IsConst c1 => PreSubst c1 -> PreSubst c1 -> PreSubst c1
     applyPreSubstToVrange fstSubst = first (map (second (applyVTerm (substFromList (fst fstSubst)))))
 
 getFreeAvoidingSubstOfTerms :: [LVar] -> PreSubst c -> [LTerm c] -> PreSubst c
@@ -214,6 +224,21 @@ getFreeAvoidingSubstOfTerm orgVars (newSubst, allVs) t =
       else let newV = evalFreshAvoiding (freshLVar (lvarName x) (lvarSort x)) allVs in 
         ((x, varTerm newV):newSubst, newV:allVs)
     (FApp _ args) -> getFreeAvoidingSubstOfTerms orgVars (newSubst, allVs) args
+
+
+-- Clean up Substitution
+------------------------
+
+cleanSubMatch :: IsConst c => [LVar] -> [LVar] -> PreSubst c -> Maybe (PreSubst c)
+cleanSubMatch orgVars rangeVars (subst, allVs) = let
+  cleanSubst1 = filter ((`elem` orgVars) . fst) subst
+  cleanSubst2 = filter (all (`elem` rangeVars) . varsVTerm . snd) cleanSubst1
+  in Just (cleanSubst2, allVs)
+
+cleanSubUnif :: IsConst c => [LVar] -> PreSubst c -> Maybe (PreSubst c)
+cleanSubUnif orgVars (subst, allVs) = let
+  cleanSubst = filter ((`elem` orgVars) . fst) subst
+  in Just (cleanSubst, allVs)
 
 -- Homomorphic Rules Managers
 -----------------------------
@@ -295,10 +320,13 @@ variableSubstitutionHomomorphicRule (Equal eL eR) sortOf (eqs,_) = let tR = lTer
       then HSubstEqs [(vl, tR)] ([Equal eL eR], [])
       else HNothing
     (Lit (Var vl), _) ->
-      if not (occursVTerm vl tR) && occursVTermEqs vl eqs && sortCorrectForSubst sortOf vl tR
+      if not (occursVTerm vl tR) && occursVTermEqs vl eqs && sortGEQ sortOf vl tR
       then HSubstEqs [(vl, tR)] ([Equal eL eR], [])
       else HNothing
     _ -> HNothing
+    where
+      occursVTermEqs :: LVar -> [Equal (LPETerm c)] -> Bool
+      occursVTermEqs v es = any (occursVTerm v . lTerm) (eqsToType es)
 
 clashHomomorphicRule :: IsConst c => HomomorphicRule c
 clashHomomorphicRule (Equal eL eR) _ _ = let tL = lTerm eL; tR = lTerm eR
@@ -329,11 +357,11 @@ differentConsts (Equal eL eR) _ _ = case (viewTermPE eL, viewTermPE eR) of
 doSortsCompare :: IsConst c => HomomorphicRule c
 doSortsCompare (Equal eL eR) sortOf _ = case (viewTermPE eL, viewTermPE eR) of
   (Lit (Var vl), Lit (Var vr)) ->
-    if sortCorrectForSubst sortOf vl (lTerm eR) || sortCorrectForSubst sortOf vr (lTerm eL) then HNothing else HFail
+    if sortGEQ sortOf vl (lTerm eR) || sortGEQ sortOf vr (lTerm eL) then HNothing else HFail
   (Lit (Var vl), _           ) ->
-    if sortCorrectForSubst sortOf vl (lTerm eR) then HNothing else HFail
+    if sortGEQ sortOf vl (lTerm eR) then HNothing else HFail
   (_,            Lit (Var vr)) ->
-    if sortCorrectForSubst sortOf vr (lTerm eL) then HNothing else HFail
+    if sortGEQ sortOf vr (lTerm eL) then HNothing else HFail
   _                            ->
     if isJust $ sortCompare (sortOfLTerm sortOf $ lTerm eL) (sortOfLTerm sortOf $ lTerm eR) then HNothing else HFail
 
@@ -358,7 +386,7 @@ shapingHomomorphicRule (Equal eL eR) _ (_, allVars) = let
     Nothing -> HNothing
   else HNothing
   where
-    findQualifyingETerm :: IsConst c => [ERepresentation c] -> Int -> Int -> Maybe (Int, ERepresentation c, LVar)
+    findQualifyingETerm :: IsConst c1 => [ERepresentation c1] -> Int -> Int -> Maybe (Int, ERepresentation c1, LVar)
     findQualifyingETerm [] _ _ = Nothing
     findQualifyingETerm (e:es) n ind = case viewTerm (head e) of
       (Lit (Var v)) | (length e - 1 < n) && not (null e) -> Just (ind, e, v)
@@ -373,7 +401,7 @@ failureOneHomomorphicRule (Equal eL eR) _ _ = let
   then HFail
   else HNothing
   where
-    matchVars :: IsConst c => [(String, LTerm c)] -> [(String, LTerm c)] -> [(String, String)]
+    matchVars :: IsConst c1 => [(String, LTerm c1)] -> [(String, LTerm c1)] -> [(String, String)]
     matchVars [] _ = []
     matchVars (v:vs) vs2 =
       let matches = filter (\vv2 -> snd v == snd vv2) vs2 in
@@ -407,20 +435,6 @@ parsingHomomorphicRule (Equal eL eR) _ _ = let
   then HEqs (Equal newLHS newRHS : getAllCombinations allKms, [])
   else HNothing
   where
-    getAllCombinations :: IsConst c => [LPETerm c] -> [Equal (LPETerm c)]
+    getAllCombinations :: IsConst c1 => [LPETerm c1] -> [Equal (LPETerm c1)]
     getAllCombinations [] = []
     getAllCombinations (x:xs) = map (Equal x) xs ++ getAllCombinations xs
-
--- | Helper functions
----------------------
-
--- | @sortGreaterEq v t@ returns @True@ if the sort ensures that the sort of @v@ is greater or equal to
---   the sort of @t@.
-sortCorrectForSubst :: IsConst c => (c -> LSort) -> LVar -> LTerm c -> Bool
-sortCorrectForSubst st v t = sortCompare (lvarSort v) (sortOfLTerm st t) `elem` [Just EQ, Just GT]
-
-occursVTermEqs :: LVar -> [Equal (LPETerm c)] -> Bool
-occursVTermEqs v eqs = any (occursVTerm v . lTerm) (eqsToType eqs)
-
-combineAnySubst :: ([a], [b]) -> ([a], [b]) -> ([a], [b])
-combineAnySubst (es1,vs1) (es2,vs2) = (es1++es2, vs1++vs2)

@@ -28,6 +28,7 @@ module Term.LTerm (
 
   -- ** Queries
   , sortOfName
+  , sortGEQ
 
   -- ** Construction
   , freshTerm
@@ -199,6 +200,11 @@ sortSuffix LSortFresh = "fresh"
 sortSuffix LSortPub   = "pub"
 sortSuffix LSortNode  = "node"
 sortSuffix LSortNat   = "nat"
+
+-- | @sortGreaterEq v t@ returns @True@ if the sort ensures that the sort of @v@ is greater or equal to
+--   the sort of @t@.
+sortGEQ :: IsConst c => (c -> LSort) -> LVar -> LTerm c -> Bool
+sortGEQ st v t = sortCompare (lvarSort v) (sortOfLTerm st t) `elem` [Just EQ, Just GT]
 
 
 ------------------------------------------------------------------------------

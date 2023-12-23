@@ -24,7 +24,6 @@ import Term.Unification.MConst
 
 import Data.Bifunctor (second, bimap)
 import Data.List (permutations)
-import qualified Data.Set as S
 import Data.Maybe (mapMaybe)
 
 import Extension.Prelude (sortednub)
