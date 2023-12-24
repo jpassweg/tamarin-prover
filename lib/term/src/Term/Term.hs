@@ -177,7 +177,7 @@ fAppSnd a = fAppNoEq sndSym [a]
 fAppHomFst a = fAppNoEq homFstSym [a]
 fAppHomSnd a = fAppNoEq homSndSym [a]
 
--- | Smart constructor for hom encryption and decryption.
+-- | Smart constructor for homomorphic encryption and decryption.
 fAppHomEnc, fAppHomDec, fAppHomPair :: (Term a, Term a) -> Term a
 fAppHomEnc (x, y) = fAppNoEq homEncSym [x, y]
 fAppHomDec (x, y) = fAppNoEq homDecSym [x, y]
@@ -226,12 +226,12 @@ isXor :: Show a => Term a -> Bool
 isXor (viewTerm2 -> FXor _) = True
 isXor _                     = False
 
--- | 'True' iff the term is a well-form hom encryption.
+-- | 'True' iff the term is a well-form homomorphic encryption.
 isHomEnc :: Show a => Term a -> Bool
 isHomEnc (viewTerm2 -> FHenc _ _) = True
 isHomEnc _                        = False
 
--- | 'True' iff the term is a well-form hom encryption.
+-- | 'True' iff the term is a well-form homomorphic encryption.
 isHomDec :: Show a => Term a -> Bool
 isHomDec (viewTerm2 -> FHdec _ _) = True
 isHomDec _                        = False
@@ -244,17 +244,17 @@ hasSameHomKey t1 t2 = case (viewTerm2 t1, viewTerm2 t2) of
   (FHdec _ k1, FHdec _ k2) -> k1 == k2
   (_, _) -> False
 
--- | 'True' iff the term is a well-formed hom pair.
+-- | 'True' iff the term is a well-formed homomorphic pair.
 isHomPair :: Show a => Term a -> Bool
 isHomPair (viewTerm2 -> FHomPair _ _) = True
 isHomPair _                           = False
 
--- | 'True' iff the term is a hom fst function.
+-- | 'True' iff the term is a homomorphic fst function.
 isHomFst :: Show a => Term a -> Bool
 isHomFst (viewTerm -> FApp (NoEq sym) [_]) = sym == homFstSym
 isHomFst _                                 = False
 
--- | 'True' iff the term is a hom snd function.
+-- | 'True' iff the term is a homomorphic snd function.
 isHomSnd :: Show a => Term a -> Bool
 isHomSnd (viewTerm -> FApp (NoEq sym) [_]) = sym == homSndSym
 isHomSnd _                                 = False

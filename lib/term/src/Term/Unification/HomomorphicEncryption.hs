@@ -1,9 +1,9 @@
 
 module Term.Unification.HomomorphicEncryption (
-  -- * Unification modulo EpsilonH for Hom Encryption
+  -- * Unification modulo EpsilonH for Homomorphic Encryption
   unifyHomLTerm
 
-  -- * Matching modulo EpsilonH for Hom Encryption
+  -- * Matching modulo EpsilonH for Homomorphic Encryption
   , matchHomLTerm
 
   -- * Failure rule Wrapper
@@ -108,7 +108,7 @@ combineAnySubst (es1,vs1) (es2,vs2) = (es1++es2, vs1++vs2)
 -- Type to translate HomorphicRuleReturn
 data MaybeWFail a = MJust a | MNothing | MFail
 
--- Cap Unification Algorithm: Applying Hom Rules
+-- Cap Unification Algorithm: Applying Homomorphic Rules
 --------------------------------------------------------
 
 -- | @unifyHomLNTerm eqs@ returns a set of unifiers for @eqs@ modulo EpsilonH.
@@ -126,7 +126,7 @@ applyCapUnification sortOf eqsSubst = let
   unifier = applyHomRules sortOf allHomRules lpeEqsSubst
   in Just . first (map (fmap lTerm)) =<< unifier
 
--- | Applies all hom rules given en block, i.e., 
+-- | Applies all homomorphic rules given en block, i.e., 
 -- it applies the first rule always first after each change
 -- Holds for output: No equation is a duplicate of another equation
 applyHomRules :: IsConst c => (c -> LSort) -> [HomRule c] -> EqsSubst (LPETerm c) -> Maybe (EqsSubst (LPETerm c))
@@ -137,7 +137,7 @@ applyHomRules sortOf (rule:rules) eqsSubst =
     MNothing          -> applyHomRules sortOf rules eqsSubst
     MFail             -> Nothing
 
--- | Applies the hom rule to the first term possible in equation list or returns Nothing 
+-- | Applies the homomorphic rule to the first term possible in equation list or returns Nothing 
 -- if the rule is not applicable to any terms
 applyHomRule :: IsConst c => (c -> LSort) -> HomRule c -> EqsSubst (LPETerm c) -> [Equal (LPETerm c)] -> MaybeWFail (EqsSubst (LPETerm c))
 applyHomRule _ _ ([], _) _ = MNothing
@@ -151,7 +151,7 @@ applyHomRule sortOf rule (e:es, allVars) passedEqs = let eqsSubst = (es ++ passe
     applyEqsSubst :: IsConst c1 => [(LVar, LTerm c1)] -> EqsSubst (LPETerm c1) -> EqsSubst (LPETerm c1)
     applyEqsSubst subst = first (map (fmap (toLPETerm . normHom . applyVTerm (substFromList subst) . lTerm)))
 
--- | To Hom Solved Form (EqsSubst to PreSubst)
+-- | To Homomorphic Solved Form (EqsSubst to PreSubst)
 ------------------------------------------------------
 
 -- Returns a ordering in which each LVar in the tuple is unique or Nothing
@@ -239,7 +239,7 @@ cleanSubUnif orgVars (subst, allVs) = let
   cleanSubst = filter ((`elem` orgVars) . fst) subst
   in Just (cleanSubst, allVs)
 
--- Hom Rules Managers
+-- Homomorphic Rules Managers
 -----------------------------
 
 -- | Return type for a HomRule
@@ -256,7 +256,7 @@ data HomRuleReturn c =
 -- @arg3 = all other equations (may be needed to check if a variable occurs in them)
 type HomRule c = Equal (LPETerm c) -> (c -> LSort) -> EqsSubst (LPETerm c) -> HomRuleReturn c
 
--- | All hom rules in order of application
+-- | All homomorphic rules in order of application
 -- All rules are added as such that they are first applied on the equation
 -- Equal (eqLHS eq) (eqRHS eq) and then on the equation Equal (eqRHS eq) (eqLHS eq)
 -- with eq being the first argument given to the function
@@ -270,7 +270,7 @@ allHomRules = map (\r -> combineWrapperHomRule r (switchedWrapperHomRule r))
   -- new failure rules
   , differentConsts
   , doSortsCompare
-  -- then hom patterns   
+  -- then homomorphic patterns   
   -- shaping best before parsing  
   , shapingHomRule
   , parsingHomRule
@@ -294,7 +294,7 @@ combineWrapperHomRule rule1 rule2 eq sortOf eqsSubst =
 switchedWrapperHomRule :: IsConst c => HomRule c -> HomRule c
 switchedWrapperHomRule rule eq = rule (Equal (eqRHS eq) (eqLHS eq))
 
--- | used to export hom rules for debugging
+-- | used to export homomorphic rules for debugging
 debugHomRule :: IsConst c => Int -> HomRule c
 debugHomRule i = allHomRules !! i
 
@@ -364,7 +364,7 @@ doSortsCompare (Equal eL eR) sortOf _ = case (viewTermPE eL, viewTermPE eR) of
   _                            ->
     if isJust $ sortCompare (sortOfLTerm sortOf $ lTerm eL) (sortOfLTerm sortOf $ lTerm eR) then HNothing else HFail
 
--- | Hom Patterns
+-- | Homomorphic Patterns
 -------------------------
 
 shapingHomRule :: IsConst c => HomRule c

@@ -8,7 +8,7 @@
 --
 -- AC unification based on maude and free unification.
 module Term.Unification (
-  unifyUnionDisjointTheories
+  unifyHomACCLTerm
 
   -- * Unification modulo AC
   , unifyLTerm
@@ -139,7 +139,7 @@ prepareUnifyUnionDisjointTheories sortOf mhnd eqs = let
   in case (hasAC, hasHom) of
     (_,     False) -> unsafePerformIO (UM.unifyViaMaude mhnd sortOf eqs)
     (False, True)  -> unifyHomLTerm sortOf eqs
-    (True,  True)  -> unifyUnionDisjointTheories sortOf mhnd eqs
+    (True,  True)  -> unifyHomACCLTerm sortOf mhnd eqs
 
 -- | @unifyLTerm sortOf eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLNTermFactored :: [Equal LNTerm]
@@ -235,11 +235,11 @@ solveMatchLTerm sortOf matchProblem =
           (Left ACProblem, _) | not $ any (\m -> hasAny isAnyHom (fst m) || hasAny isAnyHom (snd m)) ms ->
               unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
           (Left ACProblem, _) ->
-              matchUnionDisjointTheories sortOf hnd matchProblem
+              matchHomACCLTerm sortOf hnd matchProblem
           (Left HomProblem, _) | not $ any (\m -> hasAny isACC (fst m) || hasAny isACC (snd m)) ms ->
               matchHomLTerm sortOf matchProblem
           (Left HomProblem, _) ->
-              matchUnionDisjointTheories sortOf hnd matchProblem
+              matchHomACCLTerm sortOf hnd matchProblem
           (Right (), mappings) -> [substFromMap mappings]
       where
         match = forM_ ms $ \(t, p) -> matchRaw sortOf t p
@@ -307,7 +307,7 @@ unifyRaw l0 r0 = do
           guard  (sortGeqLTerm sortOf v t)
           modify (M.insert v t . M.map (applyVTerm (substFromList [(v,t)])))
 
--- | Unify two 'LTerm's with delayed AC-unification and delayed Hom Encryption unification.
+-- | Unify two 'LTerm's with delayed AC-unification and delayed Homomorphic Encryption unification.
 unifyRawWithHom :: IsConst c => LTerm c -> LTerm c -> UnifyRaw c ()
 unifyRawWithHom l0 r0 = do
     mappings <- get
@@ -335,7 +335,7 @@ unifyRawWithHom l0 r0 = do
           guard (lfsym == natOneSym) >> tell [Equal l r]
        (FApp (AC NatPlus) _, FApp (NoEq rfsym) []) ->
           guard (rfsym == natOneSym) >> tell [Equal l r]
-       -- Hom cases (need to be handled here since next is the general case with guard)
+       -- Homomorphic cases (need to be handled here since next is the general case with guard)
        (FApp (NoEq _) _, FApp (NoEq _) _) | isAnyHom l || isAnyHom r  ->
            guard (fastTestUnifiableHom l r)
            >> tell [Equal l r]

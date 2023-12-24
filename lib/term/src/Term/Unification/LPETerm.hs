@@ -1,7 +1,7 @@
 {-# LANGUAGE ViewPatterns       #-}
 
 module Term.Unification.LPETerm (
-  -- * Hom Representation types
+  -- * Homomorphic Representation types
     LPETerm(..)
   , PRepresentation(..)
   , ERepresentation
@@ -9,7 +9,7 @@ module Term.Unification.LPETerm (
   -- * Helper functions
   , viewTermPE
 
-  -- * Hom Representation functions
+  -- * Homomorphic Representation functions
   , toLPETerm
   , positionsWithTerms
   , pPosition
@@ -22,7 +22,7 @@ module Term.Unification.LPETerm (
   , normHom
   , nfHom
 
-  -- * Functions for debuggin Hom Representations
+  -- * Functions for debuggin Homomorphic Representations
   , findPurePPositions
   , findPenukEPositions
   , maximalPositions
@@ -43,15 +43,15 @@ import Term.LTerm (
 -- viewTerm, viewTerm2, termViewToTerm from Term.Term.Raw
 -- fAppHomPair, fAppHomEnc, isHomEnc from Term.Term
 
--- New Types used for Unification modulo Hom Encrpytion
+-- New Types used for Unification modulo Homomorphic Encrpytion
 ---------------------------------------------------------------
 
 -- | E representation as defined in the cap unification paper
 type ERepresentation c = [LTerm c]
 
 -- | P representation as defined in the cap unification paper
---   Since rules applied in the Unification modulo Hom Encrpytion algorithm
---   (namely the hom patterns) compare either ERepresentation or ERepresentations
+--   Since rules applied in the Unification modulo Homomorphic Encrpytion algorithm
+--   (namely the homomorphic patterns) compare either ERepresentation or ERepresentations
 --   inside a PRepresentation, we directly store the terms inside the PRepresentation as
 --   ERepresentations of the terms.
 data PRepresentation c = PRep
@@ -62,7 +62,7 @@ data PRepresentation c = PRep
 
 -- | Terms used for proving; i.e., variables fixed to logical variables
 --   and constants to Names.
---   Additionally contains some position information for Hom encryption rules
+--   Additionally contains some position information for Homomorphic encryption rules
 data LPETerm c = LPETerm
       { lTerm :: LTerm c
       , pRep  :: PRepresentation c
@@ -76,10 +76,10 @@ data LPETerm c = LPETerm
 viewTermPE :: IsConst c => LPETerm c -> TermView (Lit c LVar)
 viewTermPE = viewTerm . lTerm
 
--- Hom encryption and LNPETerms specific functions
+-- Homomorphic encryption and LNPETerms specific functions
 ----------------------------------------------------------
 
--- | Builds P and E Representation for matching with hom patterns 
+-- | Builds P and E Representation for matching with homomorphic patterns 
 toLPETerm :: (IsConst c) => LTerm c -> LPETerm c
 toLPETerm t = LPETerm t (buildPRepresentation t) (buildERepresentation t)
 
@@ -96,7 +96,7 @@ positionsWithTerms' pos t = case viewTerm t of
     argFunc :: (IsConst c) => Int -> LTerm c -> [(String, LTerm c)]
     argFunc ind = positionsWithTerms' (pos ++ show ind)
 
--- | Returns the pposition used for Hom Pattern rules
+-- | Returns the pposition used for Homomorphic Pattern rules
 pPosition :: (IsConst c) => String -> LTerm c -> String
 pPosition [] _ = ""
 pPosition (i:q) t = let ind = read [i] - 1 in case viewTerm2 t of
@@ -105,7 +105,7 @@ pPosition (i:q) t = let ind = read [i] - 1 in case viewTerm2 t of
   FHenc t1 t2     ->     pPosition q ([t1,t2] !! ind)
   _               -> "N"
 
--- | Returns the eposition used for Hom Pattern rules
+-- | Returns the eposition used for Homomorphic Pattern rules
 ePosition :: (IsConst c) => String -> LTerm c -> String
 ePosition [] _ = ""
 ePosition (i:q) t = let ind = read [i] - 1 in case viewTerm2 t of
@@ -163,7 +163,7 @@ validBitString s = contains12Pattern s
 maximalPositions :: (IsConst c) => [(String, LTerm c)] -> [(String, LTerm c)]
 maximalPositions ps = filter (\p -> not $ any (properPrefix (fst p) . fst) ps) ps
 
--- | returns P representation for Hom Patterns
+-- | returns P representation for Homomorphic Patterns
 buildPRepresentation :: (IsConst c) => LTerm c -> PRepresentation c
 buildPRepresentation t = uncurry PRep $ unzip
   $ map (second buildERepresentation) $ maximalPositions $ findPurePPositions t
@@ -174,7 +174,7 @@ buildPRepresentationOnly :: (IsConst c) => LTerm c -> ([String],[LTerm c])
 buildPRepresentationOnly t = unzip $ maximalPositions $ findPurePPositions t
 -}
 
--- | returns E representation for Hom Patterns
+-- | returns E representation for Homomorphic Patterns
 buildERepresentation :: (IsConst c) => LTerm c -> ERepresentation c
 buildERepresentation t = map snd $ maximalPositions $ findPenukEPositions t
 
@@ -213,10 +213,10 @@ fromERepresentation :: (IsConst c) => ERepresentation c -> LTerm c
 fromERepresentation e = if length e == 1 then head e
   else fAppHomEnc (fromERepresentation (init e), last e)
 
--- Norm related functions for Hom encryption
+-- Norm related functions for Homomorphic encryption
 ----------------------------------------------------
 
--- | @normHom t@ normalizes the term @t@ modulo the hom rule 
+-- | @normHom t@ normalizes the term @t@ modulo the homomorphic rule 
 -- henc(<x1,x2>,k) -> <henc(x1,k),henc(x2,k)>
 normHom :: (IsConst c) => LTerm c -> LTerm c
 normHom t = case viewTerm t of

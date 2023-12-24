@@ -456,7 +456,7 @@ prettyContradiction contra = case contra of
     ImpossibleChain              -> text "impossible chain"
     NonInjectiveFactInstance cex -> text $ "non-injective facts " ++ show cex
     FormulasFalse                -> text "from formulas"
-    NonHomNormalTerms            -> text "non-normal hom terms"
+    NonHomNormalTerms            -> text "non-normal homomorphic terms"
     SuperfluousLearn m v         ->
         doubleQuotes (prettyLNTerm m) <->
         text ("derived before and after") <->

@@ -459,7 +459,7 @@ precomputeSources parameters ctxt restrictions =
 
     msig = mhMaudeSig . get pcMaudeHandle $ ctxt
 
-    -- Removes sources that assume terms not in hom normal form. Might not be complete.
+    -- Removes sources that assume terms not in homomorphic normal form. Might not be complete.
     removeHomIncorrectSources :: Source -> Maybe Source
     removeHomIncorrectSources s = case L.get cdGoal s of
         ActionG v f -> let vM = containsSimpleHenc (factTerms f)

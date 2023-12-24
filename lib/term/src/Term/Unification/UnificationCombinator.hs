@@ -1,8 +1,8 @@
 {-# LANGUAGE TupleSections #-}
 
 module Term.Unification.UnificationCombinator (
-    matchUnionDisjointTheories
-  , unifyUnionDisjointTheories
+    matchHomACCLTerm
+  , unifyHomACCLTerm
 ) where
 
 import Term.LTerm (
@@ -34,14 +34,14 @@ import Term.Unification.HomomorphicEncryption
 -- NOTE: Maybe add checks here that in the returned substitution all vars on the left
 -- TODO: need to change the variable renaming to changing index per variable instead of a global index
 -- are from the matched terms and all vars on the right are from the term to be matched.
-matchUnionDisjointTheories :: IsConst c => (c -> LSort) -> UM.MaudeHandle -> Match (LTerm c) -> [LSubst c]
-matchUnionDisjointTheories sortOf mhnd matchProblem = case flattenMatch matchProblem of
+matchHomACCLTerm :: IsConst c => (c -> LSort) -> UM.MaudeHandle -> Match (LTerm c) -> [LSubst c]
+matchHomACCLTerm sortOf mhnd matchProblem = case flattenMatch matchProblem of
   Nothing -> []
   Just ms -> let
       eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
       orgVars = foldVarsVTerm $ concatMap (\(l,r) -> [l,r]) ms
       highestIndex = foldr (max . lvarIdx) 0 orgVars
-      unifier = map substToListVFresh $ unifyUnionDisjointTheories (sortOfMConst sortOf) mhnd eqs
+      unifier = map substToListVFresh $ unifyHomACCLTerm (sortOfMConst sortOf) mhnd eqs
       newVars = filter (`notElem` orgVars) $
         map fst (concat unifier) ++ concatMap (varsVTerm . snd) (concat unifier)
       newVarsSubst = zipWith (\v newIdx -> (v, LVar (lvarName v) (lvarSort v) newIdx)) newVars [highestIndex+1..]
@@ -68,8 +68,8 @@ matchUnionDisjointTheories sortOf mhnd matchProblem = case flattenMatch matchPro
 --   being two different variables.  
 -- - Investigate which linear orderings make sense "sort wise" and if we can remove some
 --   (probably not as it is a restriction which might never occur in the actual substitution)
-unifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> UM.MaudeHandle -> [Equal (LTerm c)] -> [LSubstVFresh c]
-unifyUnionDisjointTheories sortOf mhnd eqs = let
+unifyHomACCLTerm :: IsConst c => (c -> LSort) -> UM.MaudeHandle -> [Equal (LTerm c)] -> [LSubstVFresh c]
+unifyHomACCLTerm sortOf mhnd eqs = let
   isRightSystem = (isAnyHom . eqLHS)
   allVars = foldVarsVTerm $ eqsToType eqs
   (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars)

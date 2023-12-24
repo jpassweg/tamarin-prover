@@ -87,11 +87,11 @@ propUnifySound hnd t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
     substs = unifyLNTerm [Equal t1 t2] `runReader` hnd
 
 -- *****************************************************************************
--- Tests aggregate for hom encryption
+-- Tests aggregate for homomorphic encryption
 -- *****************************************************************************
 
 testAllHom :: MaudeHandle -> MaudeHandle -> Test
-testAllHom _ mhndHom = TestLabel "All Hom Tests" $
+testAllHom _ mhndHom = TestLabel "All Homomorphic Tests" $
   TestList
     [ testsMatchingHom mhndHom mhndHom
     , testsUnifyHom mhndHom mhndHom
@@ -101,7 +101,7 @@ testAllHom _ mhndHom = TestLabel "All Hom Tests" $
     ]
 
 -- *****************************************************************************
--- Tests for Matching modulo EpsilonH (For Hom encryption)
+-- Tests for Matching modulo EpsilonH (For Homomorphic encryption)
 -- *****************************************************************************
 
 -- match t p tries to find a substitution phi such that "t == phi applied to p"
@@ -158,10 +158,10 @@ testMatchingHomWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
       testTrue printText (caseOutcome == substHomMatches)
       -- terms equal after norming
     , testTrue "equal n" (caseOutcome == (t1N == t2NSubstH))
-      -- if matching without hom rules works then so should it with those rules
+      -- if matching without homomorphic rules works then so should it with those rules
       -- lnMatches implies substHMatches
     , testTrue "ln=>hom" (not lnMatches || substHomMatches)
-      -- comparing with the maude handle including hom unification
+      -- comparing with the maude handle including homomorphic unification
     , testTrue "equal mhndHom" (caseOutcome == lnMatchesHom)
     -- lnMatches implies lnMatchesHom
     , testTrue "ln=>mhndHom" (not lnMatches || lnMatchesHom)
@@ -212,7 +212,7 @@ testMatchingHomWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
     safeHead s = if null s then Subst $ M.fromList [(LVar "NOSUBST" LSortMsg 0,x0)] else head s
 
 -- *****************************************************************************
--- Tests for Unification modulo EpsilonH (For Hom encryption)
+-- Tests for Unification modulo EpsilonH (For Homomorphic encryption)
 -- *****************************************************************************
 
 -- Multiple tests for unification modulo EpisolonH algorithm 
@@ -305,7 +305,7 @@ testUnifyWithPrint mhnd mhndHom caseName caseOutcome t1 t2 =
     , testTrue "n equal" (caseOutcome == (t1NSubstH == t2NSubstH))
     -- freeToAvoid does not change the outcome
     , testTrue "freeAvoid" (caseOutcome == (t1NSubstHFreeAvoid == t2NSubstHFreeAvoid))
-    -- if unifying without hom rules works then so should it with those rules
+    -- if unifying without homomorphic rules works then so should it with those rules
     -- lnUnifies implies substHUnifies
     , testTrue "ln=>hom" (not lnUnifies || substHUnifies)
     -- multiples other tests if the unification was done correctly
@@ -444,7 +444,7 @@ onlyOrgVarsRight orgVars subst = let rightVars = foldVarsVTerm (map snd subst) i
 -- *****************************************************************************
 
 -- Multiple tests for the functions directly used by the 
--- hom encrytion unification algorithm 
+-- homomorphic encrytion unification algorithm 
 testsUnifyHomSf :: MaudeHandle -> MaudeHandle -> Test
 testsUnifyHomSf _ _ =
   TestLabel "Tests for Unify module EpsilonH subfunctions" $
@@ -550,7 +550,7 @@ testsUnifyHomSf _ _ =
     tP1 = hpair (x0, x1)
 
 -- *****************************************************************************
--- Tests for specific rules of the Hom Unification Algorithm
+-- Tests for specific rules of the Homomorphic Unification Algorithm
 -- *****************************************************************************
 
 -- debugHomRule: 

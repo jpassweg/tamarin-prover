@@ -89,7 +89,7 @@ nfViaHaskell t0 = reader $ \hnd -> nfHom t0 && check hnd
             -- bilinear map
             FEMap _                         (viewTerm2 -> FPMult _ _) -> False
             FEMap (viewTerm2 -> FPMult _ _) _                         -> False
-            -- hom encryption -- gets caught by nfHom
+            -- homomorphic encryption -- gets caught by nfHom
             FHdec t1 t2 -> go t1 && go t2
             FHenc t1 t2 -> go t1 && go t2
             FHomPair t1 t2 -> go t1 && go t2
