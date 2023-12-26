@@ -10,6 +10,12 @@ rule (modulo AC) d_hdec:
 rule (modulo AC) c_hpair:
    [ !KU( x ), !KU( x.1 ) ] --[ !KU( hpair(x, x.1) ) ]-> [ !KU( hpair(x, x.1) ) ]
 
+rule (modulo AC) c_hfst:
+   [ !KU( x ) ] --[ !KU( hfst(x) ) ]-> [ !KU( hfst(x) ) ]
+
+rule (modulo AC) c_hsnd:
+   [ !KU( x ) ] --[ !KU( hsnd(x) ) ]-> [ !KU( hsnd(x) ) ]
+
 rule (modulo AC) d_hfst:
    [ !KD( hpair(x.1, x.2) ) ] --> [ !KD( x.1 ) ]
 

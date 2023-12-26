@@ -423,6 +423,8 @@ homIntruderRules diff = reader $ \hnd -> minimizeIntruderRules diff $
   [ Rule constrHomEnc kuTwoVars kuHomEnc kuHomEnc []
   , Rule constrHomDec kuTwoVars kuHomDec kuHomDec []
   , Rule constrHomPair kuTwoVars kuHomPair kuHomPair []
+  , Rule constrHomFst kuOneVar kuFst kuFst []
+  , Rule constrHomSnd kuOneVar kuSnd kuSnd []
   ] 
   ++
   variantsIntruder hnd id True (Rule destrHomDec [kdHomEnc, kuFact x_var_1] [kdFact x_var_0] [] [])
@@ -436,10 +438,15 @@ homIntruderRules diff = reader $ \hnd -> minimizeIntruderRules diff $
     constrHomEnc = ConstrRule (append (pack "_") homEncSymString)
     constrHomDec = ConstrRule (append (pack "_") homDecSymString)
     constrHomPair = ConstrRule (append (pack "_") homPairSymString)
+    constrHomFst = ConstrRule (append (pack "_") homFstSymString)
+    constrHomSnd = ConstrRule (append (pack "_") homSndSymString)
     destrHomDec = DestrRule (append (pack "_") homDecSymString) 0 True False
     destrHomFst = DestrRule (append (pack "_") homFstSymString) 0 True False
     destrHomSnd = DestrRule (append (pack "_") homSndSymString) 0 True False
     kuTwoVars = [kuFact x_var_0, kuFact  x_var_1]
+    kuOneVar = [kuFact x_var_0]
+    kuFst = [kuFact (fAppHomFst x_var_0)]
+    kuSnd = [kuFact (fAppHomSnd x_var_0)]
     kuHomEnc = [kuFact (fAppHomEnc (x_var_0, x_var_1))]
     kuHomDec = [kuFact (fAppHomDec (x_var_0, x_var_1))]
     kuHomPair = [kuFact (fAppHomPair (x_var_0, x_var_1))]
