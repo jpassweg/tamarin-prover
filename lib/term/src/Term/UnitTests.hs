@@ -30,6 +30,10 @@ import Data.Bifunctor (second)
 
 import Term.Unification.LPETerm
 import Term.Unification.HomomorphicEncryption
+import Term.Unification.UnificationCombinator
+
+import qualified Term.Maude.Process as UM
+import           System.IO.Unsafe (unsafePerformIO)
 
 testEqual :: (Eq a, Show a) => String -> a -> a -> Test
 testEqual t a b = TestLabel t $ TestCase $ assertEqual t b a
@@ -97,6 +101,7 @@ testAllHom _ mhndHom = TestLabel "All Homomorphic Tests" $
     , testsUnifyHom mhndHom mhndHom
     , testsUnifyHomSf mhndHom mhndHom
     , testsUnifyHomRules mhndHom mhndHom
+    , testUnifyCombSf mhndHom mhndHom
     , testPrinterHom mhndHom mhndHom
     ]
 
@@ -702,6 +707,30 @@ testsUnifyHomShaping = TestLabel "Tests for Unify module EpsilonH Shaping Rule" 
     fH = toLPETerm
     vA = concatMap (varsVTerm . lTerm) . concatMap (\(Equal l r) -> [l,r])
 
+testUnifyCombSf :: MaudeHandle -> MaudeHandle -> Test
+testUnifyCombSf _ _ =
+  TestLabel "Tests for Unify module EpsilonH subfunctions" $
+  TestList
+    [ testTrue "absvar   1" (abstractVars eg1 == eg1Abstracted)
+    , testTrue "abseq    1" (abstractEqs eg1 == eg1) 
+    , testTrue "splitsys 1" (splitSystem isRightSystem (fst eg1Abstracted) == eg1SplitSystem)
+    ]
+    where
+      eg1 = ([Equal (henc(x1,x2) +: x3) (hpair(x4,x5) +: x3)], [lx 1,lx 2,lx 3,lx 4,lx 5])
+      eg1Abstracted = (
+        [ Equal (henc(x1,x2)) (varTerm $ labs 6),
+          Equal (hpair(x4,x5)) (varTerm $ labs 7),
+          Equal (varTerm (labs 6) +: x3) (varTerm (labs 7) +: x3)
+        ], [labs 7, labs 6, lx 1,lx 2,lx 3,lx 4,lx 5])
+      eg1SplitSystem = (
+        [ Equal (varTerm (labs 6) +: x3) (varTerm (labs 7) +: x3)],
+        [ Equal (henc(x1,x2)) (varTerm $ labs 6),
+          Equal (hpair(x4,x5)) (varTerm $ labs 7) ] )
+      lx = LVar "x" LSortMsg
+      labs = LVar "abstractVar" LSortMsg
+      isRightSystem :: IsConst c => Equal (LTerm c) -> Bool
+      isRightSystem = isAnyHom . eqLHS
+
 -- *****************************************************************************
 -- Specific printer
 -- *****************************************************************************
@@ -709,12 +738,45 @@ testsUnifyHomShaping = TestLabel "Tests for Unify module EpsilonH Shaping Rule" 
 -- Test used to print return values and variables for debugging
 -- Set Test return value to false to print out text
 testPrinterHom :: MaudeHandle -> MaudeHandle -> Test
-testPrinterHom _ _ =
+testPrinterHom mhnd _ =
   TestLabel "prints out debugging information" $
   TestList
-    [ testTrue (show "***text being printed***") True]
+    [ testTrue (show filteredCombinedSolvedSystem) True]
   where
+    eg1 = ([Equal (henc(x1,x2) +: x3) (hpair(x4,x5) +: x3)], [lx 1,lx 2,lx 3,lx 4,lx 5])
+    lx = LVar "x" LSortMsg
+    eg1SplitSystem = (
+        [ Equal (varTerm (labs 6) +: x3) (varTerm (labs 7) +: x3)],
+        [ Equal (henc(x1,x2)) (varTerm $ labs 6),
+          Equal (hpair(x4,x5)) (varTerm $ labs 7) ] )
+    absAllVars = [labs 7, labs 6, lx 1,lx 2,lx 3,lx 4,lx 5]
+    labs = LVar "abstractVar" LSortMsg
+    isRightSystem :: IsConst c => Equal (LTerm c) -> Bool
+    isRightSystem = isAnyHom . eqLHS
     s = sortOfName
+    acUnifier = unsafePerformIO . UM.unifyViaMaude mhnd (sortOfMConst sortOfName)
+    homUnifier = unifyHomLTerm (sortOfMConst sortOfName)
+    solvedSystems = solveDisjointSystems sortOfName
+      eg1SplitSystem (acUnifier, homUnifier) (getAllPartitions absAllVars)
+    -- (
+      -- [[x.1,x.2,x.3,x.4,x.5],[abstractVar.6],[abstractVar.7]],
+      -- [abstractVar.7,abstractVar.6,x.1],
+      -- [(x.1,0),(abstractVar.6,0),(abstractVar.7,0)],
+      -- [[(abstractVar.6,x.9),(abstractVar.7,x.9)]],
+      -- [[(x.1,x.8),(abstractVar.6,henc(x.8,x.8)),(abstractVar.7,hpair(x.8,x.8))]]
+    -- )
+    cleanedSolvedSystem = map (cleanSolvedSystem absAllVars) solvedSystems
+    -- (
+      -- [[x.1,x.2,x.3,x.4,x.5],[abstractVar.6],[abstractVar.7]],
+      -- [abstractVar.7,abstractVar.6,x.1],
+      -- [(x.1,0),(abstractVar.6,0),(abstractVar.7,0)],
+      -- [[(abstractVar.6,x.9),(abstractVar.7,x.9)]],
+      -- [[(x.1,x.12),(abstractVar.6,henc(x.12,x.12)),(abstractVar.7,hpair(x.12,x.12))]])
+    --)
+    combinedSolvedSystem = map combineDisjointSystems cleanedSolvedSystem
+    -- [VFresh: {x.12 <~ x.1, x.12 <~ x.2, x.12 <~ x.3, x.12 <~ x.4, 
+    -- x.12 <~ x.5, x.9 <~ abstractVar.6, x.9 <~ abstractVar.7}]
+    filteredCombinedSolvedSystem = filter (filterVailds (fst eg1)) $ concat combinedSolvedSystem
 
 -- *****************************************************************************
 -- Tests for Substitutions

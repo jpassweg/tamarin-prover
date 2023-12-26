@@ -3,6 +3,17 @@
 module Term.Unification.UnificationCombinator (
     matchHomACCLTerm
   , unifyHomACCLTerm
+
+    -- debugging
+  , abstractVars
+  , abstractEqs
+  , splitSystem
+  , getAllPartitions
+  , onlySameSortsPartitions
+  , solveDisjointSystems
+  , cleanSolvedSystem
+  , combineDisjointSystems
+  , filterVailds
 ) where
 
 import Term.LTerm (
@@ -11,7 +22,7 @@ import Term.LTerm (
   evalFreshAvoiding, freshLVar)
 
 import Term.Rewriting.Definitions (Equal(..), eqsToType, Match, flattenMatch)
-import Term.Substitution.SubstVFree (substFromList, applyVTerm, Subst, LSubst)
+import Term.Substitution.SubstVFree (substFromList, applyVTerm, Subst, LSubst, substToList)
 import Term.Substitution.SubstVFresh (LSubstVFresh, substFromListVFresh, substToListVFresh)
 
 import qualified Term.Maude.Process as UM
@@ -30,6 +41,7 @@ import Data.Maybe (mapMaybe)
 
 import Extension.Prelude (sortednub)
 import Term.Unification.HomomorphicEncryption
+import Term.Substitution (freshToFreeAvoiding)
 
 -- NOTE: Maybe add checks here that in the returned substitution all vars on the left
 -- TODO: need to change the variable renaming to changing index per variable instead of a global index
@@ -74,13 +86,20 @@ unifyHomACCLTerm sortOf mhnd eqs = let
   allVars = foldVarsVTerm $ eqsToType eqs
   (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars)
   (acSystem, homSystem) = splitSystem isRightSystem absEqs
-  unifierPair = (acUnifier, homUnifier)
   solvedSystems = solveDisjointSystems sortOf
-    (acSystem, homSystem) unifierPair (filter onlySameSortsPartitions $ getAllPartitions absAllVars)
-  in combineDisjointSystems $ cleanSolvedSystem absAllVars solvedSystems
+    (acSystem, homSystem) (acUnifier, homUnifier) (getAllPartitions absAllVars) -- (filter onlySameSortsPartitions $ getAllPartitions absAllVars)
+  in filter (filterVailds eqs) $ flattenSubsts $ map (combineDisjointSystems . cleanSolvedSystem absAllVars) solvedSystems
   where
     acUnifier = unsafePerformIO . UM.unifyViaMaude mhnd (sortOfMConst sortOf)
     homUnifier = unifyHomLTerm (sortOfMConst sortOf)
+
+filterVailds :: IsConst c => [Equal (LTerm c)] -> LSubstVFresh c -> Bool
+--filterVailds eqs subst = let s' = freshToFreeAvoiding subst (eqsToType eqs) in
+filterVailds eqs subst = let s' = substFromList $ substToListVFresh subst in
+      all (\e -> applyVTerm s' (eqLHS e) == applyVTerm s' (eqRHS e)) eqs
+
+flattenSubsts :: [[LSubstVFresh c]] -> [LSubstVFresh c]
+flattenSubsts = concat
 
 abstractVars :: IsConst c => ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], [LVar])
 abstractVars ([], allVars) = ([], allVars)
@@ -152,14 +171,14 @@ type VarOrdUnifierPair c = ([[LVar]], [LVar], [(LVar, Int)], [[(LVar, LTerm c)]]
 
 -- Function works through partitions and adapting the system for each one
 solveDisjointSystems :: IsConst c => (c -> LSort) -> EquationPair c -> MConstUnifierPair c
-  -> [[[LVar]]] -> VarOrdUnifierPair c
-solveDisjointSystems _ _ _ [] = ([], [], [], [], [])
+  -> [[[LVar]]] -> [VarOrdUnifierPair c]
+solveDisjointSystems _ _ _ [] = []
 solveDisjointSystems sortOf sys unifiers (vP:varPartitions) = let
     sys' = applyVarPartition vP sys
     partitionVars = map head vP
     varIndexes = getAll01Maps partitionVars
   in case solveDisjointSystemsWithPartition sortOf sys' unifiers partitionVars varIndexes of
-    Just (_, varOrd, varInd, substL, substR) -> (vP, varOrd, varInd, substL, substR)
+    Just (_, varOrd, varInd, substL, substR) -> (vP, varOrd, varInd, substL, substR):solveDisjointSystems sortOf sys unifiers varPartitions
     Nothing     -> solveDisjointSystems sortOf sys unifiers varPartitions
   where
     applyVarPartition :: IsConst c => [[LVar]] -> EquationPair c -> EquationPair c
