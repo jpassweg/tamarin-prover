@@ -1,0 +1,32 @@
+// Author: Sofia Giampietro
+
+theory ACHomEnc_3_S
+begin
+
+builtins: homomorphic-encryption, xor, symmetric-encryption
+
+
+rule somekey:
+ [Fr(~key)]
+ --[]->
+ [!SomeKey(~key)]
+
+rule messages: 
+    [ Fr(~m1), Fr(~m2)]
+    --[Secret1(~m1), Secret2(~m2)]->
+    [Messages(~m1, ~m2)]
+
+rule OTP_enc:
+    [ Fr(~x), Messages(m1,m2),
+    !SomeKey(key) ]
+    --[ Secret(~x) ]->
+    [ State(~x), Out(hpair(senc(m1,key), senc(m2,key))⊕~x), Out(senc(m1, key)), Out(senc(m2, key)) ]
+
+
+lemma Executability_Lemma:
+    exists-trace "Ex x #i . Secret(x) @i "
+
+lemma Secret_Shared_Key: 
+    "All x #i. Secret(x) @i ==> (not (Ex #t. K(x) @t))"
+
+end
