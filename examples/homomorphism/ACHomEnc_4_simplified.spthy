@@ -1,14 +1,15 @@
 // Author: Sofia Giampietro, Jonas Passweg
 
-theory ACHomEnc_3_S
+theory ACHomEnc_4_S
 begin
 
-builtins: homomorphic-encryption, xor, symmetric-encryption
+builtins: symmetric-encryption, xor
+
 
 rule OTP_enc:
     [ Fr(~x), Fr(~m1), Fr(~m2), Fr(~key) ]
     --[ Secret(~x) ]->
-    [ State(~x), Out(hpair(senc(~m1,~key), senc(~m2,~key))⊕~x), Out(senc(~m1, ~key)), Out(senc(~m2, ~key)) ]
+    [ State(~x), Out(<senc(~m1,~key), senc(~m2,~key)> ⊕~x), Out(senc(~m1, ~key)), Out(senc(~m2, ~key)) ]
 
 
 lemma Executability_Lemma:

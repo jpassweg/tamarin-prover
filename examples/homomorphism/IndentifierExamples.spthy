@@ -1,4 +1,4 @@
-theory Compose
+theory Idexample
 begin
 
 builtins: homomorphic-encryption
