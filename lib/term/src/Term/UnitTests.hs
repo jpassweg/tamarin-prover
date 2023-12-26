@@ -446,7 +446,7 @@ onlyOrgVarsRight orgVars subst = let rightVars = foldVarsVTerm (map snd subst) i
 -- Multiple tests for the functions directly used by the 
 -- homomorphic encrytion unification algorithm 
 testsUnifyHomSf :: MaudeHandle -> MaudeHandle -> Test
-testsUnifyHomSf _ _ =
+testsUnifyHomSf mhnd _ =
   TestLabel "Tests for Unify module EpsilonH subfunctions" $
   TestList
     [ testTrue "position var" (positionsWithTerms x0 == [("",x0)])
@@ -491,8 +491,12 @@ testsUnifyHomSf _ _ =
     , testTrue "norm6" (normHom tpaper2 == tpaper2N)
     , testTrue "norm7" (normHom tpaper3 == tpaper3)
     , testTrue "norm8" (normHom normInKey == normedInKey)
+    , tcn (hpair(x1,x2)) (hpair(x1,x2))
+    , tcn (hpair(henc(x1,x3),henc(x2,x3))) (henc(hpair(x1,x2),x3)) 
+    , tcn (hpair(henc(x1,x3),henc(x2,x3)) +: x4) (henc(hpair(x1,x2),x3) +: x4) 
     ]
   where
+    tcn e1 e2 = testEqual ("norm "++ppLTerm e2) e1 (norm' e2 `runReader` mhnd)
     t1 = henc (hpair (x0,x1),x2)
     posT1 =
       [ ("", henc (hpair (x0,x1),x2) )
@@ -915,13 +919,13 @@ tests maudePath = do
 -- | Maude signatures with all builtin symbols.
 allMaudeSig :: MaudeSig
 allMaudeSig = mconcat
-    [ bpMaudeSig, msetMaudeSig -- do not add homMaudeSig
+    [ bpMaudeSig, msetMaudeSig, xorMaudeSig -- do not add homMaudeSig
     , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
 
 -- with enableHom=True
 allMaudeSigPlusHom :: MaudeSig
 allMaudeSigPlusHom = mconcat
-    [ bpMaudeSig, msetMaudeSig, homMaudeSig
+    [ bpMaudeSig, msetMaudeSig, homMaudeSig, xorMaudeSig
     , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
 
 
