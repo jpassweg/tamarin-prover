@@ -11,6 +11,8 @@ module Term.Unification.UnificationCombinator (
   , getAllPartitions
   , solveDisjointSystems
   , combineDisjointSystems
+  , cleanSolvedSystem
+  , solveDisjointSystemsWithPartition
 ) where
 
 import Term.LTerm (
@@ -251,9 +253,9 @@ linearRestriction' p = all (\(varL, termR) -> all (\v -> v `notElem` varsVTerm t
 -- NOTE: clean new vars for right system
 cleanSolvedSystem :: IsConst c => [LVar] -> VarOrdUnifierPair c -> VarOrdUnifierPair c
 cleanSolvedSystem orgVars (varPt, varOrd, varInd, substL, substR) = let
-    allVarsL = map fst (concat substL) ++ concatMap (varsVTerm . snd) (concat substL)
+    allVarsL = orgVars ++ map fst (concat substL) ++ concatMap (varsVTerm . snd) (concat substL)
     newVarsR = filter (`notElem` orgVars) $ map fst (concat substR) ++ concatMap (varsVTerm . snd) (concat substR)
-    newVarsRSubst = map (\v -> (v, evalFreshAvoiding (freshLVar (lvarName v) (lvarSort v)) (allVarsL ++ orgVars))) newVarsR
+    newVarsRSubst = map (\v -> (v, evalFreshAvoiding (freshLVar (lvarName v) (lvarSort v)) allVarsL)) newVarsR
     newVarsRSubst' = substFromList $ map (second varTerm) newVarsRSubst
     substR' = map (map (bimap (varSwap newVarsRSubst) (applyVTerm newVarsRSubst'))) substR
   in (varPt, varOrd, varInd, substL, substR')

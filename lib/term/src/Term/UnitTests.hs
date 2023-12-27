@@ -759,7 +759,7 @@ testPrinterHom mhnd _ =
     -- solvedSystems = solveDisjointSystems sortOfName
       --eg1SplitSystem (acUnifier, homUnifier) (getAllPartitions absAllVars)
     -- combinedSolvedSystem = combineDisjointSystems solvedSystems
-    solvedSystem = solveDisjointSystemsWithPartition sortOf sys' unifiers partitionVars varIndexes
+    -- solvedSystem = solveDisjointSystemsWithPartition sortOfName eg1SplitSystem (acUnifier, homUnifier) partitionVars varIndexes
     -- [VFresh: {x.12 <~ x.1, x.12 <~ x.2, x.12 <~ x.3, x.12 <~ x.4, 
     -- x.12 <~ x.5, x.9 <~ abstractVar.6, x.9 <~ abstractVar.7}]
 
