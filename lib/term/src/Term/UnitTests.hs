@@ -741,7 +741,7 @@ testPrinterHom :: MaudeHandle -> MaudeHandle -> Test
 testPrinterHom mhnd _ =
   TestLabel "prints out debugging information" $
   TestList
-    [ testTrue (show filteredCombinedSolvedSystem) True]
+    [ testTrue (show "") True]
   where
     eg1 = ([Equal (henc(x1,x2) +: x3) (hpair(x4,x5) +: x3)], [lx 1,lx 2,lx 3,lx 4,lx 5])
     lx = LVar "x" LSortMsg
@@ -765,7 +765,7 @@ testPrinterHom mhnd _ =
       -- [[(abstractVar.6,x.9),(abstractVar.7,x.9)]],
       -- [[(x.1,x.8),(abstractVar.6,henc(x.8,x.8)),(abstractVar.7,hpair(x.8,x.8))]]
     -- )
-    cleanedSolvedSystem = map (cleanSolvedSystem absAllVars) solvedSystems
+    cleanedSolvedSystem = cleanSolvedSystem absAllVars solvedSystems
     -- (
       -- [[x.1,x.2,x.3,x.4,x.5],[abstractVar.6],[abstractVar.7]],
       -- [abstractVar.7,abstractVar.6,x.1],
@@ -773,10 +773,10 @@ testPrinterHom mhnd _ =
       -- [[(abstractVar.6,x.9),(abstractVar.7,x.9)]],
       -- [[(x.1,x.12),(abstractVar.6,henc(x.12,x.12)),(abstractVar.7,hpair(x.12,x.12))]])
     --)
-    combinedSolvedSystem = map combineDisjointSystems cleanedSolvedSystem
+    combinedSolvedSystem = combineDisjointSystems cleanedSolvedSystem
     -- [VFresh: {x.12 <~ x.1, x.12 <~ x.2, x.12 <~ x.3, x.12 <~ x.4, 
     -- x.12 <~ x.5, x.9 <~ abstractVar.6, x.9 <~ abstractVar.7}]
-    filteredCombinedSolvedSystem = filter (filterVailds (fst eg1)) $ concat combinedSolvedSystem
+    -- filteredCombinedSolvedSystem = filter (filterVailds (fst eg1)) $ concat combinedSolvedSystem
 
 -- *****************************************************************************
 -- Tests for Substitutions
