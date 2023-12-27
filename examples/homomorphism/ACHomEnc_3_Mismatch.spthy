@@ -1,6 +1,6 @@
 // Author: Sofia Giampietro, Jonas Passweg
 
-theory ACHomEnc_3_MysticalBug
+theory ACHomEnc_3_Mismatch
 begin
 
 builtins: homomorphic-encryption, xor, symmetric-encryption
