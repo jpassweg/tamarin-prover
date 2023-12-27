@@ -9,9 +9,7 @@ module Term.Unification.UnificationCombinator (
   , abstractEqs
   , splitSystem
   , getAllPartitions
-  , onlySameSortsPartitions
   , solveDisjointSystems
-  , cleanSolvedSystem
   , combineDisjointSystems
 ) where
 
@@ -153,6 +151,7 @@ getAllPartitions (x : xs) = concatMap (insert x) (getAllPartitions xs)
     insert x' [] = [[[x']]]
     insert x' (ys : yss) = ((x' : ys) : yss) : map (ys : ) (insert x' yss)
 
+{-
 onlySameSortsPartitions :: [[LVar]] -> Bool
 onlySameSortsPartitions = all sameSort
   where
@@ -161,6 +160,7 @@ onlySameSortsPartitions = all sameSort
     sameSort (v:vs) = all (hasSort $ lvarSort v) vs
     hasSort :: LSort -> LVar -> Bool
     hasSort s v = s == lvarSort v
+-}
 
 splitSystem :: IsConst c => (Equal (LTerm c) -> Bool) -> [Equal (LTerm c)] -> EquationPair c
 splitSystem fBool = foldr (\eq (eqL, eqR) -> if fBool eq then (eqL, eq:eqR) else (eq:eqL, eqR)) ([],[])
@@ -172,10 +172,13 @@ type MConstUnifierPair c = ([Equal (LTerm (MConst c))] -> [LSubstVFresh (MConst 
 
 type VarOrdUnifierPair c = ([[LVar]], [LVar], [(LVar, Int)], [[(LVar, LTerm c)]], [[(LVar, LTerm c)]])
 
+emptyVarOrdUnifierPair :: VarOrdUnifierPair c
+emptyVarOrdUnifierPair = ([], [], [], [], [])
+
 -- Function works through partitions and adapting the system for each one
 solveDisjointSystems :: IsConst c => (c -> LSort) -> EquationPair c -> MConstUnifierPair c
   -> [[[LVar]]] -> VarOrdUnifierPair c
-solveDisjointSystems _ _ _ [] = ([], [], [], [], [])
+solveDisjointSystems _ _ _ [] = emptyVarOrdUnifierPair
 solveDisjointSystems sortOf sys unifiers (vP:varPartitions) = let
     sys' = applyVarPartition vP sys
     partitionVars = map head vP
@@ -245,13 +248,12 @@ linearRestriction' p = all (\(varL, termR) -> all (\v -> v `notElem` varsVTerm t
 
 -- NOTE: can add tests here like that left and right substitutions don't have the
 -- same variable on the left side
+-- NOTE: clean new vars for right system
 cleanSolvedSystem :: IsConst c => [LVar] -> VarOrdUnifierPair c -> VarOrdUnifierPair c
 cleanSolvedSystem orgVars (varPt, varOrd, varInd, substL, substR) = let
     allVarsL = map fst (concat substL) ++ concatMap (varsVTerm . snd) (concat substL)
-    newVarsR = filter (`notElem` orgVars) $
-      map fst (concat substR) ++ concatMap (varsVTerm . snd) (concat substR)
-    highestIndexL = foldr (max . lvarIdx) 0 allVarsL
-    newVarsRSubst = zipWith (\v newIdx -> (v, LVar (lvarName v) (lvarSort v) newIdx)) newVarsR [highestIndexL+1..]
+    newVarsR = filter (`notElem` orgVars) $ map fst (concat substR) ++ concatMap (varsVTerm . snd) (concat substR)
+    newVarsRSubst = map (\v -> (v, evalFreshAvoiding (freshLVar (lvarName v) (lvarSort v)) (allVarsL ++ orgVars))) newVarsR
     newVarsRSubst' = substFromList $ map (second varTerm) newVarsRSubst
     substR' = map (map (bimap (varSwap newVarsRSubst) (applyVTerm newVarsRSubst'))) substR
   in (varPt, varOrd, varInd, substL, substR')

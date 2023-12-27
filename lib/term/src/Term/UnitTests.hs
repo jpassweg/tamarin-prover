@@ -756,27 +756,12 @@ testPrinterHom mhnd _ =
     s = sortOfName
     acUnifier = unsafePerformIO . UM.unifyViaMaude mhnd (sortOfMConst sortOfName)
     homUnifier = unifyHomLTerm (sortOfMConst sortOfName)
-    solvedSystems = solveDisjointSystems sortOfName
-      eg1SplitSystem (acUnifier, homUnifier) (getAllPartitions absAllVars)
-    -- (
-      -- [[x.1,x.2,x.3,x.4,x.5],[abstractVar.6],[abstractVar.7]],
-      -- [abstractVar.7,abstractVar.6,x.1],
-      -- [(x.1,0),(abstractVar.6,0),(abstractVar.7,0)],
-      -- [[(abstractVar.6,x.9),(abstractVar.7,x.9)]],
-      -- [[(x.1,x.8),(abstractVar.6,henc(x.8,x.8)),(abstractVar.7,hpair(x.8,x.8))]]
-    -- )
-    cleanedSolvedSystem = cleanSolvedSystem absAllVars solvedSystems
-    -- (
-      -- [[x.1,x.2,x.3,x.4,x.5],[abstractVar.6],[abstractVar.7]],
-      -- [abstractVar.7,abstractVar.6,x.1],
-      -- [(x.1,0),(abstractVar.6,0),(abstractVar.7,0)],
-      -- [[(abstractVar.6,x.9),(abstractVar.7,x.9)]],
-      -- [[(x.1,x.12),(abstractVar.6,henc(x.12,x.12)),(abstractVar.7,hpair(x.12,x.12))]])
-    --)
-    combinedSolvedSystem = combineDisjointSystems cleanedSolvedSystem
+    -- solvedSystems = solveDisjointSystems sortOfName
+      --eg1SplitSystem (acUnifier, homUnifier) (getAllPartitions absAllVars)
+    -- combinedSolvedSystem = combineDisjointSystems solvedSystems
+    solvedSystem = solveDisjointSystemsWithPartition sortOf sys' unifiers partitionVars varIndexes
     -- [VFresh: {x.12 <~ x.1, x.12 <~ x.2, x.12 <~ x.3, x.12 <~ x.4, 
     -- x.12 <~ x.5, x.9 <~ abstractVar.6, x.9 <~ abstractVar.7}]
-    -- filteredCombinedSolvedSystem = filter (filterVailds (fst eg1)) $ concat combinedSolvedSystem
 
 -- *****************************************************************************
 -- Tests for Substitutions
