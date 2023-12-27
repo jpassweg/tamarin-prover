@@ -13,10 +13,12 @@ module Term.Unification.UnificationCombinator (
   , combineDisjointSystems
   , cleanSolvedSystem
   , solveDisjointSystemsWithPartition
+  , applyVarConstToSys
+  , getFirstNonEmptyPermutation
 ) where
 
 import Term.LTerm (
-  LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..), 
+  LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..),
   varTerm, varsVTerm, foldVarsVTerm, viewTerm, isAnyHom, termViewToTerm, isLit,
   evalFreshAvoiding, freshLVar)
 
@@ -38,7 +40,6 @@ import Data.Bifunctor (second, bimap)
 import Data.List (permutations)
 import Data.Maybe (mapMaybe)
 
-import Extension.Prelude (sortednub)
 import Term.Unification.HomomorphicEncryption
 -- import Term.Substitution (freshToFreeAvoiding)
 
@@ -87,10 +88,14 @@ unifyHomACCLTerm sortOf mhnd eqs = let
   (acSystem, homSystem) = splitSystem isRightSystem absEqs
   solvedSystems = solveDisjointSystems sortOf
     (acSystem, homSystem) (acUnifier, homUnifier) (getAllPartitions absAllVars) -- (filter onlySameSortsPartitions $ getAllPartitions absAllVars)
-  in combineDisjointSystems $ cleanSolvedSystem absAllVars solvedSystems
+  in map (toFreeAvoidAndSubst allVars) $ combineDisjointSystems $ cleanSolvedSystem absAllVars solvedSystems
   where
     acUnifier = unsafePerformIO . UM.unifyViaMaude mhnd (sortOfMConst sortOf)
     homUnifier = unifyHomLTerm (sortOfMConst sortOf)
+
+toFreeAvoidAndSubst :: IsConst c => [LVar] -> [(LVar, LTerm c)] -> LSubstVFresh c
+toFreeAvoidAndSubst allVars = substFromListVFresh . fst . 
+  toFreeAvoid' allVars . (\v -> (v, map fst v ++ foldVarsVTerm (map snd v)))
 
 {-
 filterVailds :: IsConst c => [Equal (LTerm c)] -> LSubstVFresh c -> Bool
@@ -112,7 +117,7 @@ abstractVars (e:es, allVars) = case findAlienSubTerm e of
     in abstractVars (Equal alienSubterm (varTerm newVar) : newE : es, newVar : allVars)
   Nothing -> let (newEs, totVars) = abstractVars (es, allVars)
     in (e : newEs, totVars)
-    
+
 findAlienSubTerm :: IsConst c => Equal (LTerm c) -> Maybe (LTerm c, (LTerm c -> LTerm c) -> Equal (LTerm c) -> Equal (LTerm c))
 findAlienSubTerm eq = case
     (findAlienSubTerm' (isAnyHom (eqLHS eq)) (eqLHS eq),
@@ -225,8 +230,8 @@ applyVarConstToSys :: IsConst c => [(LVar, Int)] -> EquationPair c -> EquationPa
 applyVarConstToSys varIndex (sysL, sysR) = let
   vars0 = map fst $ filter (\ind -> snd ind == 0) varIndex
   vars1 = map fst $ filter (\ind -> snd ind == 1) varIndex
-  in ((map . fmap) (toMConstVarList vars0) sysL,
-      (map . fmap) (toMConstVarList vars1) sysR)
+  in (map (fmap (toMConstVarList vars0)) sysL,
+      map (fmap (toMConstVarList vars1)) sysR)
 
 -- NOTE: can be implemented more efficiently by checking that combined substitution 
 -- is circle free when looking at variabes.
@@ -263,12 +268,12 @@ cleanSolvedSystem orgVars (varPt, varOrd, varInd, substL, substR) = let
 varSwap :: [(LVar,LVar)] -> LVar -> LVar
 varSwap vS v = foldl (\v1 (v2,v3) -> if v1 == v2 then v3 else v1) v vS
 
-combineDisjointSystems :: IsConst c => VarOrdUnifierPair c -> [LSubstVFresh c]
+combineDisjointSystems :: IsConst c => VarOrdUnifierPair c -> [[(LVar, LTerm c)]]
 combineDisjointSystems (varPt, varOrd, _, substL, substR) = let
   cartesianSubsts = [(l,r) | l <- substL, r <- substR]
   combinedSubst = map (fillSubst varOrd) cartesianSubsts
   completeSubst = map (addPartitionedVar varPt) combinedSubst
-  in map substFromListVFresh $ sortednub completeSubst
+  in completeSubst
 
 fillSubst :: IsConst c => [LVar] -> ([(LVar, LTerm c)], [(LVar, LTerm c)]) -> [(LVar, LTerm c)]
 fillSubst [] _ = []

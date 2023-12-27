@@ -29,6 +29,7 @@ import Control.Monad.Reader
 import Data.Bifunctor (second)
 
 import Term.Unification.LPETerm
+import Term.Unification.MConst
 import Term.Unification.HomomorphicEncryption
 import Term.Unification.UnificationCombinator
 
@@ -749,19 +750,73 @@ testPrinterHom mhnd _ =
         [ Equal (varTerm (labs 6) +: x3) (varTerm (labs 7) +: x3)],
         [ Equal (henc(x1,x2)) (varTerm $ labs 6),
           Equal (hpair(x4,x5)) (varTerm $ labs 7) ] )
-    absAllVars = [labs 7, labs 6, lx 1,lx 2,lx 3,lx 4,lx 5]
+    eg1SplitSystemWithPartition = (
+        [ Equal (varTerm (labs 6) +: x3) (varTerm (labs 6) +: x3)],
+        [ Equal (henc(x1,x2)) (varTerm $ labs 6),
+          Equal (hpair(x4,x5)) (varTerm $ labs 6) ] )
+    absAllVars = [labs 7, labs 6, lx 1, lx 2, lx 3, lx 4, lx 5]
+    correctPartition = [[labs 6, labs 7], [lx 1], [lx 2], [lx 3], [lx 4], [lx 5]]
+    absAllVarsWithPartition = [labs 6, lx 1, lx 2, lx 3, lx 4, lx 5]
+    correctVarIndexes = [(labs 6, 1), (lx 1, 1), (lx 2, 1), (lx 3, 1), (lx 4, 1), (lx 5, 1)]
     labs = LVar "abstractVar" LSortMsg
     isRightSystem :: IsConst c => Equal (LTerm c) -> Bool
     isRightSystem = isAnyHom . eqLHS
     s = sortOfName
     acUnifier = unsafePerformIO . UM.unifyViaMaude mhnd (sortOfMConst sortOfName)
     homUnifier = unifyHomLTerm (sortOfMConst sortOfName)
-    -- solvedSystems = solveDisjointSystems sortOfName
-      --eg1SplitSystem (acUnifier, homUnifier) (getAllPartitions absAllVars)
-    -- combinedSolvedSystem = combineDisjointSystems solvedSystems
-    -- solvedSystem = solveDisjointSystemsWithPartition sortOfName eg1SplitSystem (acUnifier, homUnifier) partitionVars varIndexes
-    -- [VFresh: {x.12 <~ x.1, x.12 <~ x.2, x.12 <~ x.3, x.12 <~ x.4, 
-    -- x.12 <~ x.5, x.9 <~ abstractVar.6, x.9 <~ abstractVar.7}]
+    -- PRINTANDTESTUNTILITWORKS
+    (sysWithVarIndexL, sysWithVarIndexR) = applyVarConstToSys correctVarIndexes eg1SplitSystemWithPartition
+    -- [Equal {eqLHS = Xor(MVar x.3,MVar abstractVar.6), eqRHS = Xor(MVar x.3,MVar abstractVar.6)}]
+    -- [Equal {eqLHS = henc(x.1,x.2), eqRHS = abstractVar.6},Equal {eqLHS = hpair(x.4,x.5), eqRHS = abstractVar.6}]
+    (solvedSysL, solvedSysR) = (acUnifier sysWithVarIndexL, homUnifier sysWithVarIndexR) 
+    -- [{}],
+    -- [ {hpair(sh.7,sh.8) <~ x.1, x.9 <~ x.2, 
+        -- henc(sh.7,x.9) <~ x.4, henc(sh.8,x.9) <~ x.5, 
+        -- hpair(henc(sh.7,x.9),henc(sh.8,x.9)) <~ abstractVar.6}
+    -- ]
+    solvedSysL' = map (map (second fromMConst) . substToListVFresh) solvedSysL
+    -- [[]]
+    solvedSysR' = map (map (second fromMConst) . substToListVFresh) solvedSysR
+    -- [[(x.1,hpair(sh.7,sh.8)),(x.2,x.9),(x.4,henc(sh.7,x.9)),(x.5,henc(sh.8,x.9)),(abstractVar.6,hpair(henc(sh.7,x.9),henc(sh.8,x.9)))]]
+    (corrP, solvedSysL'', solvedSysR'') = getFirstNonEmptyPermutation (permutations absAllVars) (solvedSysL', solvedSysR')
+    -- [x.5,x.4,x.3,x.2,x.1,abstractVar.6,abstractVar.7]
+    solvedSystemWithPartition = solveDisjointSystemsWithPartition s eg1SplitSystemWithPartition 
+      (acUnifier, homUnifier) absAllVarsWithPartition [correctVarIndexes]
+    -- Just ([],
+    -- [x.5,x.4,x.3,x.2,x.1,abstractVar.6],
+    -- [(abstractVar.6,1),(x.1,1),(x.2,1),(x.3,1),(x.4,1),(x.5,1)],
+    -- [[]],
+    -- [[(x.1,hpair(sh.7,sh.8)),(x.2,x.9),(x.4,henc(sh.7,x.9)),
+    --   (x.5,henc(sh.8,x.9)),(abstractVar.6,hpair(henc(sh.7,x.9),henc(sh.8,x.9)))]]
+    solvedDisjointSystems = solveDisjointSystems s eg1SplitSystem (acUnifier, homUnifier) [correctPartition]
+    -- [[abstractVar.6,abstractVar.7],[x.1],[x.2],[x.3],[x.4],[x.5]],
+    -- [x.1,x.2,x.3,x.4,abstractVar.6,x.5],
+    -- [(abstractVar.6,1),(x.1,1),(x.2,0),(x.3,0),(x.4,1),(x.5,1)],
+    -- [[]],
+    -- [[(x.1,hpair(sh.7,sh.8)),(x.4,henc(sh.7,x.2)),
+    --   (x.5,henc(sh.8,x.2)),(abstractVar.6,hpair(henc(sh.7,x.2),henc(sh.8,x.2)))]]
+    cleanSolvedDisjointSystems = cleanSolvedSystem absAllVars solvedDisjointSystems
+    -- [[abstractVar.6,abstractVar.7],[x.1],[x.2],[x.3],[x.4],[x.5]],
+    -- [x.1,x.2,x.3,x.4,abstractVar.6,x.5],
+    -- [(abstractVar.6,1),(x.1,1),(x.2,0),(x.3,0),(x.4,1),(x.5,1)],
+    -- [[]],
+    -- [[(x.1,hpair(sh.8,sh.8)),(x.4,henc(sh.8,x.2)),
+    --   (x.5,henc(sh.8,x.2)),(abstractVar.6,hpair(henc(sh.8,x.2),henc(sh.8,x.2)))]]
+    combinedSolvedSystem = combineDisjointSystems cleanSolvedDisjointSystems
+    -- [VFresh: {hpair(sh.8,sh.8) <~ x.1, henc(sh.8,x.2) <~ x.4, 
+    --  henc(sh.8,x.2) <~ x.5, hpair(henc(sh.8,x.2),henc(sh.8,x.2)) <~ abstractVar.6, 
+    --  hpair(henc(sh.8,x.2),henc(sh.8,x.2)) <~ abstractVar.7}]
+    -- Applied to eg1: 
+    -- (henc(hpair(sh.8,sh.8),x2) +: x3) 
+    -- (hpair(henc(sh.8,x.2),henc(sh.8,x.2)) +: x3)
+    -- TODO:
+    -- substCombinedSolvedSystem = map (\sub -> freshToFreeAvoiding sub (eqsToType $ fst eg1)) combinedSolvedSystem 
+    -- [{hpair(sh.6,sh.6) <~ x.1, henc(sh.6,x.7) <~ x.4, 
+    -- henc(sh.6,x.7) <~ x.5, hpair(henc(sh.6,x.7),henc(sh.6,x.7)) <~ abstractVar.6, 
+    -- hpair(henc(sh.6,x.7),henc(sh.6,x.7)) <~ abstractVar.7}]
+    -- Applied to eg1: 
+    -- [Equal (henc(hpair(sh.6,sh.6),x2) +: x3) (hpair(henc(sh.6,x.7),henc(sh.6,x.7)) +: x3)]
+    -- TODO: need to apply own fresh to free avoid
 
 -- *****************************************************************************
 -- Tests for Substitutions

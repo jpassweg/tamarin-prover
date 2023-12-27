@@ -20,7 +20,13 @@ import Term.LTerm (LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit),
 
 -- Const type used by matching algorithm
 data MConst c = MCon c | MVar LVar
-  deriving (Eq, Ord, Show, Data, Typeable)
+  deriving (Eq, Ord, Data, Typeable)
+
+instance (Show c) => Show (MConst c) where
+  show (MCon c) = "MCon " ++ show c
+  show (MVar v) = "MVar " ++ show v
+
+
 
 instance (Ord c, Eq c, Show c, Data c, IsConst c) => IsConst (MConst c) where
 
@@ -38,10 +44,10 @@ toMConstC t = case viewTerm t of
 
 toMConstVarList :: IsConst c => [LVar] -> LTerm c -> LTerm (MConst c)
 toMConstVarList vars t = case viewTerm t of
-  (FApp funsym args) -> termViewToTerm (FApp funsym $ map toMConstC args)
-  (Lit (Var v))      -> if v `elem ` vars 
-                        then termViewToTerm (Lit (Con (MVar v)))
-                        else termViewToTerm (Lit (Var v))
+  (FApp funsym args) -> termViewToTerm (FApp funsym $ map (toMConstVarList vars) args)
+  (Lit (Var v))      -> if v `elem` vars 
+                        then termViewToTerm (Lit (Var v)) 
+                        else termViewToTerm (Lit (Con (MVar v)))
   (Lit (Con c))      -> termViewToTerm (Lit (Con (MCon c)))  
 
 fromMConst :: IsConst c => LTerm (MConst c) -> LTerm c

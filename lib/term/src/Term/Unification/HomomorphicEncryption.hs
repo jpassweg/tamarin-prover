@@ -9,6 +9,9 @@ module Term.Unification.HomomorphicEncryption (
   -- * Failure rule Wrapper
   , fastTestUnifiableHom
 
+  -- * own free avoid
+  , toFreeAvoid'
+
   -- * For debugging
   , debugHomRule
   , HomRuleReturn(..)
@@ -202,10 +205,13 @@ allLeftVarsNotRight subst = let (vars,terms) = unzip subst in not $ any (\v -> v
 ----------------
 
 toFreeAvoid :: IsConst c => [LVar] -> PreSubst c -> Maybe (PreSubst c)
-toFreeAvoid orgVars subst = let
+toFreeAvoid orgVars subst = Just $ toFreeAvoid' orgVars subst
+
+toFreeAvoid' :: IsConst c => [LVar] -> PreSubst c -> PreSubst c
+toFreeAvoid' orgVars subst = let
   freeAvoidingSubst = getFreeAvoidingSubstOfTerms orgVars ([], snd subst) (map snd (fst subst))
   completeSubst = combineAnySubst freeAvoidingSubst (applyPreSubstToVrange freeAvoidingSubst subst)
-  in Just completeSubst
+  in completeSubst
   where
     applyPreSubstToVrange :: IsConst c1 => PreSubst c1 -> PreSubst c1 -> PreSubst c1
     applyPreSubstToVrange fstSubst = first (map (second (applyVTerm (substFromList (fst fstSubst)))))
