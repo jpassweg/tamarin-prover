@@ -1,0 +1,65 @@
+// Adapted version of the NEEDHAM-SCHROEDER SYMMETRIC KEY PROTOCOL from the cap unification paper [1]
+// Implemented by Jonas Passweg
+// [1]: Siva Anantharaman, Hai Lin, Christopher Lynch, Paliath Narendran,
+//      and Michael Rusinowitch. Cap unification: Application to protocol
+//      security modulo homomorphic encryption. In Proceedings of the 5th
+//      ACM Symposium on Information, Computer and Communications Security,
+//      ASIACCS ’10, page 192–203, New York, NY, USA, 2010. Association for
+//      Computing Machinery.
+
+theory NeedhamSchroederSimplified2
+begin
+
+/*
+Alternative Protocol:
+A->S: A, B
+S->A: {B, K_ab}Kas
+S->B: {A, K_ab}Kbs
+*/
+
+builtins: homomorphic-encryption
+
+rule Client_Server_Keys:
+    [ Fr(~key) ]
+    --[]->
+    [ SCKey($Server, $Client, ~key), CSKey($Client, $Server, ~key) ]
+
+rule A_1:
+    [ CSKey($A, $S, KAS) ]
+    --[]->
+    [ Out(hpair($A, $B))
+    , A_1_State($S, $A, $B, KAS) ]
+
+rule S_1:
+    [ SCKey($S, $A, KAS)
+    , SCKey($S, $B, KBS)
+    , In(hpair($A, $B))
+    , Fr(~KAB) ]
+    --[]->
+    [ Out(henc(hpair($B, ~KAB), KAS))
+    , Out(henc(hpair($A, ~KAB), KBS)) ]
+
+rule A_2:
+    [ A_1_State($S, $A, $B, KAS)
+    , In(henc(hpair($B, KAB), KAS)) ]
+    --[ SecretKey($A, KAB)
+      , FinishedA($A, $B, KAB)]->
+    []
+
+rule B_1:
+    [ CSKey($B, $S, KBS)
+    , In(henc(hpair($A, KAB), KBS)) ]
+    --[ SecretKey($B, KAB)
+      , FinishedB($B, $A, KAB) ]->
+    []
+
+restriction notEqual:
+    "All a #t. NotEqual(a,a) @t ==> F"
+
+lemma Executability_Lemma:
+    exists-trace "Ex A B key #i #j. FinishedA(A, B, key) @i & FinishedB(B, A, key) @j & not (A = B)"
+
+lemma Secret_Shared_Key: 
+    "All agent key #i. SecretKey(agent, key) @ #i ==> (not (Ex #t. K(key) @ #t))"
+
+end
