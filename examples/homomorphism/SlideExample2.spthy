@@ -1,0 +1,36 @@
+theory SlideExample2
+begin
+
+builtins: symmetric-encryption
+
+rule GetVars:
+  [ Fr(~k) ]
+  --[]->
+  [ !State($X, ~k), !State($Y, ~k) ]
+
+rule A:
+  [ Fr(~m1), Fr(~m2), !State($A, k1) ]
+  --[ SecretA(<~m1, ~m2>) 
+    , FinishedA() ]->
+  [ Out(senc(<$A,<~m1, ~m2>>, k1)) ]
+
+rule B:
+  [ !State($B, k2)
+  , In(senc(<$X, m>, k2)) ]
+  --[ SecretB(m)
+    , FinishedB() ]->
+  []
+
+lemma A: exists-trace
+  "Ex #i. FinishedA() @i"
+
+lemma B: exists-trace
+  "Ex #i. FinishedB() @i"
+
+lemma IA:
+  "All m1 #i. SecretA(m1) @i ==> (not (Ex #t. K(m1) @t))"
+
+lemma IB:
+  "All m1 #i. SecretB(m1) @i ==> (not (Ex #t. K(m1) @t))"
+
+end
