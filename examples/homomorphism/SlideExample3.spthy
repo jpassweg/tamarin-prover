@@ -1,0 +1,35 @@
+theory SlideExample3
+begin
+
+builtins: symmetric-encryption
+
+rule GetKey:
+  [ Fr(~k) ]
+  --[]->
+  [ !Key(~k) ]
+
+rule A:
+  [ Fr(~m1), !Key(k) ]
+  --[ SecretA(~m1) 
+    , FinishedA(~m1) ]->
+  [ Out(sdec(senc(~m1,k),k)) ]
+
+rule B:
+  [ In(m) ]
+  --[ SecretB(m)
+    , FinishedB(m) ]->
+  []
+
+lemma A: exists-trace
+  "Ex #i. FinishedA(m) @i"
+
+  lemma B: exists-trace
+  "Ex m #i #j. FinishedB(m) @i & FinishedA(m) @j"
+
+lemma IA:
+  "All m1 #i. SecretA(m1) @i ==> (not (Ex #t. K(m1) @t))"
+
+lemma IB:
+  "All m1 #i. SecretB(m1) @i ==> (not (Ex #t. K(m1) @t))"
+
+end

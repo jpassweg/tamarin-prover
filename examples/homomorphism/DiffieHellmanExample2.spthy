@@ -1,0 +1,35 @@
+theory DiffieHellmanExample2
+begin 
+
+builtins: diffie-hellman
+
+rule GetKey:
+  [ Fr(~g) ]
+  --[]->
+  [ !Key(~k) ]
+
+rule A:
+  [ Fr(~m1), Fr(~m2), !Key(k1) ]
+  --[ SecretA(<~m1, ~m2>) 
+    , FinishedA(m) ]->
+  [ Out(<~m1, ~m2>^k1) ]
+
+rule B:
+  [ In(m^k2), !Key(k2) ]
+  --[ SecretB(m)
+    , FinishedB(m) ]->
+  []
+
+lemma A: exists-trace
+  "Ex #i. FinishedA() @i"
+
+lemma B: exists-trace
+  "Ex m #i #j. FinishedB(m) @i & FinishedA(m) @j"
+
+lemma IA:
+  "All m1 #i. SecretA(m1) @i ==> (not (Ex #t. K(m1) @t))"
+
+lemma IB:
+  "All m1 #i. SecretB(m1) @i ==> (not (Ex #t. K(m1) @t))"
+
+end
