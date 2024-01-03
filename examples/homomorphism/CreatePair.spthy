@@ -5,6 +5,7 @@ builtins: homomorphic-encryption
 
 functions: createpair/1
 
+// equations: createpair(x) = hpair(x,x) -- not allowed by Tamarin
 equations: createpair(x) = <x,x>
 
 rule GetVars:
