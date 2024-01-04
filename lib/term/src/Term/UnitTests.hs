@@ -503,6 +503,7 @@ testsUnifyHomSf mhnd _ =
     , tcn x1 (expo( expo (x1,x2), inv x2))
     , tcn x1 (sdec( senc (x1,x2), x2))
     , tcn x1 (hdec( henc (x1,x2), x2))
+    , tcn (hpair(x1,x2)) (hdec (henc (hpair (x1,x2), x3), x3))
     ]
   where
     tcn e1 e2 = testEqual ("norm "++ppLTerm e2) e1 (norm' e2 `runReader` mhnd)
