@@ -82,7 +82,7 @@ varSwap2 vS v = foldl (\v1 (v2,v3) -> if v1 == v2 then v3 else v1) v vS
 --   (probably not as it is a restriction which might never occur in the actual substitution)
 unifyHomACCLTerm :: IsConst c => (c -> LSort) -> UM.MaudeHandle -> [Equal (LTerm c)] -> [LSubstVFresh c]
 unifyHomACCLTerm sortOf mhnd eqs = let
-  isRightSystem = (isAnyHom . eqLHS)
+  isRightSystem (Equal l r) = isAnyHom l || isAnyHom r
   allVars = foldVarsVTerm $ eqsToType eqs
   (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars)
   (acSystem, homSystem) = splitSystem isRightSystem absEqs
