@@ -1,0 +1,35 @@
+theory UnionDisjointTest4
+begin
+
+builtins: homomorphic-encryption, diffie-hellman
+
+rule GetKey:
+  [ Fr(~k) ]
+  --[]->
+  [ !Key(~k) ]
+
+rule GetInnerKey:
+  [ Fr(~kI) ]
+  --[]->
+  [ !IKey(~kI) ]
+
+rule GetPower:
+  [ Fr(~e) ]
+  --[]->
+  [ !Exp(~e) ]
+
+rule A:
+  [ !Key(kA), !IKey(kIA), !Exp(eA), Fr(~m1), Fr(~m2) ]
+  --[ SecretA(~m1, ~m2) ]->
+  [ Out( henc( eA ^ (henc(hpair(~m1, ~m2),kIA)), kA) ) ]
+
+rule B:
+  [ !Key(kB), !IKey(kIB), !Exp(eB)
+  , In( henc( eB ^ (hpair(henc(m1B, kIB), henc(m2B, kIB))), kB) ) ]
+  --[ SecretB(m1B, m2B) ]->
+  []
+
+lemma Send_And_Received: exists-trace
+  "Ex m1AB m2AB #i #j. SecretA(m1AB, m2AB) @i & SecretB(m1AB, m2AB) @j"
+
+end
