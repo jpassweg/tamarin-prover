@@ -1,0 +1,35 @@
+theory UnionDisjointTest6
+begin
+
+builtins: homomorphic-encryption, symmetric-encryption, diffie-hellman, xor
+
+rule GetKey:
+  [ Fr(~k) ]
+  --[]->
+  [ !Key(~k) ]
+
+rule GetInnerKey:
+  [ Fr(~kI) ]
+  --[]->
+  [ !IKey(~kI) ]
+
+rule GetPower:
+  [ Fr(~e) ]
+  --[]->
+  [ !Exp(~e) ]
+
+rule A:
+  [ !Key(kA), !IKey(kIA), Fr(~m1) ]
+  --[ SecretA(~m1) ]->
+  [ Out( henc(~m1, kA ⊕ kIA) ) ]
+
+rule B:
+  [ !Key(kB), !IKey(kIB)
+  , In( m ) ]
+  --[ SecretB( hdec(m, kB ⊕ kIB) ) ]->
+  []
+
+lemma Send_And_Received: exists-trace
+  "Ex m1AB #i #j. SecretA(m1AB) @i & SecretB(m1AB) @j"
+
+end
