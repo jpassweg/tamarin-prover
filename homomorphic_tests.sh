@@ -2,6 +2,7 @@
 
 OUTPUT_FOLDER="homomorphic-tests-results"
 INPUT_FOLDER="examples/homomorphism"
+INPUT_FOLDER2="examples/homomorphism-fixinpost"
 
 function all_homomorphic () {
 	if [ ! -d $OUTPUT_FOLDER ]; then
@@ -27,13 +28,16 @@ function all_homomorphic () {
 
 make default
 
-while getopts ":ict" flag; do
+while getopts ":ictp" flag; do
   case $flag in
     t)
       /home/$USER/.local/bin/tamarin-prover test
       ;;
     i)
       /home/$USER/.local/bin/tamarin-prover interactive $INPUT_FOLDER
+      ;;
+    p)
+      /home/$USER/.local/bin/tamarin-prover interactive $INPUT_FOLDER2
       ;;
     c)
       all_homomorphic $2

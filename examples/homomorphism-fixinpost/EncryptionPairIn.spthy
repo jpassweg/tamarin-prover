@@ -1,0 +1,45 @@
+theory EncrpytionPairIn
+begin
+
+builtins: homomorphic-encryption, symmetric-encryption
+
+rule GenKey:
+  [ Fr(~k) ]
+  --[]->
+  [ !Key(~k) ]
+
+rule SendMessage:
+  [ Fr(~m1), Fr(~m2), !Key(k) ]
+  --[ SecretS(pair(~m1, ~m2)) ]->
+  [ Out( senc(pair(~m1, ~m2), k) )]
+
+rule ReceiveMessage:
+  [ !Key(k), In( senc(m, k) ) ]
+  --[ SecretR(m) ]->
+  []
+
+rule SendMessageH:
+  [ Fr(~m1), Fr(~m2), !Key(k) ]
+  --[ SecretSH(hpair(~m1, ~m2)) ]->
+  [ Out( henc(hpair(~m1, ~m2), k) )]
+
+rule ReceiveMessageH:
+  [ !Key(k), In( henc(m, k) ) ]
+  --[ SecretRH(m) ]->
+  []
+
+rule ReceiveMessageHAlt:
+  [ !Key(k), In( henc(m1, k) ), In( henc(m2, k) ) ]
+  --[ SecretRHAlt( hpair(m1,m2) ) ]->
+  []
+
+lemma SendAndReceive: exists-trace 
+  "Ex m #i #j. SecretS(m) @i & SecretR(m) @j"
+
+lemma SendAndReceiveH: exists-trace 
+  "Ex m #i #j. SecretSH(m) @i & SecretRH(m) @j"
+
+lemma SendAndReceiveHAlt: exists-trace 
+  "Ex m #i #j. SecretSH(m) @i & SecretRHAlt(m) @j"
+
+end
