@@ -1,0 +1,30 @@
+theory BackAndForth
+begin
+
+builtins: homomorphic-encryption
+
+rule GenKey:
+  [ Fr(~k) ]
+  --[]->
+  [ !Key(~k) ]
+
+rule SendMessage:
+  [ Fr(~m1), !Key(k) ]
+  --[ SecretS(~m1) ]->
+  [ Out( henc(~m1, k) )]
+
+rule Server:
+  [ In(m1), In(m2) ]
+  --[ ]->
+  [ Out( hpair(m1, m2) )]
+
+rule ReceiveMessage:
+  let secret = hdec(m, k) in
+  [ !Key(k), In(m) ]
+  --[ SecretR(secret) ]->
+  []
+
+lemma SendAndReceive: exists-trace 
+  "Ex m1 m2 #i1 #i2 #j. SecretS(m1) @i1 & SecretS(m2) @i2 & SecretR(hpair(m1, m2)) @j"
+
+end
