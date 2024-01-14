@@ -19,7 +19,7 @@ rule SendMessage2:
   [ Out( hdec(henc(hpair(~m1, ~m2), k), k) ) ]
 
 rule ReceiveMessage:
-  [ !Key(k), In(m) ]
+  [ In(m) ]
   --[ SecretR(m) ]->
   []
 
