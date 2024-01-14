@@ -42,4 +42,6 @@ lemma SendAndReceiveH: exists-trace
 lemma SendAndReceiveHAlt: exists-trace 
   "Ex m #i #j. SecretSH(m) @i & SecretRHAlt(m) @j"
 
+// TODO: remove normalization outside the unifcation algorithm
+
 end
