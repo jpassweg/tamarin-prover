@@ -12,12 +12,12 @@ rule CreatePair:
   [ Fr(~msg1)
   , Fr(~msg2) ]
   --[ SentHPair(~msg1, ~msg2) ]->
-  [ TransmitHPair(hpair(~msg1, ~msg2)) ]
+  [ TransmitHPair(<~msg1, ~msg2>) ]
 
 rule ReceiveHPair:
     let
-      m1 = hfst(msg)
-      m2 = hsnd(msg)
+      m1 =fst(msg)
+      m2 =snd(msg)
     in
   [ TransmitHPair(msg) ]
   --[ ReceivedHPair(m1, m2) ]->

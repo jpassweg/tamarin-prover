@@ -587,7 +587,7 @@ tryHideNodeId v se = fromMaybe se $ do
       where
         kuActions            = [ x | x@(i,_,_) <- kuActionAtoms se, i == v ]
         eligibleTerm (_,_,m) =
-            isPair m || isHomPair m || isInverse m || sortOfLNTerm m == LSortPub || sortOfLNTerm m == LSortNat
+            isPair m || isInverse m || sortOfLNTerm m == LSortPub || sortOfLNTerm m == LSortNat
 
         removeAction m (i, fa, _) = M.delete (ActionG i fa) m
 

@@ -19,19 +19,19 @@ rule Helper_1:
   [ In(henc(x0, k))
   , In(henc(x1, k)) ]
   --[]->
-  [ Out(henc(hpair(x0, x1), k)) ]
+  [ Out(henc(<x0, x1>, k)) ]
 */
 
 /* This helper is ignored by Tamarin
 rule Helper_2:
-  [ In(hpair(henc(x0, k), henc(x1, k))) ]
+  [ In(<henc(x0, k), henc(x1, k)>) ]
   --[]->
-  [ Out(henc(hpair(x0, x1), k)) ]
+  [ Out(henc(<x0, x1>, k)) ]
 */
 
 rule B:
   [ !Key(k)
-  , In(henc(hpair(x0, x1), k)) ]
+  , In(henc(<x0, x1>, k)) ]
   --[ Received(k) ]->
   []
 

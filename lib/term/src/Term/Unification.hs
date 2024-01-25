@@ -64,7 +64,6 @@ module Term.Unification (
   , asymEncMaudeSig
   , signatureMaudeSig
   , pairDestMaudeSig
-  , homPairDestMaudeSig
   , symEncDestMaudeSig
   , asymEncDestMaudeSig
   , signatureDestMaudeSig
@@ -127,15 +126,16 @@ unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unify
       Nothing        -> (emptySubst, [])
       Just (m, [])   -> (substFromMap m, [emptySubstVFresh])
       Just (m, leqs) -> (substFromMap m, unsafePerformIO (UM.unifyViaMaude h sortOf $ map (applyVTerm (substFromMap m) <$>) leqs))
-    solveWHom h subst = case subst of
-      Nothing        -> (emptySubst, [])
-      Just (m, [])   -> (substFromMap m, [emptySubstVFresh])
-      Just (m, leqs) -> (substFromMap m, prepareUnifyUnionDisjointTheories sortOf h $ map (applyVTerm (substFromMap m) <$>) leqs)
+    solveWHom h _ = (emptySubst, prepareUnifyUnionDisjointTheories sortOf h eqs)
+      -- case subst of
+      -- Nothing        -> (emptySubst, [])
+      -- Just (m, [])   -> (substFromMap m, [emptySubstVFresh])
+      -- Just (m, leqs) -> (substFromMap m, prepareUnifyUnionDisjointTheories sortOf h $ map (applyVTerm (substFromMap m) <$>) leqs)
 
 prepareUnifyUnionDisjointTheories :: IsConst c => (c -> LSort) -> MaudeHandle -> [Equal (LTerm c)] -> [LSubstVFresh c]
 prepareUnifyUnionDisjointTheories sortOf mhnd eqs = let
-    hasAC  = all (\(Equal l r) -> hasAny isACC l    && hasAny isACC r   ) eqs
-    hasHom = all (\(Equal l r) -> hasAny isAnyHom l && hasAny isAnyHom r) eqs
+    hasAC  = any (\(Equal l r) -> hasAny isACC l    || hasAny isACC r   ) eqs
+    hasHom = any (\(Equal l r) -> hasAny isAnyHom l || hasAny isAnyHom r) eqs
   in case (hasAC, hasHom) of
     (_,     False) -> unsafePerformIO (UM.unifyViaMaude mhnd sortOf eqs)
     (False, True)  -> unifyHomLTerm sortOf eqs

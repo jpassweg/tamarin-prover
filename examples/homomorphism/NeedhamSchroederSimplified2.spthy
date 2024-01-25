@@ -27,28 +27,28 @@ rule Client_Server_Keys:
 rule A_1:
     [ CSKey($A, $S, KAS) ]
     --[]->
-    [ Out(hpair($A, $B))
+    [ Out(<$A, $B>)
     , A_1_State($S, $A, $B, KAS) ]
 
 rule S_1:
     [ SCKey($S, $A, KAS)
     , SCKey($S, $B, KBS)
-    , In(hpair($A, $B))
+    , In(<$A, $B>)
     , Fr(~KAB) ]
     --[]->
-    [ Out(henc(hpair($B, ~KAB), KAS))
-    , Out(henc(hpair($A, ~KAB), KBS)) ]
+    [ Out(henc(<$B, ~KAB>, KAS))
+    , Out(henc(<$A, ~KAB>, KBS)) ]
 
 rule A_2:
     [ A_1_State($S, $A, $B, KAS)
-    , In(henc(hpair($B, KAB), KAS)) ]
+    , In(henc(<$B, KAB>, KAS)) ]
     --[ SecretKey($A, KAB)
       , FinishedA($A, $B, KAB)]->
     []
 
 rule B_1:
     [ CSKey($B, $S, KBS)
-    , In(henc(hpair($A, KAB), KBS)) ]
+    , In(henc(<$A, KAB>, KBS)) ]
     --[ SecretKey($B, KAB)
       , FinishedB($B, $A, KAB) ]->
     []

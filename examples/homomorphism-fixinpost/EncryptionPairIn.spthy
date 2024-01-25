@@ -10,8 +10,8 @@ rule GenKey:
 
 rule SendMessage:
   [ Fr(~m1), Fr(~m2), !Key(k) ]
-  --[ SecretS(pair(~m1, ~m2)) ]->
-  [ Out( senc(pair(~m1, ~m2), k) )]
+  --[ SecretS(<~m1, ~m2>) ]->
+  [ Out( senc(<~m1, ~m2>, k) )]
 
 rule ReceiveMessage:
   [ !Key(k), In( senc(m, k) ) ]
@@ -20,8 +20,8 @@ rule ReceiveMessage:
 
 rule SendMessageH:
   [ Fr(~m1), Fr(~m2), !Key(k) ]
-  --[ SecretSH(hpair(~m1, ~m2)) ]->
-  [ Out( henc(hpair(~m1, ~m2), k) ) ]
+  --[ SecretSH(<~m1, ~m2>) ]->
+  [ Out( henc(<~m1, ~m2>, k) ) ]
 
 rule ReceiveMessageH:
   [ !Key(k), In( henc(m, k) ) ]
@@ -30,7 +30,7 @@ rule ReceiveMessageH:
 
 rule ReceiveMessageHAlt:
   [ !Key(k), In( henc(m1, k) ), In( henc(m2, k) ) ]
-  --[ SecretRHAlt( hpair(m1,m2) ) ]->
+  --[ SecretRHAlt( <m1,m2> ) ]->
   []
 
 lemma SendAndReceive: exists-trace 

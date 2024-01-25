@@ -35,7 +35,6 @@ module Term.Maude.Signature (
   , symEncMaudeSig
   , signatureMaudeSig
   , pairDestMaudeSig
-  , homPairDestMaudeSig
   , asymEncDestMaudeSig
   , symEncDestMaudeSig
   , signatureDestMaudeSig
@@ -112,7 +111,7 @@ maudeSig msig@MaudeSig{enableDH, enableBP, enableMSet, enableNat, enableXor, ena
                 `S.union` (if enableMSet           then msetFunSig else S.empty)
                 `S.union` (if enableNat            then natFunSig  else S.empty)
                 `S.union` (if enableXor            then xorFunSig  else S.empty)
-                `S.union` (if enableHom            then homFunSig `S.union` homPairFunSig  else S.empty)
+                `S.union` (if enableHom            then homFunSig  else S.empty)
     irreduciblefuns = allfuns `S.difference` (reducibleWithoutMult `S.union` homEncFunSig) 
     reducibleWithoutMult =
         S.fromList [ o | CtxtStRule (viewTerm -> FApp o _) _ <- S.toList stRules]
@@ -134,17 +133,14 @@ instance Semigroup MaudeSig where
                            ,stRules=unionExceptPairRules stRules1 stRules2})
           -- an exception to merging is the destructor variants for pair, which is exclusive
           -- in general, it might make sense to not merge fun syms with same identifier
-      where unionExceptPairSym st1 st2
-              | pairFunDestSig `S.isSubsetOf` st2 && homPairFunDestSig `S.isSubsetOf` st2 = S.union (st1 `S.difference` (pairFunSig `S.union` homPairNoEqFunSig)) st2
-              | pairFunDestSig `S.isSubsetOf` st2    = S.union (st1 `S.difference` pairFunSig) st2
-              | homPairFunDestSig `S.isSubsetOf` st2 = S.union (st1 `S.difference` homPairNoEqFunSig) st2
-              | otherwise                            = S.union st1 st2
-
-            unionExceptPairRules st1 st2
-              | pairDestRules `S.isSubsetOf` st2 && homPairDestRules `S.isSubsetOf` st2 = S.union (st1 `S.difference` (pairRules `S.union` homPairRules)) st2
-              | pairDestRules `S.isSubsetOf` st2    = S.union (st1 `S.difference` pairRules) st2
-              | homPairDestRules `S.isSubsetOf` st2 = S.union (st1 `S.difference` homPairRules) st2
-              | otherwise                           = S.union st1 st2
+      where unionExceptPairSym st1 st2 = if pairFunDestSig `S.isSubsetOf` st2 then
+                                             S.union (st1 `S.difference` pairFunSig) st2
+                                           else
+                                             S.union st1 st2
+            unionExceptPairRules st1 st2 = if pairDestRules `S.isSubsetOf` st2 then
+                                         S.union (st1 `S.difference` pairRules) st2
+                                       else
+                                         S.union st1 st2
 
 instance Monoid MaudeSig where
     mempty = MaudeSig False False False False False False False S.empty S.empty S.empty S.empty S.empty
@@ -191,7 +187,7 @@ homMaudeSig  = maudeSig $ mempty {enableHom=True}
 -- | Maude signatures for the default subterm symbols.
 --pairMaudeSig :: Bool -> MaudeSig
 --pairMaudeSig flag = maudeSig $ mempty {stFunSyms=pairFunSig,stRules=pairRules,enableDiff=flag}
-pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig, locationReportMaudeSig, symEncDestMaudeSig, asymEncDestMaudeSig, signatureDestMaudeSig, pairDestMaudeSig, homPairDestMaudeSig :: MaudeSig
+pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig, locationReportMaudeSig, symEncDestMaudeSig, asymEncDestMaudeSig, signatureDestMaudeSig, pairDestMaudeSig :: MaudeSig
 pairMaudeSig            = maudeSig $ mempty {stFunSyms=pairFunSig,stRules=pairRules}
 symEncMaudeSig          = maudeSig $ mempty {stFunSyms=symEncFunSig,stRules=symEncRules}
 asymEncMaudeSig         = maudeSig $ mempty {stFunSyms=asymEncFunSig,stRules=asymEncRules}
@@ -203,7 +199,6 @@ symEncDestMaudeSig          = maudeSig $ mempty {stFunSyms=symEncFunDestSig,stRu
 asymEncDestMaudeSig         = maudeSig $ mempty {stFunSyms=asymEncFunDestSig,stRules=asymEncDestRules}
 signatureDestMaudeSig       = maudeSig $ mempty {stFunSyms=signatureFunDestSig,stRules=signatureDestRules}
 pairDestMaudeSig            = maudeSig $ mempty {stFunSyms=pairFunDestSig,stRules=pairDestRules}
-homPairDestMaudeSig         = maudeSig $ mempty {stFunSyms=homPairFunDestSig,stRules=homPairDestRules}
 
 
 -- | The minimal maude signature.

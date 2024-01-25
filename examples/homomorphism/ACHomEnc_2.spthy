@@ -19,13 +19,13 @@ rule Send_1:
     [ Key1($A,$B, kab)
     , Fr(~m1), Fr(~m2) ]
     --[ Sent($A, $B, ~m1, ~m2), SecretA(~m1), SecretA(~m2) ]->
-    [ Out(henc( hpair(~m1,~m2),kab) ) ]
+    [ Out(henc( <~m1,~m2>,kab) ) ]
 
 
 rule Recv_1:
 let m= hdec(menc, kab)
-    m1= hfst(m)
-    m2=hsnd(m)
+    m1=fst(m)
+    m2=snd(m)
     in
     [ Key1($B, $A, kab)
     , In(menc) ]

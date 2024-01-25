@@ -21,13 +21,13 @@ rule Client_Server_Keys:
 rule A_1:
     [ Fr(~NA) ]
     --[]->
-    [ Out(hpair(hpair($A, $B), ~NA))
+    [ Out(<<$A, $B>, ~NA>)
     , A_1_State($A, $B, ~NA) ]
 
 rule S_1:
     [ SCKey($S, $A, KAS)
     , SCKey($S, $B, KBS)
-    , In(hpair(hpair($A, $B), NA))
+    , In(<<$A, $B>, NA>)
     , Fr(~KAB) ]
     --[ NotEqual($A, $B)
       , NotEqual($A, NA)
@@ -42,12 +42,12 @@ rule S_1:
       , Sent($A, henc($A, KBS))
       , SentB($B, ~KAB)
       , SentB($B, $A) ]->
-    [ Out(henc(hpair(hpair(hpair(NA, $B), ~KAB), henc(hpair(~KAB, $A), KBS)), KAS)) ]
+    [ Out(henc(<<<NA, $B>, ~KAB>, henc(<~KAB, $A>, KBS)>, KAS)) ]
 
 rule A_2:
     [ A_1_State($A, $B, ~NA)
     , CSKey($A, $S, KAS)
-    , In(henc(hpair(hpair(hpair(~NA, $B), KAB), hpair(SBMsg1, SBMsg2)), KAS)) ]
+    , In(henc(<<<~NA, $B>, KAB>, <SBMsg1, SBMsg2>>, KAS)) ]
     --[ NotEqual($A, $B)
       , NotEqual(KAB, $S)
       , NotEqual(KAB, $A) 
@@ -56,12 +56,12 @@ rule A_2:
       , NotEqual(KAB, ~NA)
       , Received1($A, SBMsg1)
       , Received2($A, SBMsg2) ]->
-    [ Out(hpair(SBMsg1, SBMsg2))
+    [ Out(<SBMsg1, SBMsg2>)
     , A_2_State($S, $A, $B, KAS, KAB) ]
 
 rule B_1:
     [ CSKey($B, $S, KBS)
-    , In(henc(hpair(KAB, $A), KBS))
+    , In(henc(<KAB, $A>, KBS))
     , Fr(~NB) ]
     --[ NotEqual(KAB, $A)
       , NotEqual($A, $B)

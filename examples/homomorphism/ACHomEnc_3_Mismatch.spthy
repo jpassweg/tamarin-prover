@@ -20,7 +20,7 @@ rule OTP_enc:
     [ Fr(~x), Messages(m1,m2),
     !SomeKey(key) ]
     --[ Secret(~x) ]->
-    [ State(~x), Out(hpair(senc(m1,key), senc(m2,key))⊕~x), Out(senc(m1, key)), Out(senc(m2, key)) ]
+    [ State(~x), Out(<senc(m1,key), senc(m2,key)>⊕~x), Out(senc(m1, key)), Out(senc(m2, key)) ]
 
 
 lemma Executability_Lemma:

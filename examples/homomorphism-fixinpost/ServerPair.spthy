@@ -16,7 +16,7 @@ rule SendMessage:
 rule Server:
   [ In(m1), In(m2) ]
   --[ ]->
-  [ Out( hpair(m1, m2) )]
+  [ Out( <m1, m2> ) ]
 
 rule ReceiveMessage:
   let secret = hdec(m, k) in
@@ -25,6 +25,6 @@ rule ReceiveMessage:
   []
 
 lemma SendAndReceive: exists-trace 
-  "Ex m1 m2 #i1 #i2 #j. SecretS(m1) @i1 & SecretS(m2) @i2 & SecretR(hpair(m1, m2)) @j"
+  "Ex m1 m2 #i1 #i2 #j. SecretS(m1) @i1 & SecretS(m2) @i2 & SecretR(<m1, m2>) @j"
 
 end

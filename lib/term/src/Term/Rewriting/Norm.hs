@@ -92,7 +92,6 @@ nfViaHaskell t0 = reader $ \hnd -> nfHom t0 && check hnd
             -- homomorphic encryption -- gets caught by nfHom
             FHdec t1 t2 -> go t1 && go t2
             FHenc t1 t2 -> go t1 && go t2
-            FHomPair t1 t2 -> go t1 && go t2
             -- topmost position not reducible, check subterms
             FExp       t1 t2 -> go t1 && go t2
             FPMult     t1 t2 -> go t1 && go t2

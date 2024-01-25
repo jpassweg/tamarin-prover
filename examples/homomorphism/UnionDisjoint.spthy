@@ -16,11 +16,11 @@ rule GetKey:
 rule A:
   [ !Vars(x0,x1), !Key(x2) ]
   --[ Send(x0, x1, x2) ]->
-  [ Out( hpair(henc('g'^x0, x2), henc('g'^x1, x2)) ) ]
+  [ Out( <henc('g'^x0, x2), henc('g'^x1, x2)> ) ]
 
 rule B:
   [ !Vars(x0,x1), !Key(x2)
-  , In( henc(hpair('g'^x0, 'g'^x1), x2) ) ]
+  , In( henc(<'g'^x0, 'g'^x1>, x2) ) ]
   --[ Receive(x0, x1, x2) ]->
   []
 

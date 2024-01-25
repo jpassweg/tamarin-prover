@@ -42,9 +42,6 @@ module Term.Term.FunctionSymbols (
     , natOneSymString
     , homEncSymString
     , homDecSymString
-    , homPairSymString
-    , homFstSymString
-    , homSndSymString
 
     -- ** concrete symbols
     , diffSym
@@ -62,11 +59,6 @@ module Term.Term.FunctionSymbols (
     , natOneSym
     , homEncSym
     , homDecSym
-    , homPairSym
-    , homFstSym
-    , homSndSym
-    , homFstDestSym
-    , homSndDestSym
 
     -- ** concrete signatures
     , dhFunSig
@@ -81,9 +73,6 @@ module Term.Term.FunctionSymbols (
     , xorReducibleFunSig
     , homReducibleFunSig
     , homEncFunSig
-    , homPairFunSig
-    , homPairNoEqFunSig
-    , homPairFunDestSig
     , implicitFunSig
     , natFunSig
     ) where
@@ -144,7 +133,7 @@ type NoEqFunSig = Set NoEqSym
 -- Fixed function symbols
 ----------------------------------------------------------------------
 
-diffSymString, munSymString, expSymString, invSymString, dhNeutralSymString, oneSymString, xorSymString, multSymString, zeroSymString, fstSymString, sndSymString, homEncSymString, homDecSymString, homPairSymString, homFstSymString, homSndSymString :: ByteString
+diffSymString, munSymString, expSymString, invSymString, dhNeutralSymString, oneSymString, xorSymString, multSymString, zeroSymString, fstSymString, sndSymString, homEncSymString, homDecSymString :: ByteString
 diffSymString = "diff"
 munSymString = "mun"
 expSymString = "exp"
@@ -158,9 +147,6 @@ zeroSymString = "zero"
 xorSymString = "xor"
 homEncSymString = "henc"
 homDecSymString = "hdec"
-homPairSymString = "hpair"
-homFstSymString = "hfst"
-homSndSymString = "hsnd"
 
 natPlusSymString, natOneSymString :: ByteString
 natPlusSymString = "tplus"
@@ -173,7 +159,7 @@ emapSymString, pmultSymString :: ByteString
 emapSymString  = "em"
 pmultSymString = "pmult"
 
-pairSym, diffSym, expSym, invSym, oneSym, dhNeutralSym, fstSym, sndSym, pmultSym, zeroSym, natOneSym, homEncSym, homDecSym, homPairSym, homFstSym, homSndSym :: NoEqSym
+pairSym, diffSym, expSym, invSym, oneSym, dhNeutralSym, fstSym, sndSym, pmultSym, zeroSym, natOneSym, homEncSym, homDecSym :: NoEqSym
 -- | Pairing.
 pairSym  = ("pair",(2,Public,Constructor))
 -- | Diff.
@@ -198,9 +184,6 @@ zeroSym  = (zeroSymString,(0,Public,Constructor))
 natOneSym = (natOneSymString, (0,Public,Constructor))
 homEncSym = (homEncSymString, (2,Public,Constructor))
 homDecSym = (homDecSymString, (2,Public,Constructor))
-homPairSym = (homPairSymString, (2,Public,Constructor))
-homFstSym = (homFstSymString,(1,Public,Constructor))
-homSndSym = (homSndSymString,(1,Public,Constructor))
 
 mkDestSym :: NoEqSym -> NoEqSym
 mkDestSym (name,(k,p,_)) = (name,(k,p, Destructor))
@@ -210,10 +193,6 @@ fstDestSym, sndDestSym :: NoEqSym
 fstDestSym   = mkDestSym fstSym
 -- | Projection of second component of pair.
 sndDestSym   = mkDestSym sndSym
-
-homFstDestSym, homSndDestSym :: NoEqSym
-homFstDestSym = mkDestSym homFstSym
-homSndDestSym = mkDestSym homSndSym
 
 ----------------------------------------------------------------------
 -- Fixed signatures
@@ -231,12 +210,6 @@ xorFunSig = S.fromList [ AC Xor, NoEq zeroSym ]
 homFunSig :: FunSig
 homFunSig = S.fromList [NoEq homEncSym, NoEq homDecSym]
 
-homPairFunSig :: FunSig
-homPairFunSig = S.map NoEq homPairNoEqFunSig
-
-homPairNoEqFunSig :: NoEqFunSig
-homPairNoEqFunSig = S.fromList [homPairSym, homFstSym, homSndSym]
-
 -- | The signature for the bilinear pairing function symbols.
 bpFunSig :: FunSig
 bpFunSig = S.fromList [ NoEq pmultSym, C EMap ]
@@ -253,9 +226,6 @@ pairFunSig = S.fromList [ pairSym, fstSym, sndSym ]
 pairFunDestSig :: NoEqFunSig
 pairFunDestSig = S.fromList [ pairSym, fstDestSym, sndDestSym ]
 
-homPairFunDestSig :: NoEqFunSig
-homPairFunDestSig = S.fromList [ homPairSym, homFstDestSym, homSndDestSym ]
-
 -- | Reducible function symbols for DH.
 dhReducibleFunSig :: FunSig
 dhReducibleFunSig = S.fromList [ NoEq expSym, NoEq invSym ]
@@ -268,7 +238,7 @@ bpReducibleFunSig = S.fromList [ NoEq pmultSym, C EMap ]
 -- NOTE: for symmetric encryption sdec is reducible but senc is not. 
 -- For homomorphic encryption, henc needs to be reducible for normalization. 
 homReducibleFunSig :: FunSig
-homReducibleFunSig = S.fromList [ NoEq homDecSym, NoEq homFstSym, NoEq homSndSym ]
+homReducibleFunSig = S.fromList [ NoEq homDecSym ]
 
 homEncFunSig :: FunSig
 homEncFunSig = S.fromList [ NoEq homEncSym ]

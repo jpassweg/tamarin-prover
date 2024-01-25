@@ -608,7 +608,6 @@ simpInjectiveFactEqMon = do
         where
           getPairTerms :: LNTerm -> [LNTerm]
           getPairTerms (viewTerm2 -> FPair t1 t2) = t1 : getPairTerms t2
-          getPairTerms (viewTerm2 -> FHomPair t1 t2) = t1 : getPairTerms t2
           getPairTerms t = [t]
 
           trimmedPairTerms :: LNFact -> (LNTerm, [(MonotonicBehaviour, LNTerm)])

@@ -89,7 +89,6 @@ simpleInjectiveFactInstances reducible rules = S.fromList $ do
 
     getPairTerms :: LNTerm -> [LNTerm]
     getPairTerms (viewTerm2 -> FPair t1 t2) = t1 : getPairTerms t2
-    getPairTerms (viewTerm2 -> FHomPair t1 t2) = t1 : getPairTerms t2
     getPairTerms t = [t]
 
     candidates :: M.Map FactTag [[MonotonicBehaviour]]
@@ -168,7 +167,6 @@ simpleInjectiveFactInstances reducible rules = S.fromList $ do
                   
                   shapeTerm :: LNTerm -> Int -> [LNTerm]
                   shapeTerm (viewTerm2 -> FPair t1 t2) x | x>1 = t1 : shapeTerm t2 (x-1)
-                  shapeTerm (viewTerm2 -> FHomPair t1 t2) x | x>1 = t1 : shapeTerm t2 (x-1)
                   shapeTerm _ x | x>1 = error "shapeTerm: the term does not have enough pairs"
                   shapeTerm t x | x==1 = [t]
                   shapeTerm _ _ = error "shapeTerm: cannot take an integer with size less than 1" 

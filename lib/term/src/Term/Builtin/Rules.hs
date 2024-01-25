@@ -11,7 +11,6 @@ module Term.Builtin.Rules (
   , bpRules
   , msetRules
   , pairRules
-  , homPairRules
   , xorRules
   , homRules
   , symEncRules
@@ -20,7 +19,6 @@ module Term.Builtin.Rules (
   , revealSignatureRules
   , locationReportRules
   , pairDestRules
-  , homPairDestRules
   , symEncDestRules
   , asymEncDestRules
   , signatureDestRules
@@ -69,11 +67,7 @@ dhRules = S.fromList
 --   the only rule stated is the same behaviour as symmetric encryption
 --   and the rest is offloaded to the unification and matching algorithm.  
 homRules :: Set (RRule LNTerm)
-homRules = S.fromList $
-  hdec(henc(x1, x2), x2) `RRule` x1 : homPairRules'
-
-homPairRules' :: [RRule LNTerm]
-homPairRules' = map ctxtStRuleToRRule (S.toList homPairRules)
+homRules = S.fromList [hdec(henc(x1, x2), x2) `RRule` x1]
 
 -- | The rewriting rules for bilinear pairing. These rules extend the
 --   the rules for Diffie-Hellman.
@@ -107,13 +101,10 @@ xorRules = S.fromList
     zero  = fAppZero
 
 -- | The rewriting rules for standard subterm operators that are builtin.
-pairRules, homPairRules, symEncRules, asymEncRules, signatureRules, pairDestRules, homPairDestRules, symEncDestRules, asymEncDestRules, signatureDestRules, revealSignatureRules, locationReportRules :: Set (CtxtStRule)
+pairRules, symEncRules, asymEncRules, signatureRules, pairDestRules, symEncDestRules, asymEncDestRules, signatureDestRules, revealSignatureRules, locationReportRules :: Set (CtxtStRule)
 pairRules = S.fromList
     [ fAppFst (fAppPair (x1,x2)) `CtxtStRule` (StRhs [[0,0]] x1)
-    , fAppSnd (fAppPair (x1,x2)) `CtxtStRule` (StRhs [[0,1]] x2) ]
-homPairRules = S.fromList
-    [ fAppHomFst (fAppHomPair (x1,x2)) `CtxtStRule` (StRhs [[0,0]] x1)
-    , fAppHomSnd (fAppHomPair (x1,x2)) `CtxtStRule` (StRhs [[0,1]] x2) ]    
+    , fAppSnd (fAppPair (x1,x2)) `CtxtStRule` (StRhs [[0,1]] x2) ] 
 symEncRules    = S.fromList [ sdec (senc (x1,x2), x2)     `CtxtStRule` (StRhs [[0,0]] x1) ]
 asymEncRules   = S.fromList [ adec (aenc (x1, pk x2), x2) `CtxtStRule` (StRhs [[0,0]] x1) ]
 signatureRules = S.fromList [ verify (sign (x1,x2), x1, pk x2) `CtxtStRule` (StRhs [[0,0]] trueC) ]
@@ -125,9 +116,6 @@ locationReportRules = S.fromList [ check_rep (rep (x1,x2), x2) `CtxtStRule` (StR
 pairDestRules = S.fromList
     [ fAppNoEq fstDestSym [fAppPair (x1,x2)] `CtxtStRule` (StRhs [[0,0]] x1)
     , fAppNoEq sndDestSym [fAppPair (x1,x2)] `CtxtStRule` (StRhs [[0,1]] x2) ]
-homPairDestRules = S.fromList
-    [ fAppNoEq homFstDestSym [fAppHomPair (x1,x2)] `CtxtStRule` (StRhs [[0,0]] x1)
-    , fAppNoEq homSndDestSym [fAppHomPair (x1,x2)] `CtxtStRule` (StRhs [[0,1]] x2) ]
 symEncDestRules    = S.fromList [ fAppNoEq sdecDestSym [senc (x1,x2), x2]     `CtxtStRule` (StRhs [[0,0]] x1) ]
 asymEncDestRules   = S.fromList [ fAppNoEq adecDestSym [aenc (x1, pk x2), x2] `CtxtStRule` (StRhs [[0,0]] x1) ]
 signatureDestRules = S.fromList [ fAppNoEq verifyDestSym [sign (x1,x2), x1, pk x2] `CtxtStRule` (StRhs [[0,0]] trueC) ]

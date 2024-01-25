@@ -15,6 +15,6 @@ rule A:
   [ Out(henc(~x0, k)) ]
 
 lemma Intruder_Composes_Message: exists-trace
-  "Ex x0 x1 k #i. K(henc(hpair(x0, x1), k)) @i & not K(k) @i & not (x0 = x1)"
+  "Ex x0 x1 k #i. K(henc(<x0, x1>, k)) @i & not K(k) @i & not (x0 = x1)"
 
 end

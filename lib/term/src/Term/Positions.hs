@@ -126,10 +126,10 @@ deepestProtSubterm :: (Show a, Eq a) => Term a -> Position -> Maybe (Term a)
 deepestProtSubterm term = f term term
   where
     f st _                         []
-       | st == term && (isPair term || isHomPair term || isAC term) = Nothing
+       | st == term && (isPair term || isAC term) = Nothing
        -- If there is no protected subterm, return Nothig!
     f st _                         []
        | otherwise                                = Just st
     f st t@(viewTerm -> FApp _ as) (i:is) = case atMay as i of
           Nothing -> error "deepestProtSubterm: invalid position given"
-          Just a  -> f (if isPair t || isHomPair t || isAC t then st else t) a is
+          Just a  -> f (if isPair t || isAC t then st else t) a is

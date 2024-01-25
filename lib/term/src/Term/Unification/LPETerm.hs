@@ -34,14 +34,13 @@ import Data.Bifunctor (first, second)
 
 import Term.LTerm (
   LTerm, IsConst, Lit(..), LVar,
-  TermView(Lit, FApp), TermView2(FHenc, FHomPair),
-  viewTerm, viewTerm2, termViewToTerm,
-  fAppHomPair, fAppHomEnc, isHomEnc
+  TermView(Lit, FApp), TermView2(FHenc, FPair),
+  viewTerm, viewTerm2, termViewToTerm, fAppHomEnc, isHomEnc, fAppPair
   ) 
 -- IsConst from Term.VTerm
--- TermView(Lit, FApp), TermView2(FHenc, FHomPair), 
+-- TermView(Lit, FApp), TermView2(FHenc), 
 -- viewTerm, viewTerm2, termViewToTerm from Term.Term.Raw
--- fAppHomPair, fAppHomEnc, isHomEnc from Term.Term
+-- fAppHomEnc, isHomEnc from Term.Term
 
 -- New Types used for Unification modulo Homomorphic Encrpytion
 ---------------------------------------------------------------
@@ -101,7 +100,7 @@ pPosition :: (IsConst c) => String -> LTerm c -> String
 pPosition [] _ = ""
 pPosition (i:q) t = let ind = read [i] - 1 in case viewTerm2 t of
   _ | ind >= 2 -> "N"
-  FHomPair t1 t2  -> i : pPosition q ([t1,t2] !! ind)
+  FPair t1 t2  -> i : pPosition q ([t1,t2] !! ind)
   FHenc t1 t2     ->     pPosition q ([t1,t2] !! ind)
   _               -> "N"
 
@@ -111,7 +110,7 @@ ePosition [] _ = ""
 ePosition (i:q) t = let ind = read [i] - 1 in case viewTerm2 t of
   _ | ind >= 2 -> "N"
   FHenc t1 t2     -> i : ePosition q ([t1,t2] !! ind)
-  FHomPair t1 t2  ->     ePosition q ([t1,t2] !! ind)
+  FPair t1 t2  ->     ePosition q ([t1,t2] !! ind)
   _               -> "N"
 
 -- | Returns if two positions are incompatible
@@ -183,7 +182,7 @@ fromPRepresentation :: (IsConst c) => PRepresentation c -> LTerm c
 fromPRepresentation p =
   if eRepsString p == [""]
   then fromERepresentation $ head $ eRepsTerms p
-  else fAppHomPair (fRep takeWhile, fRep dropWhile )
+  else fAppPair (fRep takeWhile, fRep dropWhile )
   where
     fRep fWhile = fromPRepresentation $ uncurry PRep $ unzip 
       $ map (first (\s -> if s == "" then "" else tail s)) 
@@ -195,7 +194,7 @@ fromPRepresentationOnly :: (IsConst c) => ([String],[LTerm c]) -> LTerm c
 fromPRepresentationOnly (s,p) =
   if s == [""]
   then head p
-  else fAppHomPair (
+  else fAppPair (
       fromPRepresentationOnly $ sRep takeWhile
     , fromPRepresentationOnly $ sRep dropWhile )
   where
@@ -224,14 +223,14 @@ normHom t = case viewTerm t of
       t1N = normHom t1 
       t2N = normHom t2
       in case viewTerm2 t1N of
-        FHomPair t11N t12N -> fAppHomPair (normHom $ fAppHomEnc (t11N, t2N), normHom $ fAppHomEnc (t12N, t2N))
+        FPair t11N t12N -> fAppPair (normHom $ fAppHomEnc (t11N, t2N), normHom $ fAppHomEnc (t12N, t2N))
         _               -> fAppHomEnc (t1N, t2N)
     FApp funsym ts -> termViewToTerm (FApp funsym (map normHom ts))
     Lit _ -> t
 
 nfHom :: (IsConst c) => LTerm c -> Bool
 nfHom t = case viewTerm t of
-  FApp _ [viewTerm2 -> FHomPair _ _, _] | isHomEnc t -> False
+  FApp _ [viewTerm2 -> FPair _ _, _] | isHomEnc t -> False
   FApp _ ts                                          -> all nfHom ts
   Lit _                                              -> True
 

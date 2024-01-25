@@ -150,7 +150,6 @@ data TermView2 a = FExp (Term a) (Term a)   | FInv (Term a) | FMult [Term a] | O
                  | FUnion [Term a]
                  | FNatPlus [Term a] | NatOne
                  | FPair (Term a) (Term a)
-                 | FHomPair (Term a) (Term a)
                  | FDiff (Term a) (Term a)
                  | FAppNoEq NoEqSym [Term a]
                  | FAppC CSym [Term a]
@@ -176,7 +175,6 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
     [ t1, t2 ] | o == expSym    -> FExp   t1 t2  -- ensure here that FExp is always exp, never a user-defined symbol
     [ t1, t2 ] | o == pmultSym  -> FPMult t1 t2
     [ t1, t2 ] | o == pairSym   -> FPair  t1 t2
-    [ t1, t2 ] | o == homPairSym-> FHomPair t1 t2
     [ t1, t2 ] | o == diffSym   -> FDiff  t1 t2
     [ t1, t2 ] | o == homEncSym -> FHenc  t1 t2
     [ t1, t2 ] | o == homDecSym -> FHdec  t1 t2
@@ -188,7 +186,7 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
     _                           -> FAppNoEq o ts
   where
     -- special symbols
-    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym, homEncSym, homDecSym, homPairSym ]
+    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym, homEncSym, homDecSym ]
 
 ----------------------------------------------------------------------
 -- Instances

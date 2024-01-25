@@ -63,7 +63,6 @@ builtinsDiffNames = [
   ("homomorphic-encryption", homMaudeSig),
   ("signing", signatureMaudeSig),
   ("dest-pairing", pairDestMaudeSig),
-  ("dest-hom-pairing", homPairDestMaudeSig),
   ("dest-symmetric-encryption", symEncDestMaudeSig),
   ("dest-asymmetric-encryption", asymEncDestMaudeSig),
   ("dest-signing", signatureDestMaudeSig),  

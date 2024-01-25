@@ -83,7 +83,7 @@ openGoals sys = do
                     || sortOfLNTerm m == LSortPub
                     || sortOfLNTerm m == LSortNat
                     -- handled by 'insertAction'
-                    || isPair m || isHomPair m || isInverse m || isProduct m --- || isXor m ---
+                    || isPair m || isInverse m || isProduct m --- || isXor m ---
                     || isUnion m || isNullaryPublicFunction m
         ActionG _ _                               -> not solved
         PremiseG _ _                              -> not solved
@@ -158,8 +158,6 @@ openGoals sys = do
                  not (j `S.member` D.reachableSet [i] existingDeps)
 
     toplevelTerms t@(viewTerm2 -> FPair t1 t2) =
-        t : toplevelTerms t1 ++ toplevelTerms t2
-    toplevelTerms t@(viewTerm2 -> FHomPair t1 t2) =
         t : toplevelTerms t1 ++ toplevelTerms t2
     toplevelTerms t@(viewTerm2 -> FInv t1) = t : toplevelTerms t1
     toplevelTerms t = [t]
@@ -370,7 +368,6 @@ solveChain rules (c, p) = do
     -- Contradicts normal form condition N2:
     -- No coerce of a pair of inverse.
     illegalCoerce pRule mPrem = isCoerceRule pRule && isPair    mPrem ||
-                                isCoerceRule pRule && isHomPair mPrem ||
                                 isCoerceRule pRule && isInverse mPrem ||
     -- Also: Coercing of products is unnecessary, since the protocol is *-restricted.
                                 isCoerceRule pRule && isProduct mPrem

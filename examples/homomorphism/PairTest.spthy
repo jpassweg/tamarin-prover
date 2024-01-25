@@ -14,7 +14,7 @@ rule ReceiveMessagePair:
   []
 
 rule ReceiveMessageHPair:
-  [ In(hpair(msg1,msg2))]
+  [ In(<msg1,msg2>)]
   --[ ReceivedHPair(msg1, msg2) ]->
   []
 

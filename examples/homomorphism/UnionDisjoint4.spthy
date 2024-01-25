@@ -21,11 +21,11 @@ rule GetPower:
 rule A:
   [ !Key(kA), !IKey(kIA), !Exp(eA), Fr(~m1), Fr(~m2) ]
   --[ SecretA(~m1, ~m2) ]->
-  [ Out( henc( eA ^ (henc(hpair(~m1, ~m2),kIA)), kA) ) ]
+  [ Out( henc( eA ^ henc(<~m1, ~m2>,kIA), kA) ) ]
 
 rule B:
   [ !Key(kB), !IKey(kIB), !Exp(eB)
-  , In( henc( eB ^ (hpair(henc(m1B, kIB), henc(m2B, kIB))), kB) ) ]
+  , In( henc( eB ^ <henc(m1B, kIB), henc(m2B, kIB)>, kB) ) ]
   --[ SecretB(m1B, m2B) ]->
   []
 

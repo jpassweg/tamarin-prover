@@ -209,7 +209,7 @@ addAutoSourcesLemma hnd lemmaName (ClosedRuleCache _ raw _ _) items =
                     return (rule, Left t, (pid, tidx, pos))
                   facts position rule t premise = do
                         -- we only consider protocol facts and unprotected terms
-                    guard $ isProtoFact premise && (isPair t || isHomPair t || isAC t || isMsgVar t)
+                    guard $ isProtoFact premise && (isPair t || isAC t || isMsgVar t)
                         -- we only consider facts which are not already solved in the source
                         && ((nodeid, pid) `elem` map fst (unsolvedPremises source))
                     -- iterate over all positions found

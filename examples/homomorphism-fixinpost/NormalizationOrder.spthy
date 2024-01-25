@@ -10,13 +10,13 @@ rule GenKey:
 
 rule SendMessage:
   [ Fr(~m1), Fr(~m2), !Key(k) ]
-  --[ SecretS(hpair(~m1, ~m2)) ]->
-  [ Out( hdec(hpair(henc(~m1, k), henc(~m2, k)), k) ) ]
+  --[ SecretS(<~m1, ~m2>) ]->
+  [ Out( hdec(<henc(~m1, k), henc(~m2, k)>, k) ) ]
 
 rule SendMessage2:
   [ Fr(~m1), Fr(~m2), !Key(k) ]
-  --[ SecretS2(hpair(~m1, ~m2)) ]->
-  [ Out( hdec(henc(hpair(~m1, ~m2), k), k) ) ]
+  --[ SecretS2(<~m1, ~m2>) ]->
+  [ Out( hdec(henc(<~m1, ~m2>, k), k) ) ]
 
 rule ReceiveMessage:
   [ In(m) ]

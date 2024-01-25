@@ -31,10 +31,10 @@ import Term.Unification.MConst
 import Term.LTerm (
   LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..),
   isVar, varTerm, occursVTerm, foldVarsVTerm, varsVTerm, viewTerm,
-  isHomPair, isHomEnc, sortCompare, sortOfLTerm, sortGEQ,
-  evalFreshAvoiding, freshLVar)
+  isHomEnc, sortCompare, sortOfLTerm, sortGEQ,
+  evalFreshAvoiding, freshLVar, isPair)
 -- Lit(Var, Con), IsConst, isVar, varTerm, termVar, foldVarsVTerm, varsVTerm, occursVTerm come from Term.VTerm
--- isHomPair, isHomEnc come from Term.Term
+-- isHomEnc come from Term.Term
 -- TermView(Lit, FApp), viewTerm, termViewToTerm come from Term.Term.Raw
 
 import Term.Rewriting.Definitions (Equal(..), eqsToType, Match, flattenMatch)
@@ -336,7 +336,7 @@ variableSubstitutionHomRule (Equal eL eR) sortOf (eqs,_) = let tR = lTerm eR in
 clashHomRule :: IsConst c => HomRule c
 clashHomRule (Equal eL eR) _ _ = let tL = lTerm eL; tR = lTerm eR
   in case (viewTermPE eL, viewTermPE eR) of
-    (FApp lfsym _, FApp rfsym _) | lfsym /= rfsym && not (isHomPair tL && isHomEnc tR) && not (isHomEnc tL && isHomPair tR)
+    (FApp lfsym _, FApp rfsym _) | lfsym /= rfsym && not (isPair tL && isHomEnc tR) && not (isHomEnc tL && isPair tR)
       -> HFail
     _ -> HNothing
 

@@ -763,7 +763,6 @@ isFirstInsertAction :: Goal -> Bool
 isFirstInsertAction (ActionG _ (Fact (ProtoFact _ "Insert" _) _ (t:_)) ) = 
     case t of
     (viewTerm2 -> FPair (viewTerm2 -> Lit2( Con (Name PubName a)))  _) -> isPrefixOf "F_" (show a)
-    (viewTerm2 -> FHomPair (viewTerm2 -> Lit2( Con (Name PubName a)))  _) -> isPrefixOf "F_" (show a)
     _ -> False
 isFirstInsertAction _ = False
 
@@ -771,7 +770,6 @@ isLastInsertAction :: Goal -> Bool
 isLastInsertAction (ActionG _ (Fact (ProtoFact _ "Insert" _) _ (t:_)) ) = 
         case t of
             (viewTerm2 -> FPair (viewTerm2 -> Lit2( Con (Name PubName a)))  _) ->  isPrefixOf "L_" (show a)
-            (viewTerm2 -> FHomPair (viewTerm2 -> Lit2( Con (Name PubName a)))  _) ->  isPrefixOf "L_" (show a)
             _ -> False
 isLastInsertAction _ = False
 
@@ -933,7 +931,6 @@ sapicPKCS11Ranking ctxt sys =
     isInsertTemplateAction (ActionG _ (Fact (ProtoFact _ "Insert" _) _ (t:_)) ) = 
         case t of
             (viewTerm2 -> FPair (viewTerm2 -> Lit2( Con (Name PubName a)))  _) -> isPrefixOf "template" (show a)
-            (viewTerm2 -> FHomPair (viewTerm2 -> Lit2( Con (Name PubName a)))  _) -> isPrefixOf "template" (show a)
             _ -> False
     isInsertTemplateAction _ = False
 
