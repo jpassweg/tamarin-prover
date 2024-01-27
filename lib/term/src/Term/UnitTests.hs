@@ -32,7 +32,6 @@ import Term.Unification.LPETerm
 import Term.Unification.MConst
 import Term.Unification.HomomorphicEncryption
     ( debugHomRule,
-      fastTestUnifiableHom,
       matchHomLTerm,
       unifyHomLTerm,
       HomRuleReturn(HEqs, HSubstEqs, HFail, HNothing) )
