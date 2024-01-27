@@ -76,7 +76,6 @@ data Contradiction =
   | FormulasFalse                  -- ^ False in formulas
   | SuperfluousLearn LNTerm NodeId -- ^ A term is derived both before and after a learn
   | NodeAfterLast (NodeId, NodeId) -- ^ There is a node after the last node.
-  | NonHomNormalTerms              -- ^ Has terms that are not in normal form.
   deriving( Eq, Ord, Show, Generic, NFData, Binary )
 
 
@@ -110,8 +109,6 @@ contradictions ctxt sys = F.asum
     , guard (eqsIsFalse $ L.get sEqStore sys)                      *> pure IncompatibleEqs
     -- CR-rules *S_⟂*, *S_{¬,last,1}*, *S_{¬,≐}*, *S_{¬,≈}*
     , guard (S.member gfalse $ L.get sFormulas sys)                *> pure FormulasFalse
-    -- FIXME: add CR-rule
-    , guard (enableHom msig && hasNonHomNormalTerms sys)           *> pure NonHomNormalTerms
     ]
     ++
     -- This rule is not yet documented. It removes constraint systems that
@@ -164,14 +161,6 @@ substCreatesNonNormalTerms hnd sys fsubst =
           where tvars = freesList t
                 subst = restrictVFresh tvars subst0
                 t'    = apply (freshToFreeAvoidingFast subst tvars) t
-
--- errors should already get caught by hasNonNormalTerms
-hasNonHomNormalTerms :: System -> Bool
-hasNonHomNormalTerms _ = False
---  not (all nfHom terms)
---  where
---    terms = sortednub . concatMap getTerms . M.elems . L.get sNodes $ sys
---    getTerms (Rule _ ps cs as nvs) = concatMap factTerms (ps++cs++as) ++ nvs
 
 -- | Compute all contradictions to injective fact instances.
 --
@@ -456,7 +445,6 @@ prettyContradiction contra = case contra of
     ImpossibleChain              -> text "impossible chain"
     NonInjectiveFactInstance cex -> text $ "non-injective facts " ++ show cex
     FormulasFalse                -> text "from formulas"
-    NonHomNormalTerms            -> text "non-normal homomorphic terms"
     SuperfluousLearn m v         ->
         doubleQuotes (prettyLNTerm m) <->
         text ("derived before and after") <->

@@ -123,7 +123,10 @@ unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unify
     hasHom = any (\(Equal l r) -> hasAny isAnyHom l || hasAny isAnyHom r) eqs
     homEnabled mhnd = enableHom $ mhMaudeSig mhnd
     solve h subst = case (homEnabled h && hasHom, hasAC, subst) of
+      -- TODO case not clean: does unifyHom handle other NoEqs
       (True,  False, _)              -> (emptySubst, unifyHomLTerm sortOf eqs)
+      -- TODO case not clean: how are NoEqs split and do we need unifyRaw or subst again
+      -- TODO give subst as function parameter for ACC case
       (True,  True,  _)              -> (emptySubst, unifyHomACCLTerm sortOf h eqs)
       (False, _,     Nothing)        -> (emptySubst, [])
       (False, _,     Just (m, []))   -> (substFromMap m, [emptySubstVFresh])
@@ -216,13 +219,17 @@ solveMatchLTerm sortOf matchProblem =
       res
 
     matchTerm ms hnd = trace' $ case (homEnabled && hasHom, hasAC, runState (runExceptT match) M.empty) of
+          -- TODO: this case is not clean, does matching homomorphic allow for other NoEq
           (True,  False, _)                   -> matchHomLTerm sortOf matchProblem
+          -- TODO: this case is not clean:
+          -- how sould NoEq that are neither ACC nor AnyHom be handled
+          -- in the case of ACC should we add back NoEq that are not AnyHom and call unifyRaw?
           (True,  True,  _)                   -> matchHomACCLTerm sortOf hnd matchProblem
           (False, _,    (Left NoMatcher, _))  -> []
           (False, _,    (Left ACProblem, _))  -> unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
           (False, _,    (Right (), mappings)) -> [substFromMap mappings]
       where
-        hasAC  = any (\(Equal l r) -> hasAny isACC l    || hasAny isACC r   ) ms
+        hasAC  = any (\m -> hasAny isACC (fst m) || hasAny isACC (snd m)) ms
         hasHom = any (\m -> hasAny isAnyHom (fst m) || hasAny isAnyHom (snd m)) ms
         homEnabled = enableHom $ mhMaudeSig hnd
         match = forM_ ms $ \(t, p) -> matchRaw sortOf t p
