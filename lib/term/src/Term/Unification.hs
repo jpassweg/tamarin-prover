@@ -127,7 +127,7 @@ unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unify
       (True,  False, _)              -> (emptySubst, unifyHomLTerm sortOf eqs)
       -- TODO case not clean: how are NoEqs split and do we need unifyRaw or subst again
       -- TODO give subst as function parameter for ACC case
-      (True,  True,  _)              -> (emptySubst, unifyHomACCLTerm sortOf h eqs)
+      (True,  True,  _)              -> (emptySubst, unifyHomACCLTerm sortOf h eqs unifyLTerm)
       (False, _,     Nothing)        -> (emptySubst, [])
       (False, _,     Just (m, []))   -> (substFromMap m, [emptySubstVFresh])
       (False, _,     Just (m, leqs)) -> (substFromMap m, unsafePerformIO (UM.unifyViaMaude h sortOf $ map (applyVTerm (substFromMap m) <$>) leqs))
@@ -224,10 +224,10 @@ solveMatchLTerm sortOf matchProblem =
           -- TODO: this case is not clean:
           -- how sould NoEq that are neither ACC nor AnyHom be handled
           -- in the case of ACC should we add back NoEq that are not AnyHom and call unifyRaw?
-          (True,  True,  _)                   -> matchHomACCLTerm sortOf hnd matchProblem
-          (False, _,    (Left NoMatcher, _))  -> []
-          (False, _,    (Left ACProblem, _))  -> unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
-          (False, _,    (Right (), mappings)) -> [substFromMap mappings]
+          --(True,  True,  _)                   -> matchHomACCLTerm sortOf hnd matchProblem unifyLTerm
+          (_, _,    (Left NoMatcher, _))  -> []
+          (_, _,    (Left ACProblem, _))  -> unsafePerformIO (UM.matchViaMaude hnd sortOf matchProblem)
+          (_, _,    (Right (), mappings)) -> [substFromMap mappings]
       where
         hasAC  = any (\m -> hasAny isACC (fst m) || hasAny isACC (snd m)) ms
         hasHom = any (\m -> hasAny isAnyHom (fst m) || hasAny isAnyHom (snd m)) ms

@@ -752,8 +752,11 @@ testPrinterHom :: MaudeHandle -> MaudeHandle -> Test
 testPrinterHom mhnd _ =
   TestLabel "prints out debugging information" $
   TestList
-    [ testTrue (show $ fAppHomSepKeys(pair(x1,x3), x2)) True]
+    [ testTrue (show substs) False]
   where
+    t1 = x5 +: pair(henc(x1, x2), henc(x3, x2))
+    t2 = x5 +: henc(pair(x1, x3), x2)
+    substs = unifyLNTerm [Equal t1 t2] `runReader` mhnd
     eg1 = ([Equal (henc(x1,x2) +: x3) (pair(x4,x5) +: x3)], [lx 1,lx 2,lx 3,lx 4,lx 5])
     lx = LVar "x" LSortMsg
     eg1SplitSystem = (

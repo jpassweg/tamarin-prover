@@ -19,15 +19,17 @@ module Term.Unification.UnificationCombinator (
 
 import Term.LTerm (
   LTerm, Lit(Var, Con), IsConst, LVar(..), TermView(FApp, Lit), LSort(..),
-  varTerm, varsVTerm, foldVarsVTerm, viewTerm, isAnyHom, termViewToTerm, isLit,
+  varTerm, varsVTerm, foldVarsVTerm, viewTerm, isAnyHom, isAnyHomOrPair, termViewToTerm, isLit,
   evalFreshAvoiding, freshLVar)
 
 import Term.Rewriting.Definitions (Equal(..), eqsToType, Match, flattenMatch)
 import Term.Substitution.SubstVFree (substFromList, applyVTerm, Subst, LSubst)
-import Term.Substitution.SubstVFresh (LSubstVFresh, substFromListVFresh, substToListVFresh)
+import Term.Substitution.SubstVFresh (LSubstVFresh, substFromListVFresh, substToListVFresh, SubstVFresh)
 
 import qualified Term.Maude.Process as UM
 import           System.IO.Unsafe (unsafePerformIO)
+
+import qualified Data.Map as M
 
 import Term.Unification.MConst
     ( MConst,
@@ -41,19 +43,24 @@ import Data.List (permutations)
 import Data.Maybe (mapMaybe)
 
 import Term.Unification.HomomorphicEncryption
+import Control.Monad.Reader (runReader)
 -- import Term.Substitution (freshToFreeAvoiding)
 
 -- NOTE: Maybe add checks here that in the returned substitution all vars on the left
 -- TODO: need to change the variable renaming to changing index per variable instead of a global index
 -- are from the matched terms and all vars on the right are from the term to be matched.
-matchHomACCLTerm :: IsConst c => (c -> LSort) -> UM.MaudeHandle -> Match (LTerm c) -> [LSubst c]
-matchHomACCLTerm sortOf mhnd matchProblem = case flattenMatch matchProblem of
+matchHomACCLTerm :: IsConst c => (c -> LSort) -> UM.MaudeHandle -> Match (LTerm c) 
+          -> (  (MConst (MConst c) -> LSort)
+          -> [Equal (LTerm (MConst (MConst c)))]
+          -> UM.WithMaude [SubstVFresh (MConst (MConst c)) LVar]
+          )-> [LSubst c]
+matchHomACCLTerm sortOf mhnd matchProblem unifyLTerm = case flattenMatch matchProblem of
   Nothing -> []
   Just ms -> let
       eqs = map (\(t,p) -> Equal (toMConstA t) (toMConstC p)) ms
       orgVars = foldVarsVTerm $ concatMap (\(l,r) -> [l,r]) ms
       highestIndex = foldr (max . lvarIdx) 0 orgVars
-      unifier = map substToListVFresh $ unifyHomACCLTerm (sortOfMConst sortOf) mhnd eqs
+      unifier = map substToListVFresh $ unifyHomACCLTerm (sortOfMConst sortOf) mhnd eqs unifyLTerm
       newVars = filter (`notElem` orgVars) $
         map fst (concat unifier) ++ concatMap (varsVTerm . snd) (concat unifier)
       newVarsSubst = zipWith (\v newIdx -> (v, LVar (lvarName v) (lvarSort v) newIdx)) newVars [highestIndex+1..]
@@ -80,9 +87,17 @@ varSwap2 vS v = foldl (\v1 (v2,v3) -> if v1 == v2 then v3 else v1) v vS
 --   being two different variables.  
 -- - Investigate which linear orderings make sense "sort wise" and if we can remove some
 --   (probably not as it is a restriction which might never occur in the actual substitution)
-unifyHomACCLTerm :: IsConst c => (c -> LSort) -> UM.MaudeHandle -> [Equal (LTerm c)] -> [LSubstVFresh c]
-unifyHomACCLTerm sortOf mhnd eqs = let
-  isRightSystem (Equal l r) = isAnyHom l || isAnyHom r
+unifyHomACCLTerm :: IsConst c =>
+           (c -> LSort) 
+        -> UM.MaudeHandle 
+        -> [Equal (LTerm c)] 
+        -> (  (MConst c -> LSort)
+           -> [Equal (LTerm (MConst c))]
+           -> UM.WithMaude [SubstVFresh (MConst c) LVar]
+           ) 
+        -> [LSubstVFresh c]
+unifyHomACCLTerm sortOf mhnd eqs unifyLTerm = let
+  isRightSystem (Equal l r) = isAnyHomOrPair l || isAnyHomOrPair r
   allVars = foldVarsVTerm $ eqsToType eqs
   (absEqs, absAllVars) = abstractEqs $ abstractVars (eqs, allVars)
   (acSystem, homSystem) = splitSystem isRightSystem absEqs
@@ -90,7 +105,7 @@ unifyHomACCLTerm sortOf mhnd eqs = let
     (acSystem, homSystem) (acUnifier, homUnifier) (getAllPartitions absAllVars) -- (filter onlySameSortsPartitions $ getAllPartitions absAllVars)
   in map (toFreeAvoidAndSubst allVars) $ combineDisjointSystems $ cleanSolvedSystem absAllVars solvedSystems
   where
-    acUnifier = unsafePerformIO . UM.unifyViaMaude mhnd (sortOfMConst sortOf)
+    acUnifier eqsNew = unifyLTerm (sortOfMConst sortOf) eqsNew `runReader` mhnd 
     homUnifier = unifyHomLTerm (sortOfMConst sortOf)
 
 toFreeAvoidAndSubst :: IsConst c => [LVar] -> [(LVar, LTerm c)] -> LSubstVFresh c
@@ -120,8 +135,8 @@ abstractVars (e:es, allVars) = case findAlienSubTerm e of
 
 findAlienSubTerm :: IsConst c => Equal (LTerm c) -> Maybe (LTerm c, (LTerm c -> LTerm c) -> Equal (LTerm c) -> Equal (LTerm c))
 findAlienSubTerm eq = case
-    (findAlienSubTerm' (isAnyHom (eqLHS eq)) (eqLHS eq),
-    findAlienSubTerm' (isAnyHom (eqRHS eq)) (eqRHS eq)) of
+    (findAlienSubTerm' (isAnyHomOrPair (eqLHS eq)) (eqLHS eq),
+    findAlienSubTerm' (isAnyHomOrPair (eqRHS eq)) (eqRHS eq)) of
   (Just alienTerm, _) -> Just (alienTerm, \f e' -> Equal (f (eqLHS e')) (eqRHS e'))
   (_, Just alienTerm) -> Just (alienTerm, \f e' -> Equal (eqLHS e') (f (eqRHS e')))
   _                   -> Nothing
@@ -130,7 +145,7 @@ findAlienSubTerm' :: IsConst c => Bool -> LTerm c -> Maybe (LTerm c)
 findAlienSubTerm' b t = case viewTerm t of
   Lit (Var _) -> Nothing
   Lit (Con _) -> Nothing -- ? if isAnyHom t /= b then Just t else Nothing
-  FApp _ args -> if isAnyHom t /= b then Just t else case mapMaybe (findAlienSubTerm' b) args of
+  FApp _ args -> if isAnyHomOrPair t /= b then Just t else case mapMaybe (findAlienSubTerm' b) args of
     []    -> Nothing
     (e':_) -> Just e'
 
@@ -143,7 +158,7 @@ substituteTermWithVar tToSub newV t = if tToSub == t then varTerm newV else case
 abstractEqs :: IsConst c => ([Equal (LTerm c)], [LVar]) -> ([Equal (LTerm c)], [LVar])
 abstractEqs ([], allVars) = ([], allVars)
 abstractEqs (e:es, allVars) = if isLit (eqLHS e) || isLit (eqRHS e)
-    || isAnyHom (eqLHS e) == isAnyHom (eqRHS e)
+    || isAnyHomOrPair (eqLHS e) == isAnyHomOrPair (eqRHS e)
   then let (newEs, newVars) = abstractEqs (es, allVars) in (e : newEs, newVars)
   else let
     newVar = evalFreshAvoiding (freshLVar "splitVar" LSortMsg) allVars
@@ -210,6 +225,7 @@ applyToSystem subst (sysL, sysR) = ((map . fmap) (applyVTerm subst) sysL,
 getAll01Maps :: [a] -> [[(a, Int)]]
 getAll01Maps = mapM (\x -> [(x, 0), (x, 1)])
 
+-- TODO: returns unifications with abstractVars!!!
 solveDisjointSystemsWithPartition :: IsConst c => (c -> LSort) -> EquationPair c -> MConstUnifierPair c
   -> [LVar] -> [[(LVar, Int)]] -> Maybe (VarOrdUnifierPair c)
 solveDisjointSystemsWithPartition _ _ _ _ [] = Nothing

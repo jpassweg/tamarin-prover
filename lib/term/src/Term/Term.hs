@@ -44,6 +44,7 @@ module Term.Term (
     , isHomDec
     , hasSameHomKey
     , isAnyHom
+    , isAnyHomOrPair
     , isUnion
     , isEMap
     , isNullaryPublicFunction
@@ -239,7 +240,10 @@ hasSameHomKey t1 t2 = case (viewTerm2 t1, viewTerm2 t2) of
   (_, _) -> False
 
 isAnyHom :: Show a => Term a -> Bool
-isAnyHom t = isHomEnc t || isHomDec t || isPair t || isFst t || isSnd t
+isAnyHom t = isHomEnc t || isHomDec t
+
+isAnyHomOrPair :: Show a => Term a -> Bool
+isAnyHomOrPair t = isHomEnc t || isHomDec t || isPair t || isFst t || isSnd t
 
 -- | 'True' iff the term is a well-formed emap.
 isEMap :: Show a => Term a -> Bool
