@@ -30,6 +30,7 @@ module Term.Term (
     , fAppNatOne
     , fAppHomEnc
     , fAppHomDec
+    , fAppHomSepKeys
 
     -- ** Destructors and classifiers
     , isPair
@@ -167,6 +168,14 @@ fAppSnd a = fAppNoEq sndSym [a]
 fAppHomEnc, fAppHomDec :: (Term a, Term a) -> Term a
 fAppHomEnc (x, y) = fAppNoEq homEncSym [x, y]
 fAppHomDec (x, y) = fAppNoEq homDecSym [x, y]
+
+fAppHomSepKeys :: (Term a, Term a) -> Term a
+fAppHomSepKeys (x, k) = addKeys x
+  where 
+    addKeys x' = case viewTerm x' of
+      Lit _ -> fAppNoEq homEncSym [x', k]
+      FApp (NoEq sym) [arg1, arg2] | sym == pairSym -> fAppPair (addKeys arg1, addKeys arg2)
+      FApp _ _ -> fAppNoEq homEncSym [x', k]
 
 -- | @lits t@ returns all literals that occur in term @t@. List can contain duplicates.
 lits :: Term a -> [a]

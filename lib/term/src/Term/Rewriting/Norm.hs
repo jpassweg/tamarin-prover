@@ -54,7 +54,7 @@ norm' = norm sortOfName
 
 -- | @nfViaHaskell t@ returns @True@ if the term @t@ is in normal form.
 nfViaHaskell :: LNTerm -> WithMaude Bool
-nfViaHaskell t0 = reader $ \hnd -> nfHomHEPlus t0 && check hnd
+nfViaHaskell t0 = reader $ \hnd -> check hnd
   where
     check hnd = go t0
       where
@@ -89,8 +89,9 @@ nfViaHaskell t0 = reader $ \hnd -> nfHomHEPlus t0 && check hnd
             -- bilinear map
             FEMap _                         (viewTerm2 -> FPMult _ _) -> False
             FEMap (viewTerm2 -> FPMult _ _) _                         -> False
-            -- homomorphic encryption -- gets caught by nfHom
-            FHdec t1 t2 -> go t1 && go t2
+            -- homomorphic encryption
+            FHdec _  _  -> False
+            FHenc t1 _ | isPair t1 -> False
             FHenc t1 t2 -> go t1 && go t2
             -- topmost position not reducible, check subterms
             FExp       t1 t2 -> go t1 && go t2

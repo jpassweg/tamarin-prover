@@ -502,12 +502,14 @@ testsUnifyHomSf mhnd _ =
     , testTrue "norm7" (normHom tpaper3 == tpaper3)
     , testTrue "norm8" (normHom normInKey == normedInKey)
     , tcn (pair(x1,x2)) (pair(x1,x2))
-    , tcn (henc(pair(x1,x2),x3)) (henc(pair(x1,x2),x3)) 
-    , tcn (henc(pair(x1,x2),x3) +: x4) (henc(pair(x1,x2),x3) +: x4) 
+    , tcn (pair(henc(x1,x3),henc(x2,x3))) (henc(pair(x1,x2),x3)) 
+    , tcn (pair(henc(x1,x3),henc(x2,x3)) +: x4) (henc(pair(x1,x2),x3) +: x4) 
     , tcn x1 (expo( expo (x1,x2), inv x2))
     , tcn x1 (sdec( senc (x1,x2), x2))
     , tcn x1 (hdec( henc (x1,x2), x2))
     , tcn (pair(x1,x2)) (hdec (henc (pair (x1,x2), x3), x3))
+    , tcn x1 (hdec(fAppHomSepKeys(x1, x2), x2))
+    , tcn (pair(x1,x3)) (hdec(fAppHomSepKeys(pair(x1,x3), x2), x2))
     ]
   where
     tcn e1 e2 = testEqual ("norm "++ppLTerm e2) e1 (norm' e2 `runReader` mhnd)
@@ -718,7 +720,7 @@ testsUnifyHomShaping = TestLabel "Tests for Unify module EpsilonH Shaping Rule" 
 
 testUnifyCombSf :: MaudeHandle -> MaudeHandle -> Test
 testUnifyCombSf _ _ =
-  TestLabel "Tests for Unify module EpsilonH subfunctions" $
+  TestLabel "Tests for Unify combination" $
   TestList
     [ -- testTrue "absvar   1" (abstractVars eg1 == eg1Abstracted)
     testTrue "abseq    1" (abstractEqs eg1 == eg1) 
@@ -750,7 +752,7 @@ testPrinterHom :: MaudeHandle -> MaudeHandle -> Test
 testPrinterHom mhnd _ =
   TestLabel "prints out debugging information" $
   TestList
-    [ testTrue (show "") True]
+    [ testTrue (show $ fAppHomSepKeys(pair(x1,x3), x2)) True]
   where
     eg1 = ([Equal (henc(x1,x2) +: x3) (pair(x4,x5) +: x3)], [lx 1,lx 2,lx 3,lx 4,lx 5])
     lx = LVar "x" LSortMsg

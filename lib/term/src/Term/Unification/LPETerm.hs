@@ -255,7 +255,7 @@ normHomHEPlus t = case viewTerm t of
     FApp _ [t1    ] | isSnd t    && isPair t1           -> nH $ getSnd t1
     FApp _ [t1, _ ] | isHomDec t && hasSameHomKey t t1  -> nH t1
     FApp _ [t1, t2] | isHomEnc t && isPair t1           ->
-      fAppPair (nH $ fAppHomEnc (nH $ getFst t1, nH t2), nH $ fAppHomEnc (nH $ getSnd t1, nH t2))
+      nH $ fAppPair (nH $ fAppHomEnc (nH $ getFst t1, nH t2), nH $ fAppHomEnc (nH $ getSnd t1, nH t2))
     FApp _ [t1, _ ] | isHomDec t && hasSameHomKeys t t1 ->
       nH $ fromPRepresentationOnly $ removeHomKeys $ buildPRepresentationOnly t1
     FApp funsym ts                                      ->

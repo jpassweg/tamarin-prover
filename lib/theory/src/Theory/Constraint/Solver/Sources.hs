@@ -39,7 +39,7 @@ import           Safe
 import qualified Data.Map                                as M
 import qualified Data.Set                                as S
 
---import Data.Maybe
+import Data.Maybe
 
 import           Control.Basics
 import           Control.Category
@@ -408,9 +408,8 @@ precomputeSources parameters ctxt restrictions =
       . map (filter (`elem` '_' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']))
 
     rawSources =
-      map (initialSource ctxt restrictions) 
+      mapMaybe (removeHomIncorrectSources . initialSource ctxt restrictions) 
       (protoGoals ++ msgGoals)
-      --mapMaybe (removeHomIncorrectSources . initialSource ctxt restrictions) 
 
     -- construct source starting from facts from non-special rules
     protoGoals = someProtoGoal <$> absProtoFacts
@@ -460,12 +459,11 @@ precomputeSources parameters ctxt restrictions =
 
     msig = mhMaudeSig . get pcMaudeHandle $ ctxt
 
-    {-
     -- Removes sources that assume terms not in homomorphic normal form. Might not be complete.
     removeHomIncorrectSources :: Source -> Maybe Source
     removeHomIncorrectSources s = case L.get cdGoal s of
         ActionG v f -> let vM = containsSimpleHenc (factTerms f)
-          in if isKUFact f && isJust vM
+          in if (isKUFact f || isKDFact f || isKFact f) && isJust vM
           then Just $ Source (ActionG v f) (filterSystemsNotVarToPair (fromJust vM) (L.get cdCases s))
           else Just s
         _ -> Just s
@@ -478,7 +476,6 @@ precomputeSources parameters ctxt restrictions =
 
     filterSystemsNotVarToPair :: Lit Name LVar -> Disj ([String], System) -> Disj ([String], System)
     filterSystemsNotVarToPair v syms = Disj $ filter (\(_,sym) -> case viewTerm2 (applyLit (L.get sSubst sym) v) of FPair _ _ -> False; _ -> True) $ getDisj syms
-    -}
     
 -- | Refine a set of sources by exploiting additional source
 -- assumptions.
