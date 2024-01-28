@@ -39,6 +39,8 @@ import           Safe
 import qualified Data.Map                                as M
 import qualified Data.Set                                as S
 
+--import Data.Maybe
+
 import           Control.Basics
 import           Control.Category
 import           Control.Monad.Disj
@@ -405,7 +407,10 @@ precomputeSources parameters ctxt restrictions =
         filter (not . null)
       . map (filter (`elem` '_' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']))
 
-    rawSources = map (initialSource ctxt restrictions) (protoGoals ++ msgGoals)
+    rawSources =
+      map (initialSource ctxt restrictions) 
+      (protoGoals ++ msgGoals)
+      --mapMaybe (removeHomIncorrectSources . initialSource ctxt restrictions) 
 
     -- construct source starting from facts from non-special rules
     protoGoals = someProtoGoal <$> absProtoFacts
@@ -454,6 +459,26 @@ precomputeSources parameters ctxt restrictions =
       ]
 
     msig = mhMaudeSig . get pcMaudeHandle $ ctxt
+
+    {-
+    -- Removes sources that assume terms not in homomorphic normal form. Might not be complete.
+    removeHomIncorrectSources :: Source -> Maybe Source
+    removeHomIncorrectSources s = case L.get cdGoal s of
+        ActionG v f -> let vM = containsSimpleHenc (factTerms f)
+          in if isKUFact f && isJust vM
+          then Just $ Source (ActionG v f) (filterSystemsNotVarToPair (fromJust vM) (L.get cdCases s))
+          else Just s
+        _ -> Just s
+
+    containsSimpleHenc :: [LNTerm] -> Maybe (Lit Name LVar)
+    containsSimpleHenc [] = Nothing
+    containsSimpleHenc (x:xs) = case viewTerm2 x of
+      FHenc (viewTerm -> (Lit (Var v1))) _ -> if null xs then Just (Var v1) else Nothing
+      _ -> Nothing
+
+    filterSystemsNotVarToPair :: Lit Name LVar -> Disj ([String], System) -> Disj ([String], System)
+    filterSystemsNotVarToPair v syms = Disj $ filter (\(_,sym) -> case viewTerm2 (applyLit (L.get sSubst sym) v) of FPair _ _ -> False; _ -> True) $ getDisj syms
+    -}
     
 -- | Refine a set of sources by exploiting additional source
 -- assumptions.
