@@ -25,13 +25,13 @@ import qualified Data.Set             as S
 import           System.IO.Unsafe     (unsafePerformIO)
 
 
-import           Term.LTerm
-import           Term.Maude.Process
-import           Term.Maude.Signature
-import           Term.Substitution
-import           Term.SubtermRule
-import           Term.Unification
-import Term.Unification.LPETerm (normHom, nfHom)
+import  Term.LTerm
+import  Term.Maude.Process
+import  Term.Maude.Signature
+import  Term.Substitution
+import  Term.SubtermRule
+import  Term.Unification.LPETerm
+import  Term.Unification
 
 ----------------------------------------------------------------------
 -- Normalization using Maude
@@ -41,7 +41,7 @@ import Term.Unification.LPETerm (normHom, nfHom)
 norm :: (IsConst c)
      => (c -> LSort) -> LTerm c -> WithMaude (LTerm c)
 norm _      t@(viewTerm -> Lit _) = return t
-norm sortOf t         = reader $ \hnd -> unsafePerformIO $ normViaMaude hnd sortOf t
+norm sortOf t         = reader $ \hnd -> (if enableHom $ mhMaudeSig hnd then normHomHEPlus else id) $ unsafePerformIO $ normViaMaude hnd sortOf t
 
 -- | @norm' t@ normalizes the term @t@ using Maude.
 norm' :: LNTerm -> WithMaude LNTerm
@@ -54,7 +54,7 @@ norm' = norm sortOfName
 
 -- | @nfViaHaskell t@ returns @True@ if the term @t@ is in normal form.
 nfViaHaskell :: LNTerm -> WithMaude Bool
-nfViaHaskell t0 = reader $ \hnd -> check hnd
+nfViaHaskell t0 = reader $ \hnd -> nfHomHEPlus t0 && check hnd
   where
     check hnd = go t0
       where
@@ -90,7 +90,7 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             FEMap _                         (viewTerm2 -> FPMult _ _) -> False
             FEMap (viewTerm2 -> FPMult _ _) _                         -> False
             -- homomorphic encryption -- gets caught by nfHom
-            FHdec _  _  -> False
+            FHdec t1 t2 -> go t1 && go t2
             FHenc t1 t2 -> go t1 && go t2
             -- topmost position not reducible, check subterms
             FExp       t1 t2 -> go t1 && go t2

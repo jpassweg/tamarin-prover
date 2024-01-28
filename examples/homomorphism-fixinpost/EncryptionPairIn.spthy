@@ -30,7 +30,7 @@ rule ReceiveMessageH:
 
 rule ReceiveMessageHAlt:
   [ !Key(k), In( henc(m1, k) ), In( henc(m2, k) ) ]
-  --[ SecretRHAlt( <m1,m2> ) ]->
+  --[ SecretRHAlt( <m1, m2> ) ]->
   []
 
 lemma SendAndReceive: exists-trace 
