@@ -100,14 +100,15 @@ propUnifySound hnd t1 t2 = all (\s -> let s' = freshToFreeAvoiding s [t1,t2] in
 -- *****************************************************************************
 
 testAllHom :: MaudeHandle -> MaudeHandle -> Test
-testAllHom _ mhndHom = TestLabel "All Homomorphic Tests" $
+testAllHom mhnd mhndHom = TestLabel "All Homomorphic Tests" $
   TestList
-    [ testsMatchingHom mhndHom mhndHom
-    , testsUnifyHom mhndHom mhndHom
-    , testsUnifyHomSf mhndHom mhndHom
-    , testsUnifyHomRules mhndHom mhndHom
-    , testUnifyCombSf mhndHom mhndHom
-    , testPrinterHom mhndHom mhndHom
+    [ testsMatchingHom mhnd mhndHom
+    , testsUnifyHom mhnd mhndHom
+    , testsUnifyHomSf mhnd mhndHom
+    , testsUnifyHomRules mhnd mhndHom
+    , testUnifyCombSf mhnd mhndHom
+    , testUnifyComb mhnd mhndHom
+    , testPrinterHom mhnd mhndHom
     ]
 
 -- *****************************************************************************
@@ -456,7 +457,7 @@ onlyOrgVarsRight orgVars subst = let rightVars = foldVarsVTerm (map snd subst) i
 -- Multiple tests for the functions directly used by the 
 -- homomorphic encrytion unification algorithm 
 testsUnifyHomSf :: MaudeHandle -> MaudeHandle -> Test
-testsUnifyHomSf mhnd _ =
+testsUnifyHomSf _ mhndHom =
   TestLabel "Tests for Unify module EpsilonH subfunctions" $
   TestList
     [ testTrue "position var" (positionsWithTerms x0 == [("",x0)])
@@ -512,7 +513,7 @@ testsUnifyHomSf mhnd _ =
     , tcn (pair(x1,x3)) (hdec(fAppHomSepKeys(pair(x1,x3), x2), x2))
     ]
   where
-    tcn e1 e2 = testEqual ("norm "++ppLTerm e2) e1 (norm' e2 `runReader` mhnd)
+    tcn e1 e2 = testEqual ("norm "++ppLTerm e2) e1 (norm' e2 `runReader` mhndHom)
     t1 = henc (pair (x0,x1),x2)
     posT1 =
       [ ("", henc (pair (x0,x1),x2) )
@@ -720,7 +721,7 @@ testsUnifyHomShaping = TestLabel "Tests for Unify module EpsilonH Shaping Rule" 
 
 testUnifyCombSf :: MaudeHandle -> MaudeHandle -> Test
 testUnifyCombSf _ _ =
-  TestLabel "Tests for Unify combination" $
+  TestLabel "Tests for Unify combination subfunctions" $
   TestList
     [ -- testTrue "absvar   1" (abstractVars eg1 == eg1Abstracted)
     testTrue "abseq    1" (abstractEqs eg1 == eg1) 
@@ -743,6 +744,34 @@ testUnifyCombSf _ _ =
       isRightSystem = isAnyHom . eqLHS
 
 -- *****************************************************************************
+-- Combined unification tests
+-- *****************************************************************************
+
+testUnifyComb :: MaudeHandle -> MaudeHandle -> Test
+testUnifyComb mhnd mhndHom =
+  TestLabel "Tests for Unify combination" $
+  TestList
+    [ testPrinterHomComb mhnd mhndHom t1 t2 True ]
+    where
+      t1 = x5 +: pair(henc(x1, x2), henc(x3, x2))
+      t2 = x5 +: henc(pair(x1, x3), x2)
+
+-- *****************************************************************************
+-- Combined unification printer
+-- *****************************************************************************
+
+testPrinterHomComb :: MaudeHandle -> MaudeHandle -> LNTerm -> LNTerm -> Bool -> Test
+testPrinterHomComb _ mhnd t1 t2 b =
+  TestLabel "prints out debugging information" $
+  TestList
+    [ testTrue "abseq" b ]
+  where
+    -- TODO: make the tests from incoming terms
+    substs = unifyLNTerm [Equal t1 t2] `runReader` mhnd
+    isRightSystem (Equal l r) = isAnyHomOrPair l || isAnyHomOrPair r
+    allVars = foldVarsVTerm $ eqsToType [Equal t1 t2]
+
+-- *****************************************************************************
 -- Specific printer
 -- *****************************************************************************
 
@@ -752,11 +781,14 @@ testPrinterHom :: MaudeHandle -> MaudeHandle -> Test
 testPrinterHom mhnd _ =
   TestLabel "prints out debugging information" $
   TestList
-    [ testTrue (show substs) False]
+    [ testTrue (show substs) True]
   where
     t1 = x5 +: pair(henc(x1, x2), henc(x3, x2))
     t2 = x5 +: henc(pair(x1, x3), x2)
     substs = unifyLNTerm [Equal t1 t2] `runReader` mhnd
+    isRightSystem (Equal l r) = isAnyHomOrPair l || isAnyHomOrPair r
+    allVars = foldVarsVTerm $ eqsToType [Equal t1 t2]
+    --- PAST EXAMPLE NOT COMPLETE
     eg1 = ([Equal (henc(x1,x2) +: x3) (pair(x4,x5) +: x3)], [lx 1,lx 2,lx 3,lx 4,lx 5])
     lx = LVar "x" LSortMsg
     eg1SplitSystem = (
@@ -772,8 +804,6 @@ testPrinterHom mhnd _ =
     absAllVarsWithPartition = [labs 6, lx 1, lx 2, lx 3, lx 4, lx 5]
     correctVarIndexes = [(labs 6, 1), (lx 1, 1), (lx 2, 1), (lx 3, 1), (lx 4, 1), (lx 5, 1)]
     labs = LVar "abstractVar" LSortMsg
-    isRightSystem :: IsConst c => Equal (LTerm c) -> Bool
-    isRightSystem = isAnyHom . eqLHS
     s = sortOfName
     acUnifier = unsafePerformIO . UM.unifyViaMaude mhnd (sortOfMConst sortOfName)
     homUnifier = unifyHomLTerm (sortOfMConst sortOfName)
