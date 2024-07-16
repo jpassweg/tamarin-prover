@@ -19,7 +19,7 @@ import Theory
 import Theory.Tools.IntruderRules
 
 import Main.Console
-import Main.TheoryLoader (dhIntruderVariantsFile, bpIntruderVariantsFile)
+import Main.TheoryLoader (dhIntruderVariantsFile, bpIntruderVariantsFile, homIntruderVariantsFile)
 import Main.Utils
 
 
