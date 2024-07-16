@@ -1,8 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- |
 -- Copyright   : (c) 2010, 2011 Benedikt Schmidt & Simon Meier
@@ -19,6 +15,7 @@ module Main.TheoryLoader (
   , TheoryLoadOptions(..)
   , oProveMode
   , oDiffMode
+  , oHeuristic
   , oOutputModule
   , oMaudePath
   , oVerboseMode
@@ -44,15 +41,13 @@ module Main.TheoryLoader (
 
   ) where
 
--- import           Debug.Trace
-
 import           Prelude                             hiding (id, (.))
 
 import           Data.Char                           (toLower)
 import           Data.Label
 import           Data.List                           (isPrefixOf, intercalate, find)
 import qualified Data.Set
-import           Data.Maybe                          (fromMaybe)
+import           Data.Maybe                          (fromMaybe, isNothing)
 import           Data.Map                            (keys)
 import           Data.FileEmbed                      (embedFile)
 import qualified Data.Label as L
@@ -60,8 +55,10 @@ import           Data.Bifunctor (Bifunctor(bimap))
 import           Data.Bitraversable (Bitraversable(bitraverse))
 
 import           Control.Category
-import           Control.Exception (evaluate)
 import           Control.DeepSeq (force)
+import           Control.Exception (evaluate)
+import           Control.Monad
+import           Control.Monad.IO.Class (MonadIO(liftIO))
 
 import           System.Console.CmdArgs.Explicit
 import           System.Timeout (timeout)
@@ -77,7 +74,7 @@ import           Theory.Tools.Wellformedness
 import           Theory.Tools.MessageDerivationChecks
 import           Theory.Module
 
-import           TheoryObject                        (diffThyOptions)
+import           TheoryObject                        (diffThyOptions, diffTheoryConfigBlock, theoryConfigBlock)
 
 import qualified Sapic
 import qualified Export
@@ -146,8 +143,8 @@ theoryLoadFlags =
   , flagNone ["auto-sources"] (addEmptyArg "auto-sources")
       "Try to auto-generate sources lemmas"
 
-  , flagOpt (oraclePath defaultOracle) ["oraclename"] (updateArg "oraclename") "FILE"
-      ("Path to the oracle heuristic (default '" ++ oraclePath defaultOracle ++ "')")
+  , flagOpt "" ["oraclename"] (updateArg "oraclename") "FILE"
+      ("Path to the oracle heuristic (default '" ++ "./theory_filename.oracle" ++ "', fallback '" ++ "./oracle" ++ "')")
 
   , flagNone ["quiet"] (addEmptyArg "quiet")
       "Do not display computation steps of oracle or tactic."
@@ -176,7 +173,7 @@ theoryLoadFlags =
 data TheoryLoadOptions = TheoryLoadOptions {
     _oProveMode         :: Bool
   , _oLemmaNames        :: [String]
-  , _oStopOnTrace       :: SolutionExtractor
+  , _oStopOnTrace       :: Maybe SolutionExtractor
   , _oProofBound        :: Maybe Int
   , _oHeuristic         :: Maybe (Heuristic ProofContext)
   , _oPartialEvaluation :: Maybe EvaluationStyle
@@ -185,7 +182,7 @@ data TheoryLoadOptions = TheoryLoadOptions {
   , _oQuitOnWarning     :: Bool
   , _oAutoSources       :: Bool
   , _oVerboseMode       :: Bool
-  , _oOutputModule      :: ModuleType -- Note: This flag is only used for batch mode.
+  , _oOutputModule      :: Maybe ModuleType -- Note: This flag is only used for batch mode.
   , _oMaudePath         :: FilePath -- FIXME: Other functions defined in Environment.hs
   , _oParseOnlyMode     :: Bool
   , _oOpenChain         :: Integer
@@ -198,7 +195,7 @@ defaultTheoryLoadOptions :: TheoryLoadOptions
 defaultTheoryLoadOptions = TheoryLoadOptions {
     _oProveMode         = False
   , _oLemmaNames        = []
-  , _oStopOnTrace       = CutDFS
+  , _oStopOnTrace       = Nothing
   , _oProofBound        = Nothing
   , _oHeuristic         = Nothing
   , _oPartialEvaluation = Nothing
@@ -207,7 +204,7 @@ defaultTheoryLoadOptions = TheoryLoadOptions {
   , _oQuitOnWarning     = False
   , _oAutoSources       = False
   , _oVerboseMode       = False
-  , _oOutputModule      = ModuleMsr
+  , _oOutputModule      = Nothing
   , _oMaudePath         = "maude"
   , _oParseOnlyMode     = False
   , _oOpenChain         = 10
@@ -227,7 +224,7 @@ mkTheoryLoadOptions :: MonadError ArgumentError m => Arguments -> m TheoryLoadOp
 mkTheoryLoadOptions as = TheoryLoadOptions
                          <$> proveMode
                          <*> lemmaNames
-                         <*> stopOnTrace
+                         <*> (stopOnTrace as)
                          <*> proofBound
                          <*> heuristic
                          <*> partialEvaluation
@@ -246,14 +243,6 @@ mkTheoryLoadOptions as = TheoryLoadOptions
     proveMode  = return $ argExists "prove" as
     lemmaNames = return $ findArg "prove" as ++ findArg "lemma" as
 
-    stopOnTrace = case map toLower <$> findArg "stop-on-trace" as of
-      Nothing       -> return CutDFS
-      Just "dfs"    -> return CutDFS
-      Just "none"   -> return CutNothing
-      Just "bfs"    -> return CutBFS
-      Just "seqdfs" -> return CutSingleThreadDFS
-      Just unknown  -> throwError $ ArgumentError ("unknown stop-on-trace method: " ++ unknown)
-
     parseIntArg args defaultValue conv errMsg = case args of
       []    -> return defaultValue
       (x:_) -> case (readEither x :: Either String Int) of
@@ -265,10 +254,12 @@ mkTheoryLoadOptions as = TheoryLoadOptions
 
     heuristic = case findArg "heuristic" as of
         Just rawRankings@(_:_) -> return $ Just $ roundRobinHeuristic
-                                         $ map (mapOracleRanking (maybeSetOracleRelPath (findArg "oraclename" as))) (filterHeuristic (argExists "diff" as) rawRankings)
+                                         $ map (mapOracleRanking (maybeSetOracleRelPath oraclename)) (filterHeuristic (argExists "diff" as) rawRankings)
         Just []                -> throwError $ ArgumentError "heuristic: at least one ranking must be given"
         _                      -> return Nothing
-
+    oraclename = case findArg "oraclename" as of
+      Just "" -> Nothing
+      name    -> name
     --toGoalRanking | argExists "diff" as = stringToGoalRankingDiff
     --              | otherwise           = stringToGoalRanking
 
@@ -286,7 +277,7 @@ mkTheoryLoadOptions as = TheoryLoadOptions
 
     outputModule = case findArg "outModule" as of
       Just str -> case find ((str ==) . show) [minBound..] of
-        Just m -> return m
+        Just m -> return $ Just m
         _       -> throwError $ ArgumentError "output mode not supported."
       Nothing   -> return $ L.get oOutputModule defaultTheoryLoadOptions
 
@@ -299,15 +290,24 @@ mkTheoryLoadOptions as = TheoryLoadOptions
     sat = findArg "SaturationLimit" as
     satDefault = L.get oSaturation defaultTheoryLoadOptions
     saturation = parseIntArg sat satDefault integerFromInt "SaturationLimit: invalid bound given"
-    
+
     derivchecks = findArg "derivcheck-timeout" as
     derivDefault = L.get oDerivationChecks defaultTheoryLoadOptions
     deriv = parseIntArg derivchecks derivDefault id "derivcheck-timeout: invalid bound given"
 
+stopOnTrace :: MonadError ArgumentError m => Arguments -> m (Maybe SolutionExtractor)
+stopOnTrace as = case map toLower <$> findArg "stop-on-trace" as of
+  Just "dfs"    -> return $ Just CutDFS
+  Just "none"   -> return $ Just CutNothing
+  Just "bfs"    -> return $ Just CutBFS
+  Just "seqdfs" -> return $ Just CutSingleThreadDFS
+  Just unknown  -> throwError $ ArgumentError ("unknown stop-on-trace method: " ++ unknown)
+  Nothing       -> return Nothing
+
 lemmaSelectorByModule :: HasLemmaAttributes l => TheoryLoadOptions -> l -> Bool
 lemmaSelectorByModule thyOpt lem = case lemmaModules of
     [] -> True -- default to true if no modules (or only empty ones) are set
-    _  -> (L.get oOutputModule thyOpt) `elem` lemmaModules
+    _  -> maybe True (`elem` lemmaModules) (L.get oOutputModule thyOpt)
     where
         lemmaModules = concat [ m | LemmaModule m <- getField @"lAttributes" lem]
 
@@ -358,22 +358,22 @@ loadTheory thyOpts input inFile = do
     unwrapError (Left (Right v)) = Right $ Left v
     unwrapError (Right (Left e)) = Left e
     unwrapError (Right (Right v)) = Right $ Right v
-
     theoryName = either (L.get thyName) (L.get diffThyName)
 
 -- | Process an open theory based on the specified output module.
 processOpenTheory :: MonadCatch m => TheoryLoadOptions -> OpenTheory -> m OpenTheory
 processOpenTheory thyOpts = case modType of
-  ModuleSpthy               -> return
-  ModuleSpthyTyped          -> Sapic.typeTheory
-  ModuleMsr                 -> Sapic.typeTheory >=> Sapic.translate >=> Acc.translate >=> (return . filterLemma lemmas)
-  ModuleProVerifEquivalence -> Sapic.typeTheory -- Type theory here to catch errors.
-  ModuleProVerif            -> Sapic.typeTheory -- Type theory here to catch errors.
-  ModuleDeepSec             -> Sapic.typeTheory
+  Nothing                        -> Sapic.typeTheory >=> Sapic.translate >=> Acc.translate
+  Just ModuleSpthy               -> return
+  Just ModuleSpthyTyped          -> Sapic.typeTheory
+  -- If the output module is set to MSR, we only keep the specified lemmas in the theory.
+  Just ModuleMsr                 -> Sapic.typeTheory >=> Sapic.translate >=> Acc.translate >=> (return . filterLemma lemmas)
+  Just ModuleProVerifEquivalence -> Sapic.typeTheory -- Type theory here to catch errors.
+  Just ModuleProVerif            -> Sapic.typeTheory -- Type theory here to catch errors.
+  Just ModuleDeepSec             -> Sapic.typeTheory
   where
     modType = L.get oOutputModule thyOpts
     lemmas = lemmaSelector thyOpts
-
 
 -- | Translate an open theory.
 translateTheory :: MonadCatch m => MonadError TheoryLoadError m => TheoryLoadOptions -> Either OpenTheory OpenDiffTheory -> m (WfErrorReport, Either OpenTheory OpenDiffTheory)
@@ -485,7 +485,7 @@ closeTranslatedTheory thyOpts sign srcThy = do
 
 -- | Translate an open theory, perform checks on the translated theory and finally close it.
 closeTheory :: MonadCatch m => MonadIO m => MonadError TheoryLoadError m => String -> TheoryLoadOptions -> SignatureWithMaude -> Either OpenTheory OpenDiffTheory -> m ((WfErrorReport, Either ClosedTheory ClosedDiffTheory))
-closeTheory version thyOpts sign srcThy = do
+closeTheory version loadedThyOpts sign srcThy = do
   (preReport, transThy)    <- translateTheory thyOpts srcThy
   removedThy               <- withTheory (return . removeTranslationItems) transThy
   (postReport, checkedThy) <- checkTranslatedTheory thyOpts sign removedThy
@@ -495,6 +495,37 @@ closeTheory version thyOpts sign srcThy = do
   return (preReport ++ postReport, finalThy)
   where
     withTheory f = bitraverse f return
+
+    loadedAutoSources = L.get oAutoSources loadedThyOpts
+    loadedStopOnTrace = L.get oStopOnTrace loadedThyOpts
+    loadedHeuristic   = L.get oHeuristic loadedThyOpts
+
+    srcThyInFileName = either (L.get thyInFile) (L.get diffThyInFile) srcThy
+
+    -- Update command line arguments with arguments taken from the configuration block.
+    -- Set the default oraclename if needed.
+    thyOpts = (thyHeurDefOracle . configStopOnTrace . configAutoSources) loadedThyOpts
+
+    -- Set the oraclename to theory_filename.oracle (if none was supplied).
+    thyHeurDefOracle =
+      set oHeuristic $ (\(Heuristic grl) -> Just $ Heuristic $ defaultOracleNames srcThyInFileName grl) =<< loadedHeuristic
+
+    -- Read and process the arguments from the theory's config block.
+    srcThyConfigBlockArgs = argsConfigString $ either theoryConfigBlock diffTheoryConfigBlock srcThy
+
+    argsConfigString =
+      processValue (mode "configuration block arguments" [] "" (flagArg (updateArg "") "") theoryConfFlags) <$> splitArgs
+
+    theoryConfFlags =
+      [flagOpt "dfs" ["stop-on-trace"] (updateArg "stop-on-trace") "" ""
+     , flagNone ["auto-sources"] (addEmptyArg "auto-sources") ""]
+
+    configStopOnTrace =
+      if isNothing loadedStopOnTrace
+        then L.set oStopOnTrace (either (\(ArgumentError e) -> error e) id $ stopOnTrace srcThyConfigBlockArgs)
+        else id
+
+    configAutoSources = L.set oAutoSources (argExists "auto-sources" srcThyConfigBlockArgs || loadedAutoSources)
 
 -- | Translate an open theory and perform checks on the translated theory.
 translateAndCheckTheory :: MonadCatch m => MonadIO m => MonadError TheoryLoadError m => String -> TheoryLoadOptions -> SignatureWithMaude -> Either OpenTheory OpenDiffTheory -> m ((WfErrorReport, Either OpenTheory OpenDiffTheory))
@@ -511,16 +542,16 @@ translateAndCheckTheory version thyOpts sign srcThy = do
 -- | Pretty print an open theory based on the specified output module.
 prettyOpenTheoryByModule :: TheoryLoadOptions -> OpenTheory -> IO Pretty.Doc
 prettyOpenTheoryByModule thyOpts = case modType of
-  ModuleSpthy               -> return . prettyOpenTheory
-  ModuleSpthyTyped          -> return . prettyOpenTheory
-  ModuleMsr                 -> return . prettyOpenTranslatedTheory . removeTranslationItems
-  ModuleProVerifEquivalence -> Export.prettyProVerifEquivTheory   <=< Sapic.typeTheoryEnv
-  ModuleProVerif            -> Export.prettyProVerifTheory lemmas <=< Sapic.typeTheoryEnv
-  ModuleDeepSec             -> Export.prettyDeepSecTheory
+  Nothing {- Same as ModuleMsr -} -> return . prettyOpenTranslatedTheory . removeTranslationItems
+  Just ModuleSpthy                -> return . prettyOpenTheory
+  Just ModuleSpthyTyped           -> return . prettyOpenTheory
+  Just ModuleMsr                  -> return . prettyOpenTranslatedTheory . removeTranslationItems
+  Just ModuleProVerifEquivalence  -> Export.prettyProVerifEquivTheory   <=< Sapic.typeTheoryEnv
+  Just ModuleProVerif             -> Export.prettyProVerifTheory lemmas <=< Sapic.typeTheoryEnv
+  Just ModuleDeepSec              -> Export.prettyDeepSecTheory
   where
     modType = L.get oOutputModule thyOpts
     lemmas = lemmaSelector thyOpts
-
 
 (&&&) :: (t -> Bool) -> (t -> Bool) -> t -> Bool
 (&&&) f g x = f x && g x
@@ -532,7 +563,8 @@ constructAutoProver thyOpts =
     AutoProver (L.get oHeuristic thyOpts)
                Nothing
                (L.get oProofBound thyOpts)
-               (L.get oStopOnTrace thyOpts)
+               (fromMaybe CutDFS $ L.get oStopOnTrace thyOpts)
+               False
 
 -----------------------------------------------
 -- Add Options parameters in an OpenTheory
@@ -545,20 +577,20 @@ addParamsOptions opt = addVerboseOptions . addSatArg . addChainsArg . addLemmaTo
     where
       -- Add Open Chain Limit parameters in the Options
       chain = L.get oOpenChain opt
-      addChainsArg (Left thy) = Left $ set (openChainsLimit.thyOptions) chain thy
-      addChainsArg (Right diffThy) = Right $ set (openChainsLimit.diffThyOptions) chain diffThy
+      addChainsArg (Left thy) = Left $ set (openChainsLimit . thyOptions) chain thy
+      addChainsArg (Right diffThy) = Right $ set (openChainsLimit . diffThyOptions) chain diffThy
       -- Add Saturation Limit parameters in the Options
       sat = L.get oSaturation opt
-      addSatArg (Left thy) = Left $ set (saturationLimit.thyOptions) sat thy
-      addSatArg (Right diffThy) = Right $ set (saturationLimit.diffThyOptions) sat diffThy
+      addSatArg (Left thy) = Left $ set (saturationLimit . thyOptions) sat thy
+      addSatArg (Right diffThy) = Right $ set (saturationLimit . diffThyOptions) sat diffThy
       -- Add lemmas to Prove in the Options
       lem = L.get oLemmaNames opt
-      addLemmaToProve (Left thy) = Left $ set (lemmasToProve.thyOptions) lem thy
-      addLemmaToProve (Right diffThy) = Right $ set (lemmasToProve.diffThyOptions) lem diffThy
+      addLemmaToProve (Left thy) = Left $ set (lemmasToProve . thyOptions) lem thy
+      addLemmaToProve (Right diffThy) = Right $ set (lemmasToProve . diffThyOptions) lem diffThy
       -- Add Verbose parameter in the Options
       verb = L.get oVerboseMode opt
-      addVerboseOptions (Left thy) = Left $ set (verboseOption.thyOptions) verb thy
-      addVerboseOptions (Right diffThy) = Right $ set (verboseOption.diffThyOptions) verb diffThy
+      addVerboseOptions (Left thy) = Left $ set (verboseOption . thyOptions) verb thy
+      addVerboseOptions (Right diffThy) = Right $ set (verboseOption . diffThyOptions) verb diffThy
 
 
 ------------------------------------------------------------------------------

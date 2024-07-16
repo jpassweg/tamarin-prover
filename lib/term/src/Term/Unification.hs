@@ -85,7 +85,7 @@ module Term.Unification (
   , module Term.Rewriting.Definitions
 ) where
 
--- import           Control.Applicative
+import           Control.Monad
 import           Control.Monad.RWS
 import           Control.Monad.Except
 import           Control.Monad.State
@@ -215,7 +215,7 @@ solveMatchLTerm sortOf matchProblem =
       Just ms -> reader $ matchTerm ms 
   where
     trace' res = trace
-      (unlines $ ["matchLTerm: "++ show matchProblem, "result = "++  show res])
+      (unlines ["matchLTerm: "++ show matchProblem, "result = "++  show res])
       res
 
     matchTerm ms hnd = trace' $ case (homEnabled && hasHom, hasAC, runState (runExceptT match) M.empty) of
