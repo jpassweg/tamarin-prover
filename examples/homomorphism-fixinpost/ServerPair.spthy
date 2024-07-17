@@ -13,11 +13,6 @@ rule SendMessage:
   --[ SecretS(~m1) ]->
   [ Out( henc(~m1, k) )]
 
-rule Server:
-  [ In(m1), In(m2) ]
-  --[ ]->
-  [ Out( <m1, m2> ) ]
-
 rule ReceiveMessage:
   let secret = hdec(m, k) in
   [ !Key(k), In(m) ]
