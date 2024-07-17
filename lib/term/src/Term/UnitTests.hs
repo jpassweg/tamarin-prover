@@ -303,8 +303,8 @@ testsUnifyHom mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH" $
     , ("shapa 5",   True,   pair(henc(x0,x1),x2),           henc(x3,x4))
     , ("shapa 6",   True,   pair(henc(henc(x0,x1),x2),x3),  henc(x4,x5))
     , ("shapa 7",   True,   pair(henc(henc(x0,x1),x2),x3),  henc(henc(x4,x5),x6))   
-    -- TODO: 1 + 2 = 3 luege ob sorts
-    -- Example womme müesst normhom awende nach einere rule application odr so
+    -- TODO: 1 + 2 = 3 check if sorts are correct for this example
+    -- TODO: add example in which norming has to be done after a rule application such that another rule can be applied
     ]
 
 testUnifyWithPrint :: MaudeHandle -> MaudeHandle -> String -> Bool -> LNTerm -> LNTerm -> Test
