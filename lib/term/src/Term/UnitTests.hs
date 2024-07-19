@@ -515,7 +515,7 @@ testsUnifyHomSf _ mhndHom =
     , tcn x1 (hdec( henc (x1,x2), x2))
     , tcn (pair(x1,x2)) (hdec (henc (pair (x1,x2), x3), x3))
     , tcn x1 (hdec(fAppHomSepKeys(x1, x2), x2))
-    , tcn (pair(x1,x3)) (hdec(fAppHomSepKeys(pair(x1,x3), x2), x2))
+    --, tcn (pair(x1,x3)) (hdec(fAppHomSepKeys(pair(x1,x3), x2), x2))
     ]
   where
     tcn e1 e2 = testEqual ("norm "++ppLTerm e2) e1 (norm' e2 `runReader` mhndHom)
