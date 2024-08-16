@@ -860,6 +860,38 @@ testPrinterHom mhnd _ =
     -- Applied to eg1: 
     -- [Equal (henc(pair(sh.6,sh.6),x2) +: x3) (pair(henc(sh.6,x.7),henc(sh.6,x.7)) +: x3)]
     -- TODO: need to apply own fresh to free avoid
+    --
+    -- Other tests
+    -- henc(x.5,x.6)
+    -- pRep = PRep [""], [[x.5,x.6]]
+    -- eRep = [x.5,x.6]
+    --
+    -- henc(henc(pair(x,x.1),x.2),x)
+    -- pRep = PRep [""], [[pair(x,x.1),x.2,x]]
+    -- eRep = [pair(x,x.1),x.2,x]}
+    --
+    -- m = 2, n = 2
+    -- [[~fxShapingHomomorphic.1,x.2,x]]
+    -- [pair(x,x.1),x.2,x]
+    --
+    -- HEqs 
+    -- Equal
+    -- eqLHS = henc(henc(~fxShapingHomomorphic.1,x.2),x.6)
+    -- 	pRep = PRep [""], [[~fxShapingHomomorphic.1,x.2,x.6]]
+    --	eRep = [~fxShapingHomomorphic.1,x.2,x.6]
+    -- eqRHS = henc(henc(pair(x,x.1),x.2),x)
+    -- 	pRep = PRep [""], [[pair(x,x.1),x.2,x]]
+    -- 	eRep = [pair(x,x.1),x.2,x]
+    -- Equal
+    -- eqLHS = x.5
+    -- 	pRep = PRep [""], [[x.5]]
+    -- 	eRep = [x.5]
+    -- eqRHS = henc(~fxShapingHomomorphic.1,x.2)
+    -- 	pRep = PRep [""], [[~fxShapingHomomorphic.1,x.2]]
+    -- 	eRep = [~fxShapingHomomorphic.1,x.2]
+    --
+    -- m = 1, n = 2
+    -- HEqs Equal {eqLHS = LNPETerm {lnTerm = henc(henc(~fxShapingHomomorphic.2,x.2),x.6), pRep = PRep {eRepsString = [""], eRepsTerms = [[~fxShapingHomomorphic.2,x.2,x.6]]}, eRep = [~fxShapingHomomorphic.2,x.2,x.6]}, eqRHS = LNPETerm {lnTerm = henc(henc(pair(x,x.1),x.2),x), pRep = PRep {eRepsString = [""], eRepsTerms = [[pair(x,x.1),x.2,x]]}, eRep = [pair(x,x.1),x.2,x]}},Equal {eqLHS = LNPETerm {lnTerm = ~fxShapingHomomorphic.1, pRep = PRep {eRepsString = [""], eRepsTerms = [[~fxShapingHomomorphic.1]]}, eRep = [~fxShapingHomomorphic.1]}, eqRHS = LNPETerm {lnTerm = ~fxShapingHomomorphic.2, pRep = PRep {eRepsString = [""], eRepsTerms = [[~fxShapingHomomorphic.2]]}, eRep = [~fxShapingHomomorphic.2]}}]
 
 -- *****************************************************************************
 -- Tests for Substitutions

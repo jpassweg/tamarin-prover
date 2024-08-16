@@ -1,0 +1,26 @@
+theory ForcedCombinedUnificationTestForOnlyHomomorphicEncryption
+begin
+
+builtins: homomorphic-encryption
+
+rule GetVars:
+  [ Fr(~m0), Fr(~m1), Fr(~k) ]
+  --[]->
+  [ Vars1(hpair(~m0, ~m1), ~k)
+  , Vars2(henc(~m0, ~k), henc(~m1, ~k)) ]
+
+rule A:
+  [ Vars1(hpair(x2,x3), x1) ]
+  --[ Send(hpair(x2,x3), x1) ]->
+  [ AOut(henc(hpair(x2,x3), x1)) ]
+
+rule B:
+  [ Vars2(x2, x3)
+  , AOut(hpair(x2, x3)) ]
+  --[ Receive(x2, x3) ]->
+  []
+
+lemma Send_And_Received: exists-trace
+  "Ex g0 g1 g2 g3 #i #j. Send(g0, g1) @i & Receive(g2, g3) @j"
+
+end
