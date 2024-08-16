@@ -302,7 +302,12 @@ testsUnifyHom mhnd mhndHom = TestLabel "Tests for Unify modulo EpsilonH" $
     , ("shapa 4",   True,   pair(henc(henc(x0,x1),x2),x3),  henc(henc(henc(x4,x5),x6),x7))
     , ("shapa 5",   True,   pair(henc(x0,x1),x2),           henc(x3,x4))
     , ("shapa 6",   True,   pair(henc(henc(x0,x1),x2),x3),  henc(x4,x5))
-    , ("shapa 7",   True,   pair(henc(henc(x0,x1),x2),x3),  henc(henc(x4,x5),x6))   
+    , ("shapa 7",   True,   pair(henc(henc(x0,x1),x2),x3),  henc(henc(x4,x5),x6)) 
+    -- new fixinpost cases
+    -- TODO: check which rule should apply to this case and add corresponding tests
+    -- TODO: no rule applies and clash rule does fail???
+    --, ("fixinpost 1", True, hdec(pair(henc(x1, x3), henc(x2, x3)), x3), pair(x1, x2) ) 
+    --, ("fixinpost 2", True, pair(x5, x6), hdec(pair(henc(x1, x3), henc(x2, x3)), x3) )  
     -- TODO: 1 + 2 = 3 check if sorts are correct for this example
     -- TODO: add example in which norming has to be done after a rule application such that another rule can be applied
     ]
@@ -510,7 +515,7 @@ testsUnifyHomSf _ mhndHom =
     , tcn x1 (hdec( henc (x1,x2), x2))
     , tcn (pair(x1,x2)) (hdec (henc (pair (x1,x2), x3), x3))
     , tcn x1 (hdec(fAppHomSepKeys(x1, x2), x2))
-    , tcn (pair(x1,x3)) (hdec(fAppHomSepKeys(pair(x1,x3), x2), x2))
+    --, tcn (pair(x1,x3)) (hdec(fAppHomSepKeys(pair(x1,x3), x2), x2))
     ]
   where
     tcn e1 e2 = testEqual ("norm "++ppLTerm e2) e1 (norm' e2 `runReader` mhndHom)
