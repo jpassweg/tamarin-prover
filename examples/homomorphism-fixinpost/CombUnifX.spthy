@@ -6,17 +6,17 @@ builtins: homomorphic-encryption
 rule GetVars:
   [ Fr(~m0), Fr(~m1), Fr(~k) ]
   --[]->
-  [ Vars1(hpair(~m0, ~m1), ~k)
+  [ Vars1(pair(~m0, ~m1), ~k)
   , Vars2(henc(~m0, ~k), henc(~m1, ~k)) ]
 
 rule A:
-  [ Vars1(hpair(x2,x3), x1) ]
-  --[ Send(hpair(x2,x3), x1) ]->
-  [ AOut(henc(hpair(x2,x3), x1)) ]
+  [ Vars1(pair(x2,x3), x1) ]
+  --[ Send(pair(x2,x3), x1) ]->
+  [ AOut(henc(pair(x2,x3), x1)) ]
 
 rule B:
   [ Vars2(x2, x3)
-  , AOut(hpair(x2, x3)) ]
+  , AOut(pair(x2, x3)) ]
   --[ Receive(x2, x3) ]->
   []
 
